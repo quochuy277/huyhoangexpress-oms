@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(STAFF)
+  department    String?
+  position      String?
+  isActive      Boolean   @default(true)
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  attendances      Attendance[]
+  loginHistories   LoginHistory[]
+  todoItems        TodoItem[]
+  uploadHistories  UploadHistory[]
+  claimOrders      ClaimOrder[]
+  scoredEmployees  EmployeeScore[] @relation("ScoredBy")
+  receivedScores   EmployeeScore[] @relation("ReceivedScore")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+model Order {
+  id                  String    @id @default(cuid())
+  reconciliationCode  String?
+  reconciliationDate  DateTime?
+  shopName            String?
+  customerOrderCode   String?
+  requestCode         String    @unique
+  status              String
+  deliveryStatus      DeliveryStatus @default(PROCESSING)
+  createdTime         DateTime?
+  pickupTime          DateTime?
+
+  // Financial fields
+  codAmount           Float     @default(0)
+  codOriginal         Float     @default(0)
+  declaredValue       Float     @default(0)
+  shippingFee         Float     @default(0)
+  surcharge           Float     @default(0)
+  overweightFee       Float     @default(0)
+  insuranceFee        Float     @default(0)
+  codServiceFee       Float     @default(0)
+  returnFee           Float     @default(0)
+  totalFee            Float     @default(0)
+  carrierFee          Float     @default(0)
+  ghsvInsuranceFee    Float     @default(0)
+
+  // Creator info
+  creatorShopName     String?
+  creatorPhone        String?
+  creatorStaff        String?
+  creatorAddress      String?
+  creatorWard         String?
+  creatorDistrict     String?
+  creatorProvince     String?
+
+  // Sender info
+  senderShopName      String?
+  senderPhone         String?
+  senderAddress       String?
+  senderWard          String?
+  senderDistrict      String?
+  senderProvince      String?
+
+  // Receiver info
+  receiverName        String?
+  receiverPhone       String?
+  receiverAddress     String?
+  receiverWard        String?
+  receiverDistrict    String?
+  receiverProvince    String?
+
+  // Order details
+  deliveryNotes       String?
+  productDescription  String?
+  paymentConfirmDate  DateTime?
+  internalNotes       String?   @db.Text
+  publicNotes         String?   @db.Text
+  lastUpdated         DateTime?
+
+  // Carrier info
+  carrierName         String?
+  carrierAccount      String?
+  carrierOrderCode    String?
+  regionGroup         String?
+
+  // Weight
+  customerWeight      Float?
+  carrierWeight       Float?
+  deliveredDate       DateTime?
+
+  // Operations
+  pickupShipper       String?
+  deliveryShipper     String?
+  orderSource         String?
+  partialOrderType    String?
+  partialOrderCode    String?
+  salesStaff          String?
+
+  // System fields
+  importedAt          DateTime  @default(now())
+  updatedInDb         DateTime  @updatedAt
+
+  // Relations
+  claimOrder          ClaimOrder?
+  returnTracking      ReturnTracking?
+
+  @@index([status])
+  @@index([carrierName])
+  @@index([shopName])
+  @@index([deliveryStatus])
+  @@index([createdTime])
+  @@index([lastUpdated])
+  @@index([receiverProvince])
+  @@index([salesStaff])
+}
+
+enum DeliveryStatus {
+  PROCESSING
+  IN_TRANSIT
+  DELIVERING
+  DELIVERED
+  RECONCILED
+  DELIVERY_DELAYED
+  RETURN_CONFIRMED
+  RETURNING_FULL
+  RETURN_DELAYED
+  RETURNED_FULL
+  RETURNED_PARTIAL
+}
+
+model UploadHistory {
+  id              String    @id @default(cuid())
+  fileName        String
+  fileSize        Int
+  totalRows       Int
+  newOrders       Int
+  updatedOrders   Int
+  skippedRows     Int       @default(0)
+  failedRows      Int       @default(0)
+  errorLog        String?   @db.Text
+  carrierName     String?
+  uploadedBy      User      @relation(fields: [uploadedById], references: [id])
+  uploadedById    String
+  uploadedAt      DateTime  @default(now())
+  processingTime  Int?
+}
+
+model ReturnTracking {
+  id                      String        @id @default(cuid())
+  order                   Order         @relation(fields: [orderId], references: [id])
+  orderId                 String        @unique
+  returnType              ReturnType
+  returnStatus            ReturnStatus  @default(RETURNING)
+  returnReason            String?
+  warehouseArrivalDate    DateTime?
+  returnedToCustomerDate  DateTime?
+  returnedByStaff         String?
+  notes                   String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+}
+
+enum ReturnType {
+  FULL_RETURN
+  PARTIAL_RETURN
+}
+
+enum ReturnStatus {
+  RETURNING
+  AT_WAREHOUSE
+  RETURNED_TO_CUSTOMER
+}
+
+model ClaimOrder {
+  id                  String      @id @default(cuid())
+  order               Order       @relation(fields: [orderId], references: [id])
+  orderId             String      @unique
+  claimType           ClaimType
+  claimStatus         ClaimStatus @default(PENDING)
+  issueDescription    String
+  claimAmount         Float?
+  compensationAmount  Float?
+  deadline            DateTime?
+  submittedDate       DateTime?
+  resolvedDate        DateTime?
+  notes               String?     @db.Text
+  createdBy           User        @relation(fields: [createdById], references: [id])
+  createdById         String
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@index([claimStatus])
+  @@index([deadline])
+}
+
+enum ClaimType {
+  LOST
+  DAMAGED
+  WRONG_ITEM
+  SHORTAGE
+  DELAY
+  OTHER
+}
+
+enum ClaimStatus {
+  PENDING
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  COMPENSATED
+}
+
+model TodoItem {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  status      TodoStatus  @default(TODO)
+  priority    Priority    @default(MEDIUM)
+  dueDate     DateTime?
+  sortOrder   Int         @default(0)
+  assignee    User        @relation(fields: [assigneeId], references: [id])
+  assigneeId  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum TodoStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Attendance {
+  id          String            @id @default(cuid())
+  user        User              @relation(fields: [userId], references: [id])
+  userId      String
+  date        DateTime          @db.Date
+  checkIn     DateTime?
+  checkOut    DateTime?
+  totalHours  Float?
+  status      AttendanceStatus  @default(PRESENT)
+  notes       String?
+
+  @@unique([userId, date])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+}
+
+model LoginHistory {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  loginTime   DateTime  @default(now())
+  logoutTime  DateTime?
+  duration    Int?
+  ipAddress   String?
+  userAgent   String?
+}
+
+model EmployeeScore {
+  id          String    @id @default(cuid())
+  employee    User      @relation("ReceivedScore", fields: [employeeId], references: [id])
+  employeeId  String
+  scorer      User      @relation("ScoredBy", fields: [scorerId], references: [id])
+  scorerId    String
+  period      String
+  score       Float
+  criteria    String?   @db.Text
+  comment     String?
+  createdAt   DateTime  @default(now())
+}
