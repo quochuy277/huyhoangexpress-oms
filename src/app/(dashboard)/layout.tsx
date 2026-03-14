@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import type { Role } from "@prisma/client";
+import type { PermissionSet } from "@/lib/permissions";
 
 export default async function DashboardLayout({
   children,
@@ -15,12 +16,12 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { name, email, role } = session.user;
+  const { name, email, role, permissions } = session.user;
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Sidebar */}
-      <Sidebar userRole={role as Role} />
+      <Sidebar userRole={role as Role} permissions={permissions as PermissionSet} />
 
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-hidden">

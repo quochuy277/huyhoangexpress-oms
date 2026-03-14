@@ -13,13 +13,28 @@ model User {
   email         String    @unique
   password      String
   name          String
-  role          Role      @default(STAFF)
+
+  // Personal info
+  dateOfBirth       DateTime? @db.Date
+  hometown          String?
+  permanentAddress  String?
+  currentAddress    String?
+  citizenId         String?
+  phone             String?
+  socialLink        String?
+
+  // Role & Permissions
+  role              Role      @default(STAFF)
+  permissionGroupId String?
+  permissionGroup   PermissionGroup? @relation(fields: [permissionGroupId], references: [id])
+
   department    String?
   position      String?
   isActive      Boolean   @default(true)
   avatar        String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
   attendances      Attendance[]
   loginHistories   LoginHistory[]
   todoItems        TodoItem[]
@@ -34,6 +49,55 @@ enum Role {
   MANAGER
   STAFF
   VIEWER
+}
+
+model PermissionGroup {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+
+  // === Quản lý đơn hàng ===
+  canViewOrders           Boolean @default(true)
+  canUploadExcel          Boolean @default(true)
+  canDeleteOrders         Boolean @default(false)
+  canEditStaffNotes       Boolean @default(true)
+
+  // === Tài chính ===
+  canViewRevenue          Boolean @default(false)
+  canViewCarrierFee       Boolean @default(false)
+  canViewFinancePage      Boolean @default(false)
+  canViewDashboardFinance Boolean @default(false)
+
+  // === Chăm sóc đơn Hoãn ===
+  canViewDelayed          Boolean @default(true)
+
+  // === Theo dõi đơn Hoàn ===
+  canViewReturns          Boolean @default(true)
+  canConfirmReturn        Boolean @default(false)
+
+  // === Khiếu nại / Bồi hoàn ===
+  canViewClaims           Boolean @default(true)
+  canCreateClaim          Boolean @default(true)
+  canUpdateClaim          Boolean @default(false)
+
+  // === Công việc ===
+  canViewAllTodos         Boolean @default(false)
+
+  // === Chấm công ===
+  canViewAllAttendance    Boolean @default(false)
+  canEditAttendance       Boolean @default(false)
+  canScoreEmployees       Boolean @default(false)
+
+  // === Quản trị ===
+  canManageUsers          Boolean @default(false)
+  canManagePermissions    Boolean @default(false)
+
+  // System flag
+  isSystemGroup           Boolean @default(false)
+
+  users         User[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Order {
@@ -114,6 +178,15 @@ model Order {
   partialOrderType    String?
   partialOrderCode    String?
   salesStaff          String?
+
+  // Return tracking fields (set by staff in Theo Dõi Đơn Hoàn page)
+  warehouseArrivalDate  DateTime?  // Ngày về kho — set by staff clicking "Đã về kho trả"
+  customerConfirmAsked  Boolean    @default(false)  // Đã hỏi - Chờ khách XN
+  confirmedAskedBy      String?    // Tên nhân viên đã hỏi KH
+  confirmedAskedAt      DateTime?  // Thời gian hỏi KH
+  customerConfirmed     Boolean    @default(false)  // KH đã xác nhận trả hàng
+  customerConfirmedBy   String?    // Tên nhân viên ghi nhận KH xác nhận
+  customerConfirmedAt   DateTime?  // Thời gian KH xác nhận
 
   // Staff notes (NOT from Excel — editable in app, never overwritten by uploads)
   staffNotes          String?   @db.Text

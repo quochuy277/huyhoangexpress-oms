@@ -2,8 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatVND, formatDate, formatDateOnly } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
-import { ArrowLeft, Package, MapPin, User, CreditCard, FileText, Truck } from "lucide-react";
-import Link from "next/link";
+import { Package, MapPin, User, CreditCard, FileText, Truck } from "lucide-react";
+import { BackButton } from "@/components/shared/BackButton";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -133,12 +133,7 @@ export default async function OrderDetailPage({ params }: Props) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link
-          href="/orders"
-          className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-600" />
-        </Link>
+        <BackButton />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-slate-800">

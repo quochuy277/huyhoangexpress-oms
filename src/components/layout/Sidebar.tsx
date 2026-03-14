@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
+import type { PermissionSet } from "@/lib/permissions";
 import {
   LayoutDashboard,
   Package,
@@ -23,37 +24,28 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  allowedRoles?: Role[];
+  requiredPermission?: keyof PermissionSet;
   badge?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Tổng Quan", icon: LayoutDashboard },
-  { href: "/orders", label: "Quản Lý Đơn Hàng", icon: Package },
-  { href: "/delayed", label: "Chăm Sóc Đơn Hoãn", icon: AlertCircle },
-  { href: "/returns", label: "Theo Dõi Đơn Hoàn", icon: RotateCcw },
-  { href: "/claims", label: "Bồi Hoàn / Khiếu Nại", icon: FileWarning },
+  { href: "/orders", label: "Quản Lý Đơn Hàng", icon: Package, requiredPermission: "canViewOrders" },
+  { href: "/delayed", label: "Chăm Sóc Đơn Hoãn", icon: AlertCircle, requiredPermission: "canViewDelayed" },
+  { href: "/returns", label: "Theo Dõi Đơn Hoàn", icon: RotateCcw, requiredPermission: "canViewReturns" },
+  { href: "/claims", label: "Bồi Hoàn / Khiếu Nại", icon: FileWarning, requiredPermission: "canViewClaims" },
   { href: "/todos", label: "Công Việc", icon: CheckSquare },
   { href: "/attendance", label: "Chấm Công", icon: Clock },
-  {
-    href: "/finance",
-    label: "Tài Chính",
-    icon: BarChart2,
-    allowedRoles: ["ADMIN", "MANAGER"],
-  },
-  {
-    href: "/admin/users",
-    label: "Quản Lý Nhân Viên",
-    icon: Users,
-    allowedRoles: ["ADMIN"],
-  },
+  { href: "/finance", label: "Tài Chính", icon: BarChart2, requiredPermission: "canViewFinancePage" },
+  { href: "/admin/users", label: "Quản Lý Nhân Viên", icon: Users, requiredPermission: "canManageUsers" },
 ];
 
 interface SidebarProps {
   userRole: Role;
+  permissions?: PermissionSet;
 }
 
-export function Sidebar({ userRole }: SidebarProps) {
+export function Sidebar({ userRole, permissions }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -73,9 +65,14 @@ export function Sidebar({ userRole }: SidebarProps) {
     localStorage.setItem("sidebar_collapsed", JSON.stringify(newVal));
   };
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.allowedRoles || item.allowedRoles.includes(userRole)
-  );
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (!item.requiredPermission) return true;
+    if (permissions) return permissions[item.requiredPermission];
+    // Fallback to old role check if permissions not provided
+    if (item.requiredPermission === "canManageUsers") return userRole === "ADMIN";
+    if (item.requiredPermission === "canViewFinancePage") return userRole === "ADMIN" || userRole === "MANAGER";
+    return true;
+  });
 
   return (
     <aside
@@ -85,7 +82,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       )}
     >
       {/* Logo */}
-      <div 
+      <div
         className={cn("flex items-center h-16 px-4 border-b border-slate-800 overflow-hidden", collapsed ? "justify-center cursor-pointer hover:bg-slate-800 transition-colors" : "")}
         onClick={() => collapsed && toggleCollapse()}
         title={collapsed ? "Mở rộng" : undefined}

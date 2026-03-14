@@ -11,17 +11,23 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, AlertTriangle, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, Info, CheckSquare, Flag } from "lucide-react";
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { CopyOrderButton } from "./CopyOrderButton";
+import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
+
 
 export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
   const [sortKey, setSortKey] = useState<keyof ProcessedDelayedOrder>("delayCount");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [todoOrder, setTodoOrder] = useState<ProcessedDelayedOrder | null>(null);
 
   const sortedData = [...data].sort((a, b) => {
     let va = a[sortKey] as any;
@@ -39,7 +45,6 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
   });
 
   const totalPages = Math.ceil(sortedData.length / PAGE_SIZE);
-  // Reset page if filtered data shrinks
   if (currentPage > totalPages && totalPages > 0) setCurrentPage(1);
 
   const pageData = sortedData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -54,43 +59,61 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
     }
   };
 
-  const TheadCol = ({ label, sortName }: { label: string, sortName: keyof ProcessedDelayedOrder | "stt" }) => (
-    <TableHead 
-      className="text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
+  const TheadCol = ({ label, sortName, width }: { label: string; sortName: keyof ProcessedDelayedOrder | "stt"; width?: string }) => (
+    <TableHead
+      className="text-[11px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors px-2"
+      style={width ? { width, minWidth: width } : undefined}
       onClick={() => requestSort(sortName)}
     >
       {label} {sortKey === sortName && (sortDir === "asc" ? "↑" : "↓")}
     </TableHead>
   );
 
+  const riskToPriority = (risk: string): "LOW" | "MEDIUM" | "HIGH" | "URGENT" => {
+    if (risk === "high") return "URGENT";
+    if (risk === "medium") return "HIGH";
+    return "MEDIUM";
+  };
+
+  const riskToVietnamese = (risk: string) => {
+    if (risk === "high") return "Cao";
+    if (risk === "medium") return "Trung bình";
+    return "Thấp";
+  };
+
   return (
     <div className="flex flex-col h-full bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      {/* Keyframe for save animation */}
+      <style>{`@keyframes fadeInOut { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1)} 75%{opacity:1} 100%{opacity:0;transform:scale(0.8)} }`}</style>
+
       <div className="flex-1 overflow-auto custom-scrollbar">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[50px] text-[12px] font-medium uppercase text-slate-500 text-center">STT</TableHead>
-              <TheadCol label="Mã Yêu Cầu" sortName="requestCode" />
-              <TheadCol label="Cửa Hàng" sortName="shopName" />
-              <TableHead className="text-[12px] font-medium uppercase text-slate-500 min-w-[240px]">Thông Tin Đơn Hàng</TableHead>
-              <TheadCol label="Trạng Thái" sortName="status" />
-              <TheadCol label="Số Lần Hoãn" sortName="delayCount" />
-              <TheadCol label="Ngày Tạo Đơn" sortName="createdTime" />
-              <TableHead className="text-[12px] font-medium uppercase text-slate-500 min-w-[220px]">Lý Do Hoãn Giao</TableHead>
-              <TableHead className="text-[12px] font-medium uppercase text-slate-500 min-w-[220px]">Chi Tiết Hoãn Giao</TableHead>
-              <TheadCol label="Nguy Cơ" sortName="riskScore" />
-              <TableHead 
-                className="text-[12px] font-medium uppercase text-slate-500 text-right cursor-pointer hover:bg-slate-100"
+              <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "40px" }}>STT</TableHead>
+              <TheadCol label="Mã Yêu Cầu" sortName="requestCode" width="130px" />
+              <TheadCol label="Cửa Hàng" sortName="shopName" width="110px" />
+              <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "200px" }}>Thông Tin Đơn</TableHead>
+              <TheadCol label="Trạng Thái" sortName="status" width="100px" />
+              <TheadCol label="Hoãn" sortName="delayCount" width="55px" />
+              <TheadCol label="Ngày Tạo" sortName="createdTime" width="90px" />
+              <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "145px" }}>Lý Do Hoãn</TableHead>
+              <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "145px" }}>Chi Tiết Hoãn</TableHead>
+              <TheadCol label="Nguy Cơ" sortName="riskScore" width="75px" />
+              <TableHead
+                className="text-[11px] font-medium uppercase text-slate-500 text-right cursor-pointer hover:bg-slate-100 px-2"
+                style={{ width: "85px" }}
                 onClick={() => requestSort("codAmount")}
               >
-                Thu Hộ (VND) {sortKey === "codAmount" && (sortDir === "asc" ? "↑" : "↓")}
+                Thu Hộ {sortKey === "codAmount" && (sortDir === "asc" ? "↑" : "↓")}
               </TableHead>
+              <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "100px" }}>Thao Tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {pageData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="h-48 text-center text-slate-500">
+                <TableCell colSpan={12} className="h-48 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center p-6">
                     <Info className="w-8 h-8 text-slate-300 mb-2" />
                     <p className="font-medium text-slate-700">Không tìm thấy đơn hàng</p>
@@ -101,84 +124,130 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
               pageData.map((o, idx) => {
                 const isHigh = o.risk === "high";
                 const borderClass = isHigh ? "border-l-[3px] border-l-red-500" : o.risk === "medium" ? "border-l-[3px] border-l-amber-500" : "border-l-[3px] border-l-emerald-500";
-                
+
                 return (
                   <TableRow key={o.requestCode} className={`border-b border-slate-100 hover:bg-slate-50/50 ${borderClass}`}>
-                    <TableCell className="text-center font-medium text-slate-500 text-[13px]">
+                    {/* STT */}
+                    <TableCell className="text-center font-medium text-slate-500 text-[12px] px-1">
                       {(currentPage - 1) * PAGE_SIZE + idx + 1}
                     </TableCell>
-                    <TableCell className="font-bold text-slate-800 text-[12px] whitespace-nowrap">
-                      <Link href={`/orders/${o.requestCode}`} className="hover:text-blue-600 hover:underline">
+
+                    {/* Mã yêu cầu */}
+                    <TableCell className="font-bold text-slate-800 text-[11px] px-2 overflow-hidden text-ellipsis whitespace-nowrap" title={o.requestCode}>
+                      <Link href={`/orders/${o.requestCode}`} className="hover:text-blue-600 hover:underline font-mono">
                         {o.requestCode}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-slate-700 text-[13px]">{o.shopName}</TableCell>
-                    
-                    <TableCell>
-                      <div className="text-[12px] text-slate-500 space-y-1">
-                        <div>Mã đơn: <span className="text-slate-800 font-medium">{o.carrierOrderCode || '-'}</span></div>
-                        <div>Tên: <span className="text-slate-800 font-medium">{o.receiverName}</span> - SĐT: <span className="text-blue-600 font-medium">{o.receiverPhone}</span></div>
-                        <div className="truncate max-w-[220px]" title={o.fullAddress}>ĐC: <span className="text-slate-800">{o.fullAddress}</span></div>
+
+                    {/* Cửa hàng */}
+                    <TableCell className="text-slate-700 text-[12px] px-2 overflow-hidden text-ellipsis whitespace-nowrap" title={o.shopName}>
+                      {o.shopName}
+                    </TableCell>
+
+                    {/* Thông tin đơn */}
+                    <TableCell className="px-2">
+                      <div className="text-[11px] text-slate-500 space-y-0.5">
+                        <div className="truncate" title={o.carrierOrderCode || undefined}>Mã: <span className="text-slate-800 font-medium">{o.carrierOrderCode || "-"}</span></div>
+                        <div className="truncate">Tên: <span className="text-slate-800 font-medium">{o.receiverName}</span> - <span className="text-blue-600">{o.receiverPhone}</span></div>
+                        <div className="truncate" title={o.fullAddress}>ĐC: {o.fullAddress}</div>
                         <CopyOrderButton order={o} />
                       </div>
                     </TableCell>
 
-                    <TableCell>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap
+                    {/* Trạng thái */}
+                    <TableCell className="px-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap
                         ${o.status.includes("Hoãn") ? "bg-orange-100 text-orange-700" : o.status.includes("Hoàn") ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}
                       `}>
-                        {o.status.includes("Đang giao") && <AlertTriangle className="w-3 h-3" />}
+                        {o.status.includes("Đang giao") && <AlertTriangle className="w-2.5 h-2.5" />}
                         {o.status}
                       </span>
                     </TableCell>
 
-                    <TableCell className="text-center">
-                      <span className={`inline-flex justify-center items-center w-7 h-7 rounded text-[13px] font-bold shadow-sm
+                    {/* Số lần hoãn */}
+                    <TableCell className="text-center px-1">
+                      <span className={`inline-flex justify-center items-center w-6 h-6 rounded text-[12px] font-bold shadow-sm
                         ${o.delayCount >= 3 ? "bg-red-100 text-red-700" : o.delayCount === 2 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}
                       `}>
                         {o.delayCount}
                       </span>
                     </TableCell>
 
-                    <TableCell>
-                      <div className="text-[12px] text-slate-700 whitespace-nowrap">
-                        {o.createdTime ? format(new Date(o.createdTime), "dd/MM/yyyy", { locale: vi }) : "-"}
-                        <div className="text-[10px] text-slate-400 mt-0.5">{o.daysAge} ngày trước</div>
+                    {/* Ngày tạo */}
+                    <TableCell className="px-2">
+                      <div className="text-[11px] text-slate-700 whitespace-nowrap">
+                        {o.createdTime ? format(new Date(o.createdTime), "dd/MM/yy", { locale: vi }) : "-"}
+                        <div className="text-[10px] text-slate-400 mt-0.5">{o.daysAge}n trước</div>
                       </div>
                     </TableCell>
 
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    {/* Lý do hoãn */}
+                    <TableCell className="px-2">
+                      <div className="flex flex-wrap gap-0.5" style={{ maxWidth: "140px" }}>
                         {o.uniqueReasons.map((r, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium leading-relaxed">
+                          <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[9px] rounded border border-slate-200 font-medium leading-tight">
                             {r}
                           </span>
                         ))}
                       </div>
                     </TableCell>
 
-                    <TableCell>
-                      <div className="text-[11px] text-slate-600 max-w-[220px] space-y-1.5 relative pl-3 border-l-2 border-slate-200">
+                    {/* Chi tiết hoãn */}
+                    <TableCell className="px-2">
+                      <div className="text-[10px] text-slate-600 space-y-1 relative pl-2.5 border-l-2 border-slate-200" style={{ maxWidth: "140px" }}>
                         {o.delays.length > 0 ? o.delays.map((d, i) => (
                           <div key={i} className="relative">
-                            <div className="absolute -left-[17px] top-1.5 w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                            <div className="absolute -left-[13px] top-1 w-1 h-1 rounded-full bg-slate-400"></div>
                             <span className="font-semibold text-slate-700">{d.time} {d.date}:</span> {d.reason}
                           </div>
-                        )) : <span className="italic text-slate-400">Không có cấu trúc delay note hợp lệ.</span>}
+                        )) : <span className="italic text-slate-400">—</span>}
                       </div>
                     </TableCell>
 
-                    <TableCell>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase
+                    {/* Nguy cơ */}
+                    <TableCell className="px-2">
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase
                         ${isHigh ? "bg-red-100 text-red-700" : o.risk === "medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}
                       `}>
                         <span className={`w-1.5 h-1.5 rounded-full ${isHigh ? "bg-red-500" : o.risk === "medium" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
-                        {isHigh ? "Cao" : o.risk === "medium" ? "Trung bình" : "Thấp"}
+                        {riskToVietnamese(o.risk)}
                       </span>
                     </TableCell>
 
-                    <TableCell className="text-right font-bold text-slate-700 text-[13px] whitespace-nowrap">
-                      {o.codAmount.toLocaleString("vi-VN")} đ
+                    {/* Thu hộ */}
+                    <TableCell className="text-right font-bold text-slate-700 text-[12px] whitespace-nowrap px-2">
+                      {o.codAmount.toLocaleString("vi-VN")}đ
+                    </TableCell>
+
+                    {/* Thao tác — buttons + inline notes */}
+                    <TableCell className="px-1">
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "100%" }}>
+                        {/* Row 1: action buttons */}
+                        <div className="flex items-center gap-1 justify-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTodoOrder(o);
+                            }}
+                            className="p-1 w-7 h-7 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-colors rounded"
+                            title="Thêm vào Công Việc"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/claims/new?requestCode=${o.requestCode}`);
+                            }}
+                            className="p-1 w-7 h-7 flex items-center justify-center text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
+                            title="Chuyển vào Khiếu nại/Bồi hoàn"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {/* Row 2: inline staff notes */}
+                        <InlineStaffNote requestCode={o.requestCode} initialValue={o.staffNotes} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -210,6 +279,17 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Todo Dialog */}
+      {todoOrder && (
+        <AddTodoDialog
+          open={!!todoOrder}
+          onClose={() => setTodoOrder(null)}
+          defaultTitle={`Xử lý đơn ${todoOrder.requestCode}`}
+          defaultDescription={`Đơn: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - KH: ${todoOrder.receiverName} - Hoãn ${todoOrder.delayCount} lần - Nguy cơ: ${riskToVietnamese(todoOrder.risk)}`}
+          defaultPriority={riskToPriority(todoOrder.risk)}
+        />
       )}
     </div>
   );

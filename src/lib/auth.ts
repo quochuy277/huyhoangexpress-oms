@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
+import { extractPermissions, getDefaultPermissions } from "@/lib/permissions";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -23,6 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               email: credentials.email as string,
               isActive: true,
             },
+            include: { permissionGroup: true },
           });
 
           if (!user) return null;
@@ -54,11 +56,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           }).catch(() => {});
 
+          // Build permissions from permissionGroup or fallback to role
+          const permissions = user.permissionGroup
+            ? extractPermissions(user.permissionGroup as unknown as Record<string, unknown>)
+            : getDefaultPermissions(user.role);
+
           return {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
+            permissions,
           };
         } catch (error) {
           console.error("Authorize Error:", error);

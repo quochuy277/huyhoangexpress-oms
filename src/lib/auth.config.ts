@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import type { Role } from "@prisma/client";
+import type { PermissionSet } from "@/lib/permissions";
 
 export const authConfig: NextAuthConfig = {
   pages: {
@@ -23,6 +24,7 @@ export const authConfig: NextAuthConfig = {
         token.id = user.id;
         token.role = (user as { role: Role }).role;
         token.name = user.name;
+        token.permissions = (user as { permissions: PermissionSet }).permissions;
       }
       return token;
     },
@@ -31,6 +33,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
         session.user.name = token.name as string;
+        session.user.permissions = token.permissions as PermissionSet;
       }
       return session;
     },

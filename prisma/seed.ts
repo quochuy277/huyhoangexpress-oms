@@ -68,6 +68,85 @@ async function main() {
   console.log("✅ Created 4 users");
 
   // ============================================================
+  // 1b. Create Permission Groups
+  // ============================================================
+  const adminGroup = await prisma.permissionGroup.upsert({
+    where: { name: "Admin" },
+    update: {},
+    create: {
+      name: "Admin",
+      description: "Toàn quyền hệ thống",
+      isSystemGroup: true,
+      canViewOrders: true, canUploadExcel: true, canDeleteOrders: true, canEditStaffNotes: true,
+      canViewRevenue: true, canViewCarrierFee: true, canViewFinancePage: true, canViewDashboardFinance: true,
+      canViewDelayed: true, canViewReturns: true, canConfirmReturn: true,
+      canViewClaims: true, canCreateClaim: true, canUpdateClaim: true,
+      canViewAllTodos: true,
+      canViewAllAttendance: true, canEditAttendance: true, canScoreEmployees: true,
+      canManageUsers: true, canManagePermissions: true,
+    },
+  });
+
+  const managerGroup = await prisma.permissionGroup.upsert({
+    where: { name: "Quản lý" },
+    update: {},
+    create: {
+      name: "Quản lý",
+      description: "Quản lý vận hành, không quản trị hệ thống",
+      isSystemGroup: true,
+      canViewOrders: true, canUploadExcel: true, canDeleteOrders: true, canEditStaffNotes: true,
+      canViewRevenue: true, canViewCarrierFee: true, canViewFinancePage: true, canViewDashboardFinance: true,
+      canViewDelayed: true, canViewReturns: true, canConfirmReturn: true,
+      canViewClaims: true, canCreateClaim: true, canUpdateClaim: true,
+      canViewAllTodos: true,
+      canViewAllAttendance: true, canEditAttendance: true, canScoreEmployees: true,
+      canManageUsers: false, canManagePermissions: false,
+    },
+  });
+
+  const staffGroup = await prisma.permissionGroup.upsert({
+    where: { name: "Nhân viên" },
+    update: {},
+    create: {
+      name: "Nhân viên",
+      description: "Nhân viên chăm sóc khách hàng",
+      isSystemGroup: true,
+      canViewOrders: true, canUploadExcel: true, canDeleteOrders: false, canEditStaffNotes: true,
+      canViewRevenue: false, canViewCarrierFee: false, canViewFinancePage: false, canViewDashboardFinance: false,
+      canViewDelayed: true, canViewReturns: true, canConfirmReturn: false,
+      canViewClaims: true, canCreateClaim: true, canUpdateClaim: false,
+      canViewAllTodos: false,
+      canViewAllAttendance: false, canEditAttendance: false, canScoreEmployees: false,
+      canManageUsers: false, canManagePermissions: false,
+    },
+  });
+
+  const viewerGroup = await prisma.permissionGroup.upsert({
+    where: { name: "Xem" },
+    update: {},
+    create: {
+      name: "Xem",
+      description: "Chỉ xem, không thao tác",
+      isSystemGroup: true,
+      canViewOrders: true, canUploadExcel: false, canDeleteOrders: false, canEditStaffNotes: false,
+      canViewRevenue: false, canViewCarrierFee: false, canViewFinancePage: false, canViewDashboardFinance: false,
+      canViewDelayed: true, canViewReturns: true, canConfirmReturn: false,
+      canViewClaims: true, canCreateClaim: false, canUpdateClaim: false,
+      canViewAllTodos: false,
+      canViewAllAttendance: false, canEditAttendance: false, canScoreEmployees: false,
+      canManageUsers: false, canManagePermissions: false,
+    },
+  });
+
+  // Assign permission groups to existing users
+  await prisma.user.update({ where: { id: admin.id }, data: { permissionGroupId: adminGroup.id } });
+  await prisma.user.update({ where: { id: manager.id }, data: { permissionGroupId: managerGroup.id } });
+  await prisma.user.update({ where: { id: staff1.id }, data: { permissionGroupId: staffGroup.id } });
+  await prisma.user.update({ where: { id: staff2.id }, data: { permissionGroupId: staffGroup.id } });
+
+  console.log("✅ Created 4 permission groups + assigned to users");
+
+  // ============================================================
   // 2. Create 100 Sample Orders
   // ============================================================
   const carriers = ["GHN", "GTK", "BSI", "JAT", "SPX"];

@@ -33,6 +33,8 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
   const [historyPage, setHistoryPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<string | null>(null);
 
   // Lấy dữ liệu Upload History
   const { data: historyData, isLoading: isLoadingHistory } = useQuery({
@@ -48,17 +50,12 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
   const isViewer = userRole === "VIEWER";
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
 
-  const handleDelete = async () => {
-    const first5 = selectedRows.slice(0, 5).join(", ");
-    const textMore = selectedRows.length > 5 ? `\nvà ${selectedRows.length - 5} đơn khác` : "";
-    if (
-      !confirm(
-        `Bạn có chắc muốn xóa ${selectedRows.length} đơn hàng?\nMã đơn: ${first5}${textMore}\n\nHành động này không thể hoàn tác.`
-      )
-    ) {
-      return;
-    }
+  const handleDelete = () => {
+    if (selectedRows.length === 0) return;
+    setShowDeleteDialog(true);
+  };
 
+  const confirmDelete = async () => {
     setIsDeleting(true);
     try {
       const res = await fetch("/api/orders/delete", {
@@ -68,16 +65,18 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
       });
       if (!res.ok) throw new Error("Delete failed");
 
-      alert(`Đã xóa ${selectedRows.length} đơn hàng thành công.`);
+      setDeleteResult(`✓ Đã xóa ${selectedRows.length} đơn hàng thành công`);
       setSelectedRows([]);
+      setShowDeleteDialog(false);
 
       // Refetch table
       const refetch = (window as any).__refetchOrders;
-      if (typeof refetch === "function") {
-        (refetch as () => void)();
-      }
+      if (typeof refetch === "function") (refetch as () => void)();
+
+      setTimeout(() => setDeleteResult(null), 4000);
     } catch {
-      alert("Lỗi khi xóa đơn hàng.");
+      setDeleteResult("✗ Lỗi khi xóa đơn hàng. Vui lòng thử lại.");
+      setTimeout(() => setDeleteResult(null), 4000);
     } finally {
       setIsDeleting(false);
     }
@@ -281,6 +280,56 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Toast */}
+      {deleteResult && (
+        <div style={{
+          position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
+          background: deleteResult.startsWith("✓") ? "#ecfdf5" : "#fef2f2",
+          border: `1.5px solid ${deleteResult.startsWith("✓") ? "#10b981" : "#ef4444"}`,
+          borderRadius: "10px", padding: "12px 20px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          color: deleteResult.startsWith("✓") ? "#065f46" : "#991b1b",
+          fontSize: "13px", fontWeight: 600,
+        }}>
+          {deleteResult}
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setShowDeleteDialog(false)}>
+          <div style={{ background: "#fff", border: "1.5px solid #2563EB", borderRadius: "12px", padding: "24px", width: "480px", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}
+            onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#1a1a1a", marginBottom: "8px" }}>Xác nhận xóa đơn hàng</h3>
+            <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "16px" }}>
+              Hành động này <b style={{ color: "#dc2626" }}>không thể hoàn tác</b>. Các đơn hàng sau sẽ bị xóa vĩnh viễn:
+            </p>
+            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "12px", marginBottom: "20px", maxHeight: "150px", overflowY: "auto" }}>
+              {selectedRows.slice(0, 10).map((code) => (
+                <div key={code} style={{ fontSize: "12px", fontFamily: "monospace", color: "#374151", padding: "2px 0" }}>{code}</div>
+              ))}
+              {selectedRows.length > 10 && (
+                <div style={{ fontSize: "12px", color: "#9ca3af", paddingTop: "4px" }}>+ {selectedRows.length - 10} đơn khác...</div>
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                style={{ padding: "8px 16px", fontSize: "13px", border: "1px solid #d1d5db", borderRadius: "8px", background: "#fff", color: "#374151", cursor: "pointer" }}
+                disabled={isDeleting}
+              >Hủy</button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                style={{ padding: "8px 20px", fontSize: "13px", fontWeight: 600, border: "none", borderRadius: "8px", background: isDeleting ? "#9ca3af" : "#dc2626", color: "#fff", cursor: isDeleting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                {isDeleting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" style={{ display: "inline" }} /> Đang xóa...</> : <>🗑 Xóa {selectedRows.length} đơn</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

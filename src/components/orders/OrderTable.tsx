@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { formatVND, formatDate } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X } from "lucide-react";
+import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import type { DeliveryStatus, Priority } from "@prisma/client";
 
 interface OrderRow {
@@ -46,8 +47,6 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [todoModalOrder, setTodoModalOrder] = useState<OrderRow | null>(null);
-  const [todoPriority, setTodoPriority] = useState<Priority>("MEDIUM");
-  const [isSubmittingTodo, setIsSubmittingTodo] = useState(false);
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
 
@@ -386,97 +385,15 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
         </div>
       )}
 
-      {/* Todo Modal */}
+      {/* Todo Dialog */}
       {todoModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
-              <h3 className="font-semibold text-slate-800">Thêm vào Công Việc</h3>
-              <button
-                onClick={() => setTodoModalOrder(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Tiêu đề công việc</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={`Xử lý đơn ${todoModalOrder.requestCode}`}
-                  className="w-full text-sm p-2 border border-slate-200 rounded-md bg-slate-50 text-slate-700 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Mô tả (Tự động điền)</label>
-                <textarea
-                  readOnly
-                  value={`Đơn hàng: ${todoModalOrder.requestCode} - ${todoModalOrder.shopName || "Không rõ shop"} - ${todoModalOrder.receiverName || "Không rõ KH"}`}
-                  className="w-full text-sm p-2 border border-slate-200 rounded-md bg-slate-50 text-slate-700 outline-none resize-none"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Mức độ ưu tiên</label>
-                <select
-                  value={todoPriority}
-                  onChange={(e) => setTodoPriority(e.target.value as Priority)}
-                  className="w-full text-sm p-2 border border-slate-300 rounded-md bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="LOW">Thấp</option>
-                  <option value="MEDIUM">Trung bình</option>
-                  <option value="HIGH">Cao</option>
-                  <option value="URGENT">Khẩn cấp</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex items-center justify-end px-4 py-3 border-t border-slate-100 bg-slate-50 gap-2">
-              <button
-                onClick={() => setTodoModalOrder(null)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200 transition-colors rounded-md"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={async () => {
-                  setIsSubmittingTodo(true);
-                  try {
-                    const res = await fetch("/api/todos", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: `Xử lý đơn ${todoModalOrder.requestCode}`,
-                        description: `Đơn hàng: ${todoModalOrder.requestCode} - ${todoModalOrder.shopName || "Không rõ shop"} - ${todoModalOrder.receiverName || "Không rõ KH"}`,
-                        priority: todoPriority,
-                      }),
-                    });
-
-                    if (res.ok) {
-                      setTodoModalOrder(null);
-                      alert("Tạo công việc thành công!");
-                    } else if (res.status === 404 || res.status === 405) {
-                      alert("Tính năng đang phát triển (Sẽ tích hợp ở Phase 8)");
-                      setTodoModalOrder(null);
-                    } else {
-                      alert("Có lỗi xảy ra, thử lại sau");
-                    }
-                  } catch (err) {
-                    alert("Tính năng đang phát triển (Sẽ tích hợp ở Phase 8)");
-                    setTodoModalOrder(null);
-                  } finally {
-                    setIsSubmittingTodo(false);
-                  }
-                }}
-                disabled={isSubmittingTodo}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-md disabled:bg-blue-400"
-              >
-                {isSubmittingTodo ? "Đang tạo..." : "Tạo công việc"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AddTodoDialog
+          open={!!todoModalOrder}
+          onClose={() => setTodoModalOrder(null)}
+          defaultTitle={`Xử lý đơn ${todoModalOrder.requestCode}`}
+          defaultDescription={`Đơn hàng: ${todoModalOrder.requestCode} - ${todoModalOrder.shopName || "Không rõ shop"} - ${todoModalOrder.receiverName || "Không rõ KH"}`}
+          defaultPriority="MEDIUM"
+        />
       )}
     </div>
   );

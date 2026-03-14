@@ -18,6 +18,7 @@ export type RawOrder = {
   lastUpdated?: Date | null;
   publicNotes?: string | null;
   carrierName?: string | null;
+  staffNotes?: string | null;
 };
 
 export type ProcessedDelayedOrder = {
@@ -39,6 +40,7 @@ export type ProcessedDelayedOrder = {
   daysAge: number;
   risk: 'high' | 'medium' | 'low';
   riskScore: number;
+  staffNotes: string;
 };
 
 export function parseDelays(note: string): { time: string; date: string; reason: string }[] {
@@ -49,6 +51,36 @@ export function parseDelays(note: string): { time: string; date: string; reason:
     delays.push({ time: m[1], date: m[2], reason: m[3].trim() });
   }
   return delays;
+}
+
+/**
+ * Extract the date of the LAST delay event from publicNotes.
+ * Parses lines matching: "HH:MM - DD/MM/YYYY Hoãn giao hàng vì: ..."
+ * Returns the most recent delay date, or null if no delays found.
+ */
+export function getLastDelayDate(publicNotes: string | null): Date | null {
+  if (!publicNotes) return null;
+
+  const delays: { time: string; date: string; dateObj: Date }[] = [];
+  const regex = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*Hoãn giao hàng vì:/g;
+  let match;
+
+  while ((match = regex.exec(publicNotes)) !== null) {
+    const [, time, day, month, year] = match;
+    const [h, m] = time.split(':').map(Number);
+    const dateObj = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      h,
+      m
+    );
+    delays.push({ time, date: `${day}/${month}/${year}`, dateObj });
+  }
+
+  if (delays.length === 0) return null;
+  delays.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+  return delays[0].dateObj;
 }
 
 export function countDelaysInNote(note: string): number {
@@ -185,5 +217,6 @@ export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
     daysAge,
     risk,
     riskScore: risk === 'high' ? 3 : risk === 'medium' ? 2 : 1,
+    staffNotes: order.staffNotes || '',
   };
 }

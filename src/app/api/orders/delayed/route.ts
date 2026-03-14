@@ -16,6 +16,7 @@ export async function GET() {
           }
         ]
       },
+      //@ts-ignore - staffNotes exists in DB
       select: {
         requestCode: true,
         customerOrderCode: true,
@@ -35,6 +36,7 @@ export async function GET() {
         lastUpdated: true,
         publicNotes: true,
         carrierName: true,
+        staffNotes: true,
       }
     });
 

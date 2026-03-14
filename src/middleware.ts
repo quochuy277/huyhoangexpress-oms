@@ -2,17 +2,20 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import type { Role } from "@prisma/client";
+import type { PermissionSet } from "@/lib/permissions";
 
 const { auth } = NextAuth(authConfig);
 
-// Route → minimum role required
-const ROUTE_ROLES: Record<string, Role[]> = {
-  "/admin": ["ADMIN"],
-  "/finance": ["ADMIN", "MANAGER"],
+// Route → required permission key
+const ROUTE_PERMISSIONS: Record<string, keyof PermissionSet> = {
+  "/admin/users": "canManageUsers",
+  "/finance": "canViewFinancePage",
+  "/delayed": "canViewDelayed",
+  "/returns": "canViewReturns",
+  "/claims": "canViewClaims",
 };
 
-export default auth((req: NextRequest & { auth: { user?: { role?: Role } } | null }) => {
+export default auth((req: NextRequest & { auth: { user?: { role?: string; permissions?: PermissionSet } } | null }) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
   const isLoggedIn = !!session?.user;
@@ -25,7 +28,7 @@ export default auth((req: NextRequest & { auth: { user?: { role?: Role } } | nul
     return NextResponse.next();
   }
 
-  // API routes — check auth but let handlers validate roles
+  // API routes — check auth but let handlers validate permissions
   if (pathname.startsWith("/api/")) {
     if (!isLoggedIn) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -38,11 +41,11 @@ export default auth((req: NextRequest & { auth: { user?: { role?: Role } } | nul
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Role-based restrictions
-  const userRole = session?.user?.role as Role | undefined;
-  for (const [route, allowedRoles] of Object.entries(ROUTE_ROLES)) {
-    if (pathname.startsWith(route)) {
-      if (!userRole || !allowedRoles.includes(userRole)) {
+  // Permission-based restrictions
+  const permissions = session?.user?.permissions;
+  if (permissions) {
+    for (const [route, permKey] of Object.entries(ROUTE_PERMISSIONS)) {
+      if (pathname.startsWith(route) && !permissions[permKey]) {
         return NextResponse.redirect(new URL("/", req.url));
       }
     }
