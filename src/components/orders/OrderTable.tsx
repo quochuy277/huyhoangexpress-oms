@@ -1,0 +1,562 @@
+"use client";
+
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { formatVND, formatDate } from "@/lib/utils";
+import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X } from "lucide-react";
+import type { DeliveryStatus, Priority } from "@prisma/client";
+
+interface OrderRow {
+  id: string;
+  requestCode: string;
+  carrierOrderCode: string | null;
+  shopName: string | null;
+  deliveryStatus: DeliveryStatus;
+  status: string;
+  createdTime: string | null;
+  codAmount: number;
+  totalFee: number;
+  customerWeight: number | null;
+  partialOrderType: string | null;
+  staffNotes: string | null;
+  revenue: number; // Used for something? No, removed from display.
+  receiverPhone: string | null;
+  receiverName: string | null;
+}
+
+interface ApiResponse {
+  orders: OrderRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+interface OrderTableProps {
+  userRole: string;
+  selectedRows: string[];
+  setSelectedRows: (rows: string[]) => void;
+}
+
+export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTableProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [data, setData] = useState<ApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [todoModalOrder, setTodoModalOrder] = useState<OrderRow | null>(null);
+  const [todoPriority, setTodoPriority] = useState<Priority>("MEDIUM");
+  const [isSubmittingTodo, setIsSubmittingTodo] = useState(false);
+
+  const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
+
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const sortBy = searchParams.get("sortBy") || "createdTime";
+  const sortOrder = searchParams.get("sortOrder") || "desc";
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams(searchParams.toString());
+      const res = await fetch(`/api/orders?${params.toString()}`);
+      if (res.ok) {
+        const json: ApiResponse = await res.json();
+        setData(json);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    (window as any).__refetchOrders = fetchOrders;
+    return () => {
+      delete (window as any).__refetchOrders;
+    };
+  }, [fetchOrders]);
+
+  const handleSort = (column: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === column) {
+      params.set("sortOrder", sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      params.set("sortBy", column);
+      params.set("sortOrder", "desc");
+    }
+    params.delete("page");
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const goToPage = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(page));
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!data?.orders) return;
+    if (e.target.checked) {
+      const allIds = data.orders.map((o) => o.requestCode);
+      setSelectedRows(Array.from(new Set([...selectedRows, ...allIds])));
+    } else {
+      const pageIds = data.orders.map((o) => o.requestCode);
+      setSelectedRows(selectedRows.filter((id) => !pageIds.includes(id)));
+    }
+  };
+
+  const handleSelectRow = (requestCode: string) => {
+    if (selectedRows.includes(requestCode)) {
+      setSelectedRows(selectedRows.filter((id) => id !== requestCode));
+    } else {
+      setSelectedRows([...selectedRows, requestCode]);
+    }
+  };
+
+  const currentOrderCodes = data?.orders.map((o) => o.requestCode) || [];
+  const allSelected = currentOrderCodes.length > 0 && currentOrderCodes.every((id) => selectedRows.includes(id));
+  const someSelected = currentOrderCodes.some((id) => selectedRows.includes(id));
+
+  const columns = [
+    { key: "requestCode", label: "Mã Yêu Cầu", sortable: true, width: "w-[160px]" },
+    { key: "carrierOrderCode", label: "Mã Đơn Đối Tác", sortable: true, width: "w-[140px]" },
+    { key: "shopName", label: "Tên Cửa Hàng", sortable: true, width: "w-[180px]" },
+    { key: "receiverPhone", label: "SĐT", sortable: true, width: "w-[120px]" },
+    { key: "deliveryStatus", label: "Trạng Thái", sortable: true, width: "w-[160px]" },
+    { key: "createdTime", label: "Thời Gian Tạo", sortable: true, width: "w-[150px]" },
+    { key: "codAmount", label: "Thu Hộ", sortable: true, width: "w-[120px]", right: true },
+    { key: "totalFee", label: "Tổng Phí", sortable: true, width: "w-[120px]", right: true },
+    { key: "customerWeight", label: "Khối Lượng KH", sortable: true, width: "w-[100px]", right: true },
+    { key: "partialOrderType", label: "Đơn Hàng Một Phần", sortable: true, width: "w-[130px]" },
+    { key: "staffNotes", label: "Ghi Chú", sortable: false, width: "w-[180px]" },
+    { key: "actions", label: "Thao Tác", sortable: false, width: "w-[100px]" },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="overflow-x-auto flex-1">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              {isAdminOrManager && (
+                <th className="px-3 py-2.5 w-[50px] text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    checked={allSelected}
+                    ref={input => {
+                      if (input) input.indeterminate = someSelected && !allSelected;
+                    }}
+                    onChange={handleSelectAll}
+                  />
+                </th>
+              )}
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider ${col.width} ${
+                    col.sortable ? "cursor-pointer hover:text-slate-700 select-none" : ""
+                  } ${col.right ? "text-right" : "text-left"}`}
+                  onClick={() => col.sortable && handleSort(col.key)}
+                >
+                  <div className={`flex items-center gap-1 ${col.right ? "justify-end" : ""}`}>
+                    {col.label}
+                    {col.sortable && (
+                      <ArrowUpDown
+                        className={`w-3 h-3 ${
+                          sortBy === col.key ? "text-blue-500" : "text-slate-300"
+                        }`}
+                      />
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              Array.from({ length: 10 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  {isAdminOrManager && <td className="px-3"></td>}
+                  {columns.map((col) => (
+                    <td key={col.key} className="px-3 py-3">
+                      <div className="h-4 bg-slate-100 rounded w-3/4" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : data?.orders.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + (isAdminOrManager ? 1 : 0)}
+                  className="px-3 py-12 text-center text-sm text-slate-400"
+                >
+                  Không tìm thấy đơn hàng nào
+                </td>
+              </tr>
+            ) : (
+              data?.orders.map((order) => (
+                <tr
+                  key={order.id}
+                  className={`group transition-colors ${
+                    selectedRows.includes(order.requestCode) ? "bg-blue-50/50" : "hover:bg-slate-50"
+                  }`}
+                >
+                  {isAdminOrManager && (
+                    <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        checked={selectedRows.includes(order.requestCode)}
+                        onChange={() => handleSelectRow(order.requestCode)}
+                      />
+                    </td>
+                  )}
+                  {/* Mã Yêu Cầu */}
+                  <td className="px-3 py-2.5">
+                    <button
+                      onClick={() => router.push(`/orders/${order.requestCode}`)}
+                      className="font-mono text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                    >
+                      {order.requestCode}
+                    </button>
+                  </td>
+                  {/* Mã Đơn Đối Tác */}
+                  <td className="px-3 py-2.5">
+                    <button
+                      onClick={() => router.push(`/orders/${order.requestCode}`)}
+                      className="block w-full text-slate-700 truncate max-w-[140px] font-mono text-xs hover:text-blue-600 text-left"
+                    >
+                      {order.carrierOrderCode || "—"}
+                    </button>
+                  </td>
+                  {/* Tên Cửa Hàng */}
+                  <td className="px-3 py-2.5">
+                    <button
+                      onClick={() => router.push(`/orders/${order.requestCode}`)}
+                      className="block w-full text-slate-700 truncate max-w-[180px] text-left"
+                    >
+                      {order.shopName || "—"}
+                    </button>
+                  </td>
+                  {/* SĐT */}
+                  <td className="px-3 py-2.5">
+                    {order.receiverPhone ? (
+                      <a href={`tel:${order.receiverPhone}`} className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs">
+                        {order.receiverPhone}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 font-mono text-xs">—</span>
+                    )}
+                  </td>
+                  {/* Trạng Thái */}
+                  <td className="px-3 py-2.5">
+                    <span
+                      className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
+                        STATUS_COLORS[order.deliveryStatus] || "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {mapStatusToVietnamese(order.deliveryStatus)}
+                    </span>
+                  </td>
+                  {/* Thời Gian Tạo */}
+                  <td className="px-3 py-2.5 text-slate-500 text-xs">
+                    {formatDate(order.createdTime)}
+                  </td>
+                  {/* Thu Hộ */}
+                  <td className="px-3 py-2.5 text-right font-mono text-xs text-slate-700">
+                    {formatVND(order.codAmount)}
+                  </td>
+                  {/* Tổng Phí */}
+                  <td className="px-3 py-2.5 text-right font-mono text-xs text-slate-700">
+                    {formatVND(order.totalFee)}
+                  </td>
+                  {/* Khối Lượng KH */}
+                  <td className="px-3 py-2.5 text-right font-mono text-xs text-slate-700">
+                    {order.customerWeight ? `${order.customerWeight}g` : "—"}
+                  </td>
+                  {/* Đơn Hàng Một Phần */}
+                  <td className="px-3 py-2.5 text-slate-700 text-xs">
+                    {order.partialOrderType || "—"}
+                  </td>
+                  {/* Ghi Chú (Editable) */}
+                  <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <NoteCell
+                      requestCode={order.requestCode}
+                      initialNote={order.staffNotes}
+                    />
+                  </td>
+                  {/* Thao Tác */}
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/claims/new?requestCode=${order.requestCode}`);
+                        }}
+                        className="p-1.5 text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
+                        title="Chuyển vào Khiếu nại/Bồi hoàn"
+                      >
+                        <AlertTriangle className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTodoModalOrder(order);
+                        }}
+                        className="p-1.5 text-blue-500 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-colors rounded"
+                        title="Thêm vào Công Việc"
+                      >
+                        <CheckSquare className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {data && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 mt-auto">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>Hiển thị</span>
+              <select
+                className="border border-slate-300 rounded px-1 min-w-[50px] bg-white h-7 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                value={data.pageSize}
+                onChange={(e) => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("pageSize", e.target.value);
+                  params.set("page", "1");
+                  router.push(`${pathname}?${params.toString()}`);
+                }}
+              >
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span>đơn/trang</span>
+            </div>
+            <p className="text-xs text-slate-500 hidden sm:block pl-4 border-l border-slate-300">
+              {(data.page - 1) * data.pageSize + 1}–
+              {Math.min(data.page * data.pageSize, data.total)} / {data.total.toLocaleString("vi-VN")} đơn
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => goToPage(1)}
+              disabled={data.page <= 1}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => goToPage(data.page - 1)}
+              disabled={data.page <= 1}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 py-1 text-xs font-medium text-slate-600">
+              {data.page} / {data.totalPages}
+            </span>
+            <button
+              onClick={() => goToPage(data.page + 1)}
+              disabled={data.page >= data.totalPages}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => goToPage(data.totalPages)}
+              disabled={data.page >= data.totalPages}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Todo Modal */}
+      {todoModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-semibold text-slate-800">Thêm vào Công Việc</h3>
+              <button
+                onClick={() => setTodoModalOrder(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Tiêu đề công việc</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={`Xử lý đơn ${todoModalOrder.requestCode}`}
+                  className="w-full text-sm p-2 border border-slate-200 rounded-md bg-slate-50 text-slate-700 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Mô tả (Tự động điền)</label>
+                <textarea
+                  readOnly
+                  value={`Đơn hàng: ${todoModalOrder.requestCode} - ${todoModalOrder.shopName || "Không rõ shop"} - ${todoModalOrder.receiverName || "Không rõ KH"}`}
+                  className="w-full text-sm p-2 border border-slate-200 rounded-md bg-slate-50 text-slate-700 outline-none resize-none"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Mức độ ưu tiên</label>
+                <select
+                  value={todoPriority}
+                  onChange={(e) => setTodoPriority(e.target.value as Priority)}
+                  className="w-full text-sm p-2 border border-slate-300 rounded-md bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="LOW">Thấp</option>
+                  <option value="MEDIUM">Trung bình</option>
+                  <option value="HIGH">Cao</option>
+                  <option value="URGENT">Khẩn cấp</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center justify-end px-4 py-3 border-t border-slate-100 bg-slate-50 gap-2">
+              <button
+                onClick={() => setTodoModalOrder(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200 transition-colors rounded-md"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  setIsSubmittingTodo(true);
+                  try {
+                    const res = await fetch("/api/todos", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: `Xử lý đơn ${todoModalOrder.requestCode}`,
+                        description: `Đơn hàng: ${todoModalOrder.requestCode} - ${todoModalOrder.shopName || "Không rõ shop"} - ${todoModalOrder.receiverName || "Không rõ KH"}`,
+                        priority: todoPriority,
+                      }),
+                    });
+
+                    if (res.ok) {
+                      setTodoModalOrder(null);
+                      alert("Tạo công việc thành công!");
+                    } else if (res.status === 404 || res.status === 405) {
+                      alert("Tính năng đang phát triển (Sẽ tích hợp ở Phase 8)");
+                      setTodoModalOrder(null);
+                    } else {
+                      alert("Có lỗi xảy ra, thử lại sau");
+                    }
+                  } catch (err) {
+                    alert("Tính năng đang phát triển (Sẽ tích hợp ở Phase 8)");
+                    setTodoModalOrder(null);
+                  } finally {
+                    setIsSubmittingTodo(false);
+                  }
+                }}
+                disabled={isSubmittingTodo}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-md disabled:bg-blue-400"
+              >
+                {isSubmittingTodo ? "Đang tạo..." : "Tạo công việc"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NoteCell({ requestCode, initialNote }: { requestCode: string; initialNote: string | null }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [note, setNote] = useState(initialNote || "");
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
+  const saveNote = async () => {
+    if (note === (initialNote || "")) {
+      setIsEditing(false);
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/orders/notes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestCode, staffNotes: note }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+    } catch (err) {
+      alert("Lỗi khi lưu ghi chú");
+      setNote(initialNote || ""); // Revert on error
+    } finally {
+      setIsSaving(false);
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="relative">
+        <textarea
+          ref={inputRef}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={saveNote}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              inputRef.current?.blur(); // Triggers onBlur
+            } else if (e.key === "Escape") {
+              setNote(initialNote || "");
+              setIsEditing(false);
+            }
+          }}
+          className="w-full text-xs p-1.5 border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm resize-none"
+          rows={2}
+          disabled={isSaving}
+          placeholder="Thêm ghi chú..."
+        />
+      </div>
+    );
+  }
+
+  const displayNote = note.length > 50 ? note.slice(0, 50) + "..." : note;
+
+  return (
+    <div
+      onClick={() => setIsEditing(true)}
+      className="group/note flex items-start justify-between min-h-[1.5rem] cursor-text rounded p-1 -m-1 hover:bg-white border border-transparent hover:border-slate-200 hover:shadow-sm"
+      title={note ? "Sửa ghi chú" : "Thêm ghi chú"}
+    >
+      {note ? (
+        <span className="text-xs text-slate-700 break-words whitespace-pre-wrap flex-1">{displayNote}</span>
+      ) : (
+        <span className="text-xs text-slate-400 italic flex-1">Thêm ghi chú...</span>
+      )}
+      <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover/note:opacity-100 transition-opacity ml-1 shrink-0 mt-0.5" />
+    </div>
+  );
+}

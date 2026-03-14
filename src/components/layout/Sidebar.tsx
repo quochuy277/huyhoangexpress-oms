@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,22 @@ interface SidebarProps {
 export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Load saved state on mount
+  useEffect(() => {
+    setMounted(true);
+    const saved = localStorage.getItem("sidebar_collapsed");
+    if (saved) {
+      setCollapsed(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleCollapse = () => {
+    const newVal = !collapsed;
+    setCollapsed(newVal);
+    localStorage.setItem("sidebar_collapsed", JSON.stringify(newVal));
+  };
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.allowedRoles || item.allowedRoles.includes(userRole)
@@ -64,12 +80,16 @@ export function Sidebar({ userRole }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300",
+        "flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 relative",
         collapsed ? "w-16" : "w-64"
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-slate-800 overflow-hidden">
+      <div 
+        className={cn("flex items-center h-16 px-4 border-b border-slate-800 overflow-hidden", collapsed ? "justify-center cursor-pointer hover:bg-slate-800 transition-colors" : "")}
+        onClick={() => collapsed && toggleCollapse()}
+        title={collapsed ? "Mở rộng" : undefined}
+      >
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0">
           <Package className="w-5 h-5 text-white" />
         </div>
@@ -82,6 +102,18 @@ export function Sidebar({ userRole }: SidebarProps) {
           </div>
         )}
       </div>
+
+      {collapsed && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Mở rộng"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
@@ -119,22 +151,18 @@ export function Sidebar({ userRole }: SidebarProps) {
       </nav>
 
       {/* Collapse button */}
-      <div className="px-2 pb-4">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full gap-2 py-2.5 px-3 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all text-sm"
-          title={collapsed ? "Mở rộng" : "Thu gọn"}
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <>
-              <ChevronLeft className="w-4 h-4" />
-              <span>Thu gọn</span>
-            </>
-          )}
-        </button>
-      </div>
+      {!collapsed && (
+        <div className="px-2 pb-4">
+          <button
+            onClick={toggleCollapse}
+            className="flex items-center justify-center w-full gap-2 py-2.5 px-3 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all text-sm"
+            title="Thu gọn"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Thu gọn</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

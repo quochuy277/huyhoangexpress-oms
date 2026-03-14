@@ -146,7 +146,7 @@ async function main() {
     const createdTime = new Date();
     createdTime.setDate(createdTime.getDate() - createdDaysAgo);
 
-    // Build publicNotes for delayed orders
+    // Build publicNotes for delayed orders and DELIVERING with delay history
     let publicNotes: string | null = null;
     if (statusIdx === 4 || statusIdx === 7) {
       // DELIVERY_DELAYED or RETURN_DELAYED
@@ -156,6 +156,11 @@ async function main() {
         noteLines.push(delayReasons[Math.floor(Math.random() * delayReasons.length)]);
       }
       publicNotes = noteLines.join("\n");
+    }
+    // ~10% of DELIVERING orders get delay history (re-delivery scenario)
+    if (statusIdx === 1 && Math.random() < 0.3) {
+      publicNotes = delayReasons[Math.floor(Math.random() * delayReasons.length)] +
+        "\n16:00 - 10/03/2026 Giao lại lần 2";
     }
 
     orders.push({
@@ -185,6 +190,7 @@ async function main() {
       totalFee: shippingFee + Math.floor(codAmount * 0.015),
       carrierFee,
       ghsvInsuranceFee: 0,
+      revenue: (shippingFee + Math.floor(codAmount * 0.015)) - carrierFee,
       createdTime,
       lastUpdated: new Date(),
       regionGroup: region,

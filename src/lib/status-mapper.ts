@@ -35,13 +35,33 @@ const REVERSE_STATUS_MAP: Record<DeliveryStatus, string> = {
 
 /**
  * Status category groupings for filtering
+ *
+ * FINAL STATUS CATEGORIES (source of truth):
+ * ┌─────────────────────┬────────────────┬───────────┬─────────────────────────┐
+ * │ Vietnamese Status   │ Enum           │ Category  │ Page                    │
+ * ├─────────────────────┼────────────────┼───────────┼─────────────────────────┤
+ * │ Đang chuyển kho giao│ IN_TRANSIT     │ Active    │ Quản lý đơn hàng       │
+ * │ Đang giao hàng      │ DELIVERING     │ Active*   │ Quản lý đơn hàng       │
+ * │ Đã giao hàng        │ DELIVERED      │ Completed │ Quản lý đơn hàng       │
+ * │ Đã đối soát giao    │ RECONCILED     │ Completed │ Quản lý đơn hàng       │
+ * │ Hoãn giao hàng      │ DELIVERY_DELAYED│ Problem  │ Chăm sóc đơn Hoãn      │
+ * │ Xác nhận hoàn       │ RETURN_CONFIRMED│ Problem  │ Chăm sóc đơn Hoãn      │
+ * │ Hoãn trả hàng       │ RETURN_DELAYED │ Returning │ Theo dõi đơn Hoàn       │
+ * │ Đang chuyển kho trả │ RETURNING_FULL │ Returning │ Theo dõi đơn Hoàn       │
+ * │ Đã trả toàn bộ      │ RETURNED_FULL  │ Completed │ Quản lý đơn hàng       │
+ * │ Đã trả một phần     │ RETURNED_PARTIAL│ Completed │ Quản lý đơn hàng       │
+ * └─────────────────────┴────────────────┴───────────┴─────────────────────────┘
+ *
+ * ★ DELIVERING also appears in "Chăm sóc đơn Hoãn" if publicNotes contains "Hoãn giao hàng"
  */
 export const STATUS_CATEGORIES = {
   ACTIVE: [DeliveryStatus.IN_TRANSIT, DeliveryStatus.DELIVERING] as const,
-  COMPLETED: [DeliveryStatus.DELIVERED, DeliveryStatus.RECONCILED] as const,
-  PROBLEM: [DeliveryStatus.DELIVERY_DELAYED, DeliveryStatus.RETURN_DELAYED] as const,
-  RETURNING: [DeliveryStatus.RETURN_CONFIRMED, DeliveryStatus.RETURNING_FULL] as const,
-  RETURNED: [DeliveryStatus.RETURNED_FULL, DeliveryStatus.RETURNED_PARTIAL] as const,
+  COMPLETED: [
+    DeliveryStatus.DELIVERED, DeliveryStatus.RECONCILED,
+    DeliveryStatus.RETURNED_FULL, DeliveryStatus.RETURNED_PARTIAL,
+  ] as const,
+  PROBLEM: [DeliveryStatus.DELIVERY_DELAYED, DeliveryStatus.RETURN_CONFIRMED] as const,
+  RETURNING: [DeliveryStatus.RETURN_DELAYED, DeliveryStatus.RETURNING_FULL] as const,
 } as const;
 
 /**
@@ -55,10 +75,12 @@ export const STATUS_COLORS: Record<string, string> = {
   RECONCILED: "bg-emerald-100 text-emerald-700",
   DELIVERY_DELAYED: "bg-red-100 text-red-700",
   RETURN_CONFIRMED: "bg-orange-100 text-orange-700",
+  RETURN_DELAYED: "bg-amber-100 text-amber-700",
   RETURNING_FULL: "bg-amber-100 text-amber-700",
-  RETURN_DELAYED: "bg-red-100 text-red-700",
   RETURNED_FULL: "bg-purple-100 text-purple-700",
   RETURNED_PARTIAL: "bg-violet-100 text-violet-700",
+  // Special badge for DELIVERING orders with delay history
+  DELIVERING_REDELIVER: "bg-sky-100 text-sky-700",
 };
 
 /**
@@ -103,4 +125,12 @@ export function getStatusOptions(): Array<{
     value: value as DeliveryStatus,
     label,
   }));
+}
+
+/**
+ * Check if a DELIVERING order has delay history (should appear in delayed care page)
+ */
+export function hasDelayHistory(publicNotes: string | null | undefined): boolean {
+  if (!publicNotes) return false;
+  return publicNotes.includes("Hoãn giao hàng");
 }

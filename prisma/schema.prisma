@@ -61,6 +61,7 @@ model Order {
   totalFee            Float     @default(0)
   carrierFee          Float     @default(0)
   ghsvInsuranceFee    Float     @default(0)
+  revenue             Float     @default(0) // Doanh thu = totalFee - carrierFee
 
   // Creator info
   creatorShopName     String?
@@ -114,6 +115,9 @@ model Order {
   partialOrderCode    String?
   salesStaff          String?
 
+  // Staff notes (NOT from Excel — editable in app, never overwritten by uploads)
+  staffNotes          String?   @db.Text
+
   // System fields
   importedAt          DateTime  @default(now())
   updatedInDb         DateTime  @updatedAt
@@ -133,17 +137,17 @@ model Order {
 }
 
 enum DeliveryStatus {
-  PROCESSING
-  IN_TRANSIT
-  DELIVERING
-  DELIVERED
-  RECONCILED
-  DELIVERY_DELAYED
-  RETURN_CONFIRMED
-  RETURNING_FULL
-  RETURN_DELAYED
-  RETURNED_FULL
-  RETURNED_PARTIAL
+  PROCESSING        // Đang xử lý
+  IN_TRANSIT        // Đang chuyển kho giao — Active → Quản lý đơn hàng
+  DELIVERING        // Đang giao hàng — Active, BUT also shows in Chăm sóc đơn Hoãn if publicNotes contains delay history
+  DELIVERED         // Đã giao hàng — Completed → Quản lý đơn hàng
+  RECONCILED        // Đã đối soát giao hàng — Completed → Quản lý đơn hàng
+  DELIVERY_DELAYED  // Hoãn giao hàng — Problem → Chăm sóc đơn Hoãn
+  RETURN_CONFIRMED  // Xác nhận hoàn — Problem → Chăm sóc đơn Hoãn
+  RETURNING_FULL    // Đang chuyển kho trả toàn bộ — Returning → Theo dõi đơn Hoàn
+  RETURN_DELAYED    // Hoãn trả hàng — Returning → Theo dõi đơn Hoàn
+  RETURNED_FULL     // Đã trả hàng toàn bộ — Completed → Quản lý đơn hàng only
+  RETURNED_PARTIAL  // Đã trả hàng một phần — Completed → Quản lý đơn hàng only
 }
 
 model UploadHistory {
