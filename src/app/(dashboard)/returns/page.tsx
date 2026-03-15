@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Package, Truck, Warehouse, Download } from "lucide-react";
-import { PartialReturnTab, ReturnOrder } from "@/components/returns/PartialReturnTab";
+import { PartialReturnTab } from "@/components/returns/PartialReturnTab";
+import { ReturnOrder } from "@/types/returns";
 import { FullReturnTab } from "@/components/returns/FullReturnTab";
 import { WaitingReturnTab } from "@/components/returns/WaitingReturnTab";
 import { ReturnFilterPanel, ReturnFilters } from "@/components/returns/ReturnFilterPanel";

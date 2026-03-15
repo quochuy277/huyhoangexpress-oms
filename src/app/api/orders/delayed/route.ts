@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { processDelayedOrder, ProcessedDelayedOrder } from '@/lib/delay-analyzer';
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+
     const orders = await prisma.order.findMany({
       where: {
         OR: [
@@ -15,9 +21,7 @@ export async function GET() {
             ]
           }
         ]
-      },
-      //@ts-ignore - staffNotes exists in DB
-      select: {
+      },      select: {
         requestCode: true,
         customerOrderCode: true,
         carrierOrderCode: true,

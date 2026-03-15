@@ -9,6 +9,11 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
+    const permissions = session.user.permissions;
+    if (!permissions?.canEditStaffNotes) {
+      return NextResponse.json({ error: "Bạn không có quyền sửa ghi chú" }, { status: 403 });
+    }
+
     const { requestCode, staffNotes } = await req.json();
 
     if (!requestCode) {
@@ -16,9 +21,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const order = await prisma.order.update({
-      where: { requestCode },
-      //@ts-ignore
-      data: { staffNotes },
+      where: { requestCode },      data: { staffNotes },
     });
 
     return NextResponse.json({ success: true, staffNotes: order.staffNotes });

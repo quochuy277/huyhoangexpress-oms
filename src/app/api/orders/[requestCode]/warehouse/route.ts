@@ -14,7 +14,6 @@ export async function PATCH(
 
     const { requestCode } = await params;
 
-    //@ts-ignore
     await prisma.order.update({
       where: { requestCode },
       data: { warehouseArrivalDate: new Date() },

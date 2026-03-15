@@ -71,9 +71,7 @@ export async function GET(req: NextRequest) {
       codAmount: true,
       shippingFee: true,
       totalFee: true,
-      carrierFee: true,
-      //@ts-ignore
-      revenue: true,
+      carrierFee: true,      revenue: true,
       carrierName: true,
       carrierOrderCode: true,
       regionGroup: true,

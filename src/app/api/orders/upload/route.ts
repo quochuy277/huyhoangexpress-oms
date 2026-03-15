@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
-  if (session.user.role === "VIEWER") {
+  const permissions = session.user.permissions;
+  if (!permissions?.canUploadExcel) {
     return NextResponse.json(
       { error: "Bạn không có quyền tải lên file" },
       { status: 403 }

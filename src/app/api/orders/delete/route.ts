@@ -9,8 +9,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const role = session.user.role;
-    if (role !== "ADMIN" && role !== "MANAGER") {
+    const permissions = session.user.permissions;
+    if (!permissions?.canDeleteOrders) {
       return NextResponse.json(
         { error: "Bạn không có quyền xóa đơn hàng" },
         { status: 403 }

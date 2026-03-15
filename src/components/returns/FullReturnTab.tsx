@@ -11,7 +11,7 @@ import { parseDelays } from "@/lib/delay-analyzer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReturnFilters } from "./ReturnFilterPanel";
-import { ReturnOrder } from "./PartialReturnTab";
+import { ReturnOrder } from "@/types/returns";
 import { format } from "date-fns";
 
 function parseVietnameseDate(dateStr: string): Date | null {

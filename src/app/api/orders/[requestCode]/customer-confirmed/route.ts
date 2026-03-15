@@ -12,6 +12,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
+    const permissions = session.user.permissions;
+    if (!permissions?.canConfirmReturn) {
+      return NextResponse.json({ error: "Bạn không có quyền thao tác" }, { status: 403 });
+    }
+
     const { requestCode } = await params;
     const { value } = await req.json();
     const staffName = session.user.name || session.user.email || "Nhân viên";
@@ -20,19 +25,13 @@ export async function PATCH(
       where: { requestCode },
       data: value
         ? {
-            // @ts-ignore - new fields from migration
             customerConfirmed: true,
-            // @ts-ignore
             customerConfirmedBy: staffName,
-            // @ts-ignore
             customerConfirmedAt: new Date(),
           }
         : {
-            // @ts-ignore
             customerConfirmed: false,
-            // @ts-ignore
             customerConfirmedBy: null,
-            // @ts-ignore
             customerConfirmedAt: null,
           },
     });

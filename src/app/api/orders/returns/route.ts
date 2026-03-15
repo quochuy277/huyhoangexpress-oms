@@ -41,10 +41,7 @@ export async function GET(req: NextRequest) {
           },
         ],
       };
-    }
-
-    //@ts-ignore - new fields exist in DB
-    const rawOrders = await prisma.order.findMany({
+    }    const rawOrders = await prisma.order.findMany({
       where,
       select: {
         id: true,

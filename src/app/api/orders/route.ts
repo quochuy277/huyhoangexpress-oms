@@ -73,12 +73,8 @@ export async function GET(req: NextRequest) {
   }
 
   // Handle Advanced Filters
-  if (hasNotes === 'true') {
-    //@ts-ignore
-    AND.push({ staffNotes: { not: null, notIn: [''] } });
-  } else if (hasNotes === 'false') {
-    //@ts-ignore
-    AND.push({ OR: [{ staffNotes: null }, { staffNotes: '' }] });
+  if (hasNotes === 'true') {    AND.push({ staffNotes: { not: null, notIn: [''] } });
+  } else if (hasNotes === 'false') {    AND.push({ OR: [{ staffNotes: null }, { staffNotes: '' }] });
   }
 
   if (shopNameFilter) {
@@ -126,9 +122,7 @@ export async function GET(req: NextRequest) {
         codAmount: true,
         totalFee: true,
         customerWeight: true,
-        partialOrderType: true,
-        //@ts-ignore
-        staffNotes: true,
+        partialOrderType: true,        staffNotes: true,
         // needed for other things possibly
         receiverName: true,
         receiverPhone: true,
