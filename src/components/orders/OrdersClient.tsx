@@ -178,24 +178,26 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
 
       {/* Lịch sử Upload Modal */}
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="max-w-2xl w-full p-0 overflow-hidden bg-white sm:rounded-lg border-slate-200 shadow-lg">
+        <DialogContent className="max-w-2xl w-full p-0 overflow-hidden bg-white sm:rounded-xl border-[1.5px] border-blue-600 shadow-2xl">
           <DialogHeader className="px-6 py-4 border-b border-slate-100 bg-white">
-            <DialogTitle className="text-[17px] font-semibold text-slate-800 flex items-center gap-2">
-              <History className="w-5 h-5 text-slate-500" />
+            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-blue-50">
+                <History className="w-5 h-5 text-blue-600" />
+              </div>
               Lịch sử tải lên file Excel
             </DialogTitle>
           </DialogHeader>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto bg-white">
             <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow className="border-b border-slate-200 hover:bg-transparent">
-                  <TableHead className="px-3 py-2.5 h-auto text-[12px] font-medium uppercase text-slate-500 w-[60px]">STT</TableHead>
-                  <TableHead className="px-3 py-2.5 h-auto text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap">Thời gian tải lên</TableHead>
-                  <TableHead className="px-3 py-2.5 h-auto text-[12px] font-medium uppercase text-slate-500">Nhân sự tải lên</TableHead>
-                  <TableHead className="px-3 py-2.5 h-auto text-[12px] font-medium uppercase text-slate-500 text-right whitespace-nowrap">Số đơn mới</TableHead>
-                  <TableHead className="px-3 py-2.5 h-auto text-[12px] font-medium uppercase text-slate-500 text-right whitespace-nowrap">Cập nhật</TableHead>
-                  <TableHead className="px-3 py-2.5 h-auto text-[12px] font-medium uppercase text-slate-500 text-right whitespace-nowrap">Tổng Đơn</TableHead>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow className="border-b border-slate-200 hover:bg-transparent transition-none">
+                  <TableHead className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-wider text-slate-500 w-[60px]">STT</TableHead>
+                  <TableHead className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Thời gian tải lên</TableHead>
+                  <TableHead className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-wider text-slate-500">Nhân sự tải lên</TableHead>
+                  <TableHead className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Số đơn mới</TableHead>
+                  <TableHead className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Cập nhật</TableHead>
+                  <TableHead className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Tổng Đơn</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -224,29 +226,29 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
                   historyData?.histories?.map((h: any, index: number) => (
                     <TableRow 
                       key={h.id} 
-                      className="border-b border-slate-100/80 transition-colors even:bg-slate-50/40 hover:bg-slate-50/80"
+                      className="border-b border-slate-100 transition-colors even:bg-slate-50/30 hover:bg-blue-50/30"
                     >
-                      <TableCell className="px-3 py-2.5 font-medium text-slate-600 text-[13px]">
+                      <TableCell className="px-4 py-3 font-medium text-slate-500 text-[13px]">
                         {(historyPage - 1) * 10 + index + 1}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-slate-700 text-[13px] whitespace-nowrap">
+                      <TableCell className="px-4 py-3 text-slate-700 text-[13px] whitespace-nowrap font-medium">
                         {format(new Date(h.uploadedAt), "dd/MM/yyyy HH:mm", { locale: vi })}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 font-medium text-slate-700 text-[13px]">
+                      <TableCell className="px-4 py-3 text-slate-800 text-[13px] font-semibold">
                         {h.uploadedBy?.name || "Hệ thống"}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-right whitespace-nowrap">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <TableCell className="px-4 py-3 text-right whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
                           +{h.newOrders}
                         </span>
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-right whitespace-nowrap">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                      <TableCell className="px-4 py-3 text-right whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">
                           ^{h.updatedOrders}
                         </span>
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-right font-semibold text-slate-800 text-[13px]">
-                        {h.totalRows}
+                      <TableCell className="px-4 py-3 text-right font-bold text-slate-900 text-[14px]">
+                        {h.totalRows.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))
@@ -256,24 +258,24 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
           </div>
 
           {!isLoadingHistory && historyData?.pagination && historyData.pagination.totalPages > 1 && (
-            <div className="px-6 py-3.5 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
-              <span className="text-[13px] text-slate-500 font-medium">
+            <div className="px-6 py-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
+              <span className="text-[13px] text-slate-500 font-semibold">
                 Trang {historyData.pagination.page} / {historyData.pagination.totalPages}
               </span>
-              <div className="flex gap-1.5">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
                   disabled={historyPage === 1}
-                  className="px-3 py-1.5 border border-slate-200 bg-white rounded-md text-[13px] hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center font-medium shadow-sm"
+                  className="px-4 py-1.5 border border-slate-200 bg-white text-slate-700 rounded-lg text-[13px] hover:bg-slate-50 hover:text-blue-600 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center font-bold shadow-sm"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Trước
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Trước
                 </button>
                 <button
                   onClick={() => setHistoryPage((p) => Math.min(historyData.pagination.totalPages, p + 1))}
                   disabled={historyPage === historyData.pagination.totalPages}
-                  className="px-3 py-1.5 border border-slate-200 bg-white rounded-md text-[13px] hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center font-medium shadow-sm"
+                  className="px-4 py-1.5 border border-slate-200 bg-white text-slate-700 rounded-lg text-[13px] hover:bg-slate-50 hover:text-blue-600 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center font-bold shadow-sm"
                 >
-                  Sau <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                  Sau <ChevronRight className="w-4 h-4 ml-1" />
                 </button>
               </div>
             </div>

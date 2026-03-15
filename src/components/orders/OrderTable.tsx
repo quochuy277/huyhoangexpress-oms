@@ -6,6 +6,7 @@ import { formatVND, formatDate } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X } from "lucide-react";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
 import type { DeliveryStatus, Priority } from "@prisma/client";
 
 interface OrderRow {
@@ -47,6 +48,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [todoModalOrder, setTodoModalOrder] = useState<OrderRow | null>(null);
+  const [claimOrder, setClaimOrder] = useState<OrderRow | null>(null);
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
 
@@ -297,10 +299,10 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(`/claims/new?requestCode=${order.requestCode}`);
+                          setClaimOrder(order);
                         }}
                         className="p-1.5 text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
-                        title="Chuyển vào Khiếu nại/Bồi hoàn"
+                        title="Chuyển vào Đơn có vấn đề"
                       >
                         <AlertTriangle className="w-4 h-4" />
                       </button>
@@ -395,6 +397,15 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
           defaultPriority="MEDIUM"
         />
       )}
+
+      {/* Claim Dialog */}
+      <AddClaimFromPageDialog
+        open={!!claimOrder}
+        onClose={() => setClaimOrder(null)}
+        onSuccess={() => fetchOrders()}
+        order={claimOrder || undefined}
+        source="FROM_ORDERS"
+      />
     </div>
   );
 }

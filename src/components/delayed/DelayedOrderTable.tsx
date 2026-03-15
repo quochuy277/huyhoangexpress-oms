@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight, AlertTriangle, Info, CheckSquare, Flag } fro
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { CopyOrderButton } from "./CopyOrderButton";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
@@ -28,6 +29,7 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
   const [sortKey, setSortKey] = useState<keyof ProcessedDelayedOrder>("delayCount");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [todoOrder, setTodoOrder] = useState<ProcessedDelayedOrder | null>(null);
+  const [claimDelayedOrder, setClaimDelayedOrder] = useState<ProcessedDelayedOrder | null>(null);
 
   const sortedData = [...data].sort((a, b) => {
     let va = a[sortKey] as any;
@@ -237,10 +239,10 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/claims/new?requestCode=${o.requestCode}`);
+                              setClaimDelayedOrder(o);
                             }}
                             className="p-1 w-7 h-7 flex items-center justify-center text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
-                            title="Chuyển vào Khiếu nại/Bồi hoàn"
+                            title="Chuyển vào Đơn có vấn đề"
                           >
                             <Flag className="w-3.5 h-3.5" />
                           </button>
@@ -291,6 +293,14 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
           defaultPriority={riskToPriority(todoOrder.risk)}
         />
       )}
+
+      {/* Claim Dialog */}
+      <AddClaimFromPageDialog
+        open={!!claimDelayedOrder}
+        onClose={() => setClaimDelayedOrder(null)}
+        order={claimDelayedOrder ? { id: "", requestCode: claimDelayedOrder.requestCode, carrierName: claimDelayedOrder.carrierName, shopName: claimDelayedOrder.shopName, codAmount: claimDelayedOrder.codAmount } : undefined}
+        source="FROM_DELAYED"
+      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ export async function GET() {
 
     const orders = await prisma.order.findMany({
       where: {
+        claimLocked: false,
         OR: [
           { deliveryStatus: { in: ['DELIVERY_DELAYED', 'RETURN_CONFIRMED'] } },
           {
@@ -21,7 +22,8 @@ export async function GET() {
             ]
           }
         ]
-      },      select: {
+      },
+      select: {
         requestCode: true,
         customerOrderCode: true,
         carrierOrderCode: true,
@@ -41,6 +43,7 @@ export async function GET() {
         publicNotes: true,
         carrierName: true,
         staffNotes: true,
+        claimOrder: { select: { issueType: true } },
       }
     });
 

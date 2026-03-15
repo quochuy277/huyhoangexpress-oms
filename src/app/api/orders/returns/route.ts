@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getLastDelayDate } from "@/lib/delay-analyzer";
+import { getLastDelayDate, getMostRecentTimestampFromNotes } from "@/lib/delay-analyzer";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,20 +16,20 @@ export async function GET(req: NextRequest) {
     let where: any = {};
 
     if (tab === "partial") {
-      // Tab 1: Partial returns — delivered + partial order + not yet at warehouse
       where = {
+        claimLocked: false,
         deliveryStatus: "DELIVERED",
         partialOrderType: "Đơn một phần",
         warehouseArrivalDate: null,
       };
     } else if (tab === "full") {
-      // Tab 2: Full returns — currently returning
       where = {
+        claimLocked: false,
         deliveryStatus: "RETURNING_FULL",
       };
     } else if (tab === "warehouse") {
-      // Tab 3: At warehouse waiting to return to customer
       where = {
+        claimLocked: false,
         OR: [
           {
             deliveryStatus: "DELIVERED",
@@ -66,19 +66,24 @@ export async function GET(req: NextRequest) {
         codAmount: true,
         receiverName: true,
         receiverPhone: true,
+        claimOrder: { select: { issueType: true } },
       },
     });
 
     // Compute lastDelayDate and daysReturning for each order (mostly used by Tab 2)
     const orders = rawOrders.map((o: any) => {
       const lastDelayDate = getLastDelayDate(o.publicNotes);
-      const effectiveDate = lastDelayDate || (o.lastUpdated ? new Date(o.lastUpdated) : null);
+      // Fallback priority:
+      // 1. Last "Hoãn giao hàng vì:" timestamp parsed from publicNotes (most accurate)
+      // 2. Most recent event timestamp from publicNotes (first line = newest event)
+      // 3. null — caller/UI handles display
+      const effectiveDate = lastDelayDate ?? getMostRecentTimestampFromNotes(o.publicNotes);
       const daysReturning = effectiveDate
         ? Math.floor((Date.now() - effectiveDate.getTime()) / 86400000)
         : 0;
       return {
         ...o,
-        lastDelayDate: effectiveDate ? effectiveDate.toISOString() : null,
+        lastDelayDate: lastDelayDate ? lastDelayDate.toISOString() : null,
         daysReturning,
       };
     });

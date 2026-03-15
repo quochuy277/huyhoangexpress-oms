@@ -179,17 +179,20 @@ model Order {
   partialOrderCode    String?
   salesStaff          String?
 
-  // Return tracking fields (set by staff in Theo Dõi Đơn Hoàn page)
-  warehouseArrivalDate  DateTime?  // Ngày về kho — set by staff clicking "Đã về kho trả"
-  customerConfirmAsked  Boolean    @default(false)  // Đã hỏi - Chờ khách XN
-  confirmedAskedBy      String?    // Tên nhân viên đã hỏi KH
-  confirmedAskedAt      DateTime?  // Thời gian hỏi KH
-  customerConfirmed     Boolean    @default(false)  // KH đã xác nhận trả hàng
-  customerConfirmedBy   String?    // Tên nhân viên ghi nhận KH xác nhận
-  customerConfirmedAt   DateTime?  // Thời gian KH xác nhận
+  // Return tracking fields
+  warehouseArrivalDate  DateTime?
+  customerConfirmAsked  Boolean    @default(false)
+  confirmedAskedBy      String?
+  confirmedAskedAt      DateTime?
+  customerConfirmed     Boolean    @default(false)
+  customerConfirmedBy   String?
+  customerConfirmedAt   DateTime?
 
   // Staff notes (NOT from Excel — editable in app, never overwritten by uploads)
   staffNotes          String?   @db.Text
+
+  // Claim lock — when true, order won't show in Delayed/Returns pages
+  claimLocked         Boolean   @default(false)
 
   // System fields
   importedAt          DateTime  @default(now())
@@ -207,6 +210,7 @@ model Order {
   @@index([lastUpdated])
   @@index([receiverProvince])
   @@index([salesStaff])
+  @@index([claimLocked])
 }
 
 enum DeliveryStatus {
@@ -267,43 +271,89 @@ enum ReturnStatus {
 }
 
 model ClaimOrder {
-  id                  String      @id @default(cuid())
-  order               Order       @relation(fields: [orderId], references: [id])
-  orderId             String      @unique
-  claimType           ClaimType
-  claimStatus         ClaimStatus @default(PENDING)
-  issueDescription    String
-  claimAmount         Float?
-  compensationAmount  Float?
-  deadline            DateTime?
-  submittedDate       DateTime?
-  resolvedDate        DateTime?
-  notes               String?     @db.Text
-  createdBy           User        @relation(fields: [createdById], references: [id])
-  createdById         String
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                   String      @id @default(cuid())
+  order                Order       @relation(fields: [orderId], references: [id])
+  orderId              String      @unique
 
+  // Issue classification
+  issueType            IssueType
+  issueDescription     String?     @db.Text
+
+  // Dates
+  detectedDate         DateTime    @default(now())
+  deadline             DateTime?
+
+  // Processing status
+  claimStatus          ClaimStatus @default(PENDING)
+  processingContent    String?     @db.Text
+
+  // Compensation
+  carrierCompensation  Float       @default(0)
+  customerCompensation Float       @default(0)
+
+  // Completion
+  isCompleted          Boolean     @default(false)
+  completedAt          DateTime?
+  completedBy          String?
+
+  // Source tracking
+  source               ClaimSource @default(MANUAL)
+
+  // Audit
+  createdBy            User        @relation(fields: [createdById], references: [id])
+  createdById          String
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  // Status change history
+  statusHistory        ClaimStatusHistory[]
+
+  @@index([issueType])
   @@index([claimStatus])
   @@index([deadline])
+  @@index([isCompleted])
 }
 
-enum ClaimType {
+model ClaimStatusHistory {
+  id            String       @id @default(cuid())
+  claimOrder    ClaimOrder   @relation(fields: [claimOrderId], references: [id], onDelete: Cascade)
+  claimOrderId  String
+  fromStatus    ClaimStatus?
+  toStatus      ClaimStatus
+  changedBy     String
+  changedAt     DateTime     @default(now())
+  note          String?
+
+  @@index([claimOrderId])
+}
+
+enum IssueType {
+  SLOW_JOURNEY
+  SUSPICIOUS
   LOST
   DAMAGED
-  WRONG_ITEM
-  SHORTAGE
-  DELAY
   OTHER
 }
 
 enum ClaimStatus {
   PENDING
-  SUBMITTED
-  IN_REVIEW
-  APPROVED
-  REJECTED
-  COMPENSATED
+  VERIFYING_CARRIER
+  CLAIM_SUBMITTED
+  COMPENSATION_REQUESTED
+  RESOLVED
+  CARRIER_COMPENSATED
+  CARRIER_REJECTED
+  CUSTOMER_COMPENSATED
+  CUSTOMER_REJECTED
+}
+
+enum ClaimSource {
+  AUTO_SLOW_JOURNEY
+  AUTO_INTERNAL_NOTE
+  FROM_DELAYED
+  FROM_RETURNS
+  FROM_ORDERS
+  MANUAL
 }
 
 model TodoItem {

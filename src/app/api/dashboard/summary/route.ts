@@ -52,7 +52,7 @@ export async function GET() {
     // Overdue claims
     prisma.claimOrder.count({
       where: {
-        claimStatus: { notIn: ["COMPENSATED", "REJECTED"] },
+        claimStatus: { notIn: ["RESOLVED", "CARRIER_COMPENSATED", "CUSTOMER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_REJECTED"] },
         deadline: { lt: new Date() }
       }
     }),

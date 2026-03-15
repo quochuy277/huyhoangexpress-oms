@@ -54,33 +54,86 @@ export function parseDelays(note: string): { time: string; date: string; reason:
 }
 
 /**
- * Extract the date of the LAST delay event from publicNotes.
- * Parses lines matching: "HH:MM - DD/MM/YYYY Hoãn giao hàng vì: ..."
- * Returns the most recent delay date, or null if no delays found.
+ * Parse a timestamp token "HH:MM - DD/MM/YYYY" into a Date object.
+ * Returns null if the format doesn't match.
+ */
+function parseTimestamp(token: string): Date | null {
+  const m = token.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, hh, mm, dd, mo, yyyy] = m;
+  const d = new Date(parseInt(yyyy), parseInt(mo) - 1, parseInt(dd), parseInt(hh), parseInt(mm));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Check if a line's event text represents a delay/return event.
+ * Matches: "Hoãn giao hàng vì:", "Xác nhận hoàn vì:", lines containing "Delay"
+ */
+function isDelayEvent(eventText: string): boolean {
+  if (eventText.startsWith('Hoãn giao hàng vì:')) return true;
+  if (eventText.startsWith('Xác nhận hoàn vì:')) return true;
+  if (eventText.includes('Delay giao hàng vì')) return true;
+  return false;
+}
+
+/**
+ * Extract the date of the MOST RECENT delay/return event from publicNotes.
+ *
+ * Data contract (verified against real DB):
+ *   - Each line format: "HH:MM - DD/MM/YYYY <Event description>"
+ *   - Notes are stored newest → oldest (top = most recent).
+ *
+ * Events considered as "delay":
+ *   - "Hoãn giao hàng vì:" — explicit delivery delay
+ *   - "Xác nhận hoàn vì:" — return confirmation (also a delay event)
+ *   - Lines containing "Delay giao hàng vì" — carrier delay entries
+ *
+ * Algorithm:
+ *   1. Split by newlines, scan line by line (top-down = newest-first).
+ *   2. Return the timestamp of the FIRST line matching any delay pattern
+ *      (first occurrence = most recent, no need to sort).
  */
 export function getLastDelayDate(publicNotes: string | null): Date | null {
   if (!publicNotes) return null;
 
-  const delays: { time: string; date: string; dateObj: Date }[] = [];
-  const regex = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*Hoãn giao hàng vì:/g;
-  let match;
+  // Regex to extract the leading timestamp + event text in one pass
+  const LINE_RE = /^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4})\s+(.*)/;
 
-  while ((match = regex.exec(publicNotes)) !== null) {
-    const [, time, day, month, year] = match;
-    const [h, m] = time.split(':').map(Number);
-    const dateObj = new Date(
-      parseInt(year),
-      parseInt(month) - 1,
-      parseInt(day),
-      h,
-      m
-    );
-    delays.push({ time, date: `${day}/${month}/${year}`, dateObj });
+  const lines = publicNotes.split('\n');
+
+  for (const line of lines) {
+    const linear = LINE_RE.exec(line);
+    if (!linear) continue;
+
+    const [, timestamp, rest] = linear;
+    if (!isDelayEvent(rest)) continue;
+
+    // Found the most-recent delay line — parse and return immediately
+    const date = parseTimestamp(timestamp.trim());
+    if (date) return date;
   }
 
-  if (delays.length === 0) return null;
-  delays.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
-  return delays[0].dateObj;
+  return null;
+}
+
+/**
+ * Get the timestamp of the very first (most recent) event in publicNotes.
+ * Used as a fallback when no "Hoãn giao hàng vì:" line exists.
+ * Notes are stored newest → oldest, so the first timestamped line = most recent event.
+ */
+export function getMostRecentTimestampFromNotes(publicNotes: string | null): Date | null {
+  if (!publicNotes) return null;
+
+  const LINE_RE = /^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4})\s+/;
+
+  for (const line of publicNotes.split('\n')) {
+    const m = LINE_RE.exec(line);
+    if (!m) continue;
+    const date = parseTimestamp(m[1].trim());
+    if (date) return date;
+  }
+
+  return null;
 }
 
 export function countDelaysInNote(note: string): number {

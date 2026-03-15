@@ -1,4 +1,4 @@
-import { PrismaClient, Role, DeliveryStatus, ClaimType, ClaimStatus, TodoStatus, Priority, AttendanceStatus } from "@prisma/client";
+import { PrismaClient, Role, DeliveryStatus, IssueType, ClaimStatus, TodoStatus, Priority, AttendanceStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -299,12 +299,12 @@ async function main() {
   // ============================================================
   // 3. Create 5 Claims
   // ============================================================
-  const claimTypes = [ClaimType.LOST, ClaimType.DAMAGED, ClaimType.WRONG_ITEM, ClaimType.SHORTAGE, ClaimType.DELAY];
+  const claimTypes = [IssueType.LOST, IssueType.DAMAGED, IssueType.SLOW_JOURNEY, IssueType.SUSPICIOUS, IssueType.OTHER];
   const claimDescriptions = [
     "Đơn hàng bị mất trong quá trình vận chuyển",
     "Hàng bị hư hỏng khi giao đến khách",
-    "Giao sai sản phẩm cho khách hàng",
-    "Thiếu hàng trong kiện - khách chỉ nhận được 2/3 sản phẩm",
+    "Hành trình chậm quá quy định",
+    "Nghi ngờ gian lận đơn hàng",
     "Giao hàng trễ hơn 7 ngày so với cam kết",
   ];
 
@@ -319,14 +319,12 @@ async function main() {
       update: {},
       create: {
         orderId: (await prisma.order.findUnique({ where: { requestCode: order.requestCode } }))!.id,
-        claimType: claimTypes[i],
-        claimStatus: i === 0 ? ClaimStatus.PENDING : i === 1 ? ClaimStatus.SUBMITTED : i === 2 ? ClaimStatus.IN_REVIEW : i === 3 ? ClaimStatus.APPROVED : ClaimStatus.COMPENSATED,
+        issueType: claimTypes[i],
+        claimStatus: i === 0 ? ClaimStatus.PENDING : i === 1 ? ClaimStatus.VERIFYING_CARRIER : i === 2 ? ClaimStatus.CLAIM_SUBMITTED : i === 3 ? ClaimStatus.RESOLVED : ClaimStatus.CARRIER_COMPENSATED,
         issueDescription: claimDescriptions[i],
-        claimAmount: order.codAmount * 0.5,
-        compensationAmount: i >= 3 ? order.codAmount * 0.3 : null,
-        deadline: new Date(Date.now() + (i - 2) * 24 * 3600 * 1000), // Some overdue, some upcoming
-        submittedDate: i >= 1 ? new Date(Date.now() - 5 * 24 * 3600 * 1000) : null,
-        resolvedDate: i >= 3 ? new Date() : null,
+        carrierCompensation: i >= 3 ? order.codAmount * 0.3 : 0,
+        customerCompensation: 0,
+        deadline: new Date(Date.now() + (i - 2) * 24 * 3600 * 1000),
         createdById: staff1.id,
       },
     });

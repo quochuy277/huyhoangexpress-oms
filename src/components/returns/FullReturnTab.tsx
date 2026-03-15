@@ -7,34 +7,16 @@ import {
 import { AlertTriangle, CheckSquare, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { parseDelays } from "@/lib/delay-analyzer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReturnFilters } from "./ReturnFilterPanel";
 import { ReturnOrder } from "@/types/returns";
 import { format } from "date-fns";
 
-function parseVietnameseDate(dateStr: string): Date | null {
-  // Parse "DD/MM/YYYY" → Date
-  const parts = dateStr.split("/");
-  if (parts.length !== 3) return null;
-  const [d, m, y] = parts.map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function getLastDelayDate(publicNotes: string | null, lastUpdated: string | null): Date | null {
-  const delays = parseDelays(publicNotes || "");
-  if (delays.length > 0) {
-    const last = delays[delays.length - 1];
-    const parsed = parseVietnameseDate(last.date);
-    if (parsed) return parsed;
-  }
-  return lastUpdated ? new Date(lastUpdated) : null;
-}
-
-function getDaysReturning(date: Date | null): number {
-  if (!date) return 0;
-  return Math.floor((Date.now() - date.getTime()) / 86400000);
+function parseLastDelayDate(iso: string | null): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 function DaysBadge({ days }: { days: number }) {
@@ -78,8 +60,7 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
     }
     if (filters.shopName && o.shopName !== filters.shopName) return false;
     if (filters.daysRange) {
-      const lastDate = getLastDelayDate(o.publicNotes, o.lastUpdated);
-      const d = getDaysReturning(lastDate);
+      const d = o.daysReturning ?? 0;
       if (filters.daysRange === "lte3" && d > 3) return false;
       if (filters.daysRange === "4to7" && (d < 4 || d > 7)) return false;
       if (filters.daysRange === "gte8" && d < 8) return false;
@@ -93,11 +74,11 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
   filtered = [...filtered].sort((a, b) => {
     let va: any, vb: any;
     if (sortKey === "daysReturning") {
-      va = getDaysReturning(getLastDelayDate(a.publicNotes, a.lastUpdated));
-      vb = getDaysReturning(getLastDelayDate(b.publicNotes, b.lastUpdated));
+      va = a.daysReturning ?? 0;
+      vb = b.daysReturning ?? 0;
     } else if (sortKey === "lastDelayDate") {
-      va = getLastDelayDate(a.publicNotes, a.lastUpdated)?.getTime() ?? 0;
-      vb = getLastDelayDate(b.publicNotes, b.lastUpdated)?.getTime() ?? 0;
+      va = parseLastDelayDate(a.lastDelayDate)?.getTime() ?? 0;
+      vb = parseLastDelayDate(b.lastDelayDate)?.getTime() ?? 0;
     } else {
       va = (a as any)[sortKey] ?? "";
       vb = (b as any)[sortKey] ?? "";
@@ -157,8 +138,8 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
               </TableRow>
             ) : (
               pageData.map((o, idx) => {
-                const lastDate = getLastDelayDate(o.publicNotes, o.lastUpdated);
-                const days = getDaysReturning(lastDate);
+                const lastDate = parseLastDelayDate(o.lastDelayDate);
+                const days = o.daysReturning ?? 0;
                 return (
                   <TableRow key={o.requestCode} className="border-b border-slate-100 hover:bg-slate-50/50">
                     <TableCell className="text-center font-medium text-slate-500 text-[12px] px-1">
