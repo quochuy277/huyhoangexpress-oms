@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 
 interface Props {
   params: Promise<{ requestCode: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -16,8 +17,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Đơn hàng ${requestCode}` };
 }
 
-export default async function OrderDetailPage({ params }: Props) {
+export default async function OrderDetailPage({ params, searchParams }: Props) {
   const { requestCode } = await params;
+  const { from } = await searchParams;
 
   const session = await auth();
   const userRole = session?.user?.role || "VIEWER";
@@ -133,7 +135,7 @@ export default async function OrderDetailPage({ params }: Props) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <BackButton />
+        <BackButton from={from} />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-slate-800">

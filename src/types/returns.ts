@@ -24,4 +24,6 @@ export type ReturnOrder = {
   // computed server-side
   lastDelayDate: string | null;
   daysReturning: number;
+  // claim info (left join)
+  claimOrder?: { issueType: string } | null;
 };

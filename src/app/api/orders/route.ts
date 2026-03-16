@@ -129,6 +129,7 @@ export async function GET(req: NextRequest) {
         revenue: true,
         carrierName: true,
         receiverProvince: true,
+        claimOrder: { select: { issueType: true } },
       },
       orderBy: { [safeSortBy]: sortOrder },
       skip,

@@ -7,23 +7,55 @@ import { ReturnOrder } from "@/types/returns";
 import { FullReturnTab } from "@/components/returns/FullReturnTab";
 import { WaitingReturnTab } from "@/components/returns/WaitingReturnTab";
 import { ReturnFilterPanel, ReturnFilters } from "@/components/returns/ReturnFilterPanel";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 type TabKey = "partial" | "full" | "warehouse";
+const VALID_TABS: TabKey[] = ["partial", "full", "warehouse"];
 
 export default function ReturnsPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("partial");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Read initial state from URL
+  const tabParam = searchParams.get("tab");
+  const initialTab: TabKey = VALID_TABS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "partial";
+
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [partialData, setPartialData] = useState<ReturnOrder[]>([]);
   const [fullData, setFullData] = useState<ReturnOrder[]>([]);
   const [warehouseData, setWarehouseData] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState<ReturnFilters>({
-    search: "",
-    shopName: "",
-    daysRange: "",
-    hasNotes: "",
-    confirmAsked: "",
+    search: searchParams.get("search") || "",
+    shopName: searchParams.get("shop") || "",
+    daysRange: searchParams.get("days") || "",
+    hasNotes: searchParams.get("notes") || "",
+    confirmAsked: searchParams.get("confirm") || "",
   });
+
+  // Sync state to URL when tab or filters change
+  const updateUrl = useCallback((tab: TabKey, f: ReturnFilters) => {
+    const params = new URLSearchParams();
+    params.set("tab", tab);
+    if (f.search) params.set("search", f.search);
+    if (f.shopName) params.set("shop", f.shopName);
+    if (f.daysRange) params.set("days", f.daysRange);
+    if (f.hasNotes) params.set("notes", f.hasNotes);
+    if (f.confirmAsked) params.set("confirm", f.confirmAsked);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router]);
+
+  const handleSetActiveTab = useCallback((tab: TabKey) => {
+    setActiveTab(tab);
+    updateUrl(tab, filters);
+  }, [filters, updateUrl]);
+
+  const handleSetFilters = useCallback((f: ReturnFilters) => {
+    setFilters(f);
+    updateUrl(activeTab, f);
+  }, [activeTab, updateUrl]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -133,7 +165,7 @@ export default function ReturnsPage() {
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => handleSetActiveTab(t.key)}
             style={{
               background: activeTab === t.key ? t.bgColor : "#fff",
               border: `1.5px solid ${activeTab === t.key ? t.borderColor : "#e5e7eb"}`,
@@ -168,7 +200,7 @@ export default function ReturnsPage() {
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => handleSetActiveTab(t.key)}
             style={{
               padding: "10px 20px",
               fontSize: "13px",
@@ -217,7 +249,7 @@ export default function ReturnsPage() {
       {/* Filters */}
       <ReturnFilterPanel
         filters={filters}
-        onChange={setFilters}
+        onChange={handleSetFilters}
         shopNames={allShopNames}
         activeTab={activeTab}
       />

@@ -69,6 +69,9 @@ export async function detectInternalNoteIssues(): Promise<string[]> {
     where: {
       claimOrder: null,
       claimLocked: false,
+      deliveryStatus: {
+        notIn: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"],
+      },
       OR: [
         { internalNotes: { contains: "yêu cầu khiếu nại", mode: "insensitive" } },
         { internalNotes: { contains: "yêu cầu đền bù", mode: "insensitive" } },

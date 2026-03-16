@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { DelayedStatsCards } from "@/components/delayed/DelayedStatsCards";
 import { DelayDistributionChart } from "@/components/delayed/DelayDistributionChart";
@@ -9,8 +9,13 @@ import { DelayReasonChart } from "@/components/delayed/DelayReasonChart";
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
 import { PackageX } from "lucide-react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 export default function DelayedOrdersPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const { data, isLoading, error } = useQuery<{
     success: boolean;
     data: {
@@ -24,16 +29,41 @@ export default function DelayedOrdersPage() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
-    refetchInterval: 300000, // Refresh every 5 minutes
+    refetchInterval: 300000,
   });
 
-  // Filtering states
-  const [searchTerm, setSearchTerm] = useState("");
-  const [shopFilter, setShopFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [delayCountFilter, setDelayCountFilter] = useState("");
-  const [reasonFilter, setReasonFilter] = useState("");
-  const [riskFilter, setRiskFilter] = useState<string>("all");
+  // Read initial filter state from URL
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [shopFilter, setShopFilter] = useState(searchParams.get("shop") || "");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "");
+  const [delayCountFilter, setDelayCountFilter] = useState(searchParams.get("delay") || "");
+  const [reasonFilter, setReasonFilter] = useState(searchParams.get("reason") || "");
+  const [riskFilter, setRiskFilter] = useState<string>(searchParams.get("risk") || "all");
+
+  // Sync state to URL
+  const updateUrl = useCallback((overrides: Record<string, string>) => {
+    const current = {
+      search: searchTerm, shop: shopFilter, status: statusFilter,
+      delay: delayCountFilter, reason: reasonFilter, risk: riskFilter,
+      ...overrides,
+    };
+    const params = new URLSearchParams();
+    if (current.search) params.set("search", current.search);
+    if (current.shop) params.set("shop", current.shop);
+    if (current.status) params.set("status", current.status);
+    if (current.delay) params.set("delay", current.delay);
+    if (current.reason) params.set("reason", current.reason);
+    if (current.risk && current.risk !== "all") params.set("risk", current.risk);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? "?" + qs : ""}`, { scroll: false });
+  }, [searchTerm, shopFilter, statusFilter, delayCountFilter, reasonFilter, riskFilter, pathname, router]);
+
+  const handleSearchTerm = useCallback((v: string) => { setSearchTerm(v); updateUrl({ search: v }); }, [updateUrl]);
+  const handleShopFilter = useCallback((v: string) => { setShopFilter(v); updateUrl({ shop: v }); }, [updateUrl]);
+  const handleStatusFilter = useCallback((v: string) => { setStatusFilter(v); updateUrl({ status: v }); }, [updateUrl]);
+  const handleDelayCountFilter = useCallback((v: string) => { setDelayCountFilter(v); updateUrl({ delay: v }); }, [updateUrl]);
+  const handleReasonFilter = useCallback((v: string) => { setReasonFilter(v); updateUrl({ reason: v }); }, [updateUrl]);
+  const handleRiskFilter = useCallback((v: string) => { setRiskFilter(v); updateUrl({ risk: v }); }, [updateUrl]);
 
   const orders = data?.data?.orders || [];
   const baseStats = data?.data?.stats;
@@ -116,12 +146,12 @@ export default function DelayedOrdersPage() {
             <DelayedFilterPanel 
               orders={orders}
               filteredOrders={filteredOrders}
-              searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-              shopFilter={shopFilter} setShopFilter={setShopFilter}
-              statusFilter={statusFilter} setStatusFilter={setStatusFilter}
-              delayCountFilter={delayCountFilter} setDelayCountFilter={setDelayCountFilter}
-              reasonFilter={reasonFilter} setReasonFilter={setReasonFilter}
-              riskFilter={riskFilter} setRiskFilter={setRiskFilter}
+              searchTerm={searchTerm} setSearchTerm={handleSearchTerm}
+              shopFilter={shopFilter} setShopFilter={handleShopFilter}
+              statusFilter={statusFilter} setStatusFilter={handleStatusFilter}
+              delayCountFilter={delayCountFilter} setDelayCountFilter={handleDelayCountFilter}
+              reasonFilter={reasonFilter} setReasonFilter={handleReasonFilter}
+              riskFilter={riskFilter} setRiskFilter={handleRiskFilter}
             />
             
             <div className="flex-1 overflow-hidden">

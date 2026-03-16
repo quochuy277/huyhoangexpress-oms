@@ -22,6 +22,7 @@ export type RawOrder = {
 };
 
 export type ProcessedDelayedOrder = {
+  id: string;
   requestCode: string;
   customerOrderCode: string;
   carrierOrderCode: string;
@@ -41,6 +42,7 @@ export type ProcessedDelayedOrder = {
   risk: 'high' | 'medium' | 'low';
   riskScore: number;
   staffNotes: string;
+  claimOrder?: { issueType: string } | null;
 };
 
 export function parseDelays(note: string): { time: string; date: string; reason: string }[] {
@@ -252,6 +254,7 @@ export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
   ].filter(Boolean);
 
   return {
+    id: (order as any).id || '',
     requestCode: order.requestCode,
     customerOrderCode: order.customerOrderCode || '',
     carrierOrderCode: order.carrierOrderCode || '',
@@ -271,5 +274,6 @@ export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
     risk,
     riskScore: risk === 'high' ? 3 : risk === 'medium' ? 2 : 1,
     staffNotes: order.staffNotes || '',
+    claimOrder: (order as any).claimOrder || null,
   };
 }

@@ -16,13 +16,15 @@ import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { CopyOrderButton } from "./CopyOrderButton";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { ClaimBadge } from "@/components/shared/ClaimBadge";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 
 
 export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
@@ -136,9 +138,20 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
 
                     {/* Mã yêu cầu */}
                     <TableCell className="font-bold text-slate-800 text-[11px] px-2 overflow-hidden text-ellipsis whitespace-nowrap" title={o.requestCode}>
-                      <Link href={`/orders/${o.requestCode}`} className="hover:text-blue-600 hover:underline font-mono">
-                        {o.requestCode}
-                      </Link>
+                      <div className="flex flex-col gap-0.5">
+                        {o.claimOrder && <ClaimBadge issueType={o.claimOrder.issueType} />}
+                        <a
+                          href={`/orders/${o.requestCode}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const currentUrl = `${pathname}?${searchParams.toString()}`;
+                            router.push(`/orders/${o.requestCode}?from=${encodeURIComponent(currentUrl)}`);
+                          }}
+                          className="hover:text-blue-600 hover:underline font-mono cursor-pointer"
+                        >
+                          {o.requestCode}
+                        </a>
+                      </div>
                     </TableCell>
 
                     {/* Cửa hàng */}
@@ -298,7 +311,7 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
       <AddClaimFromPageDialog
         open={!!claimDelayedOrder}
         onClose={() => setClaimDelayedOrder(null)}
-        order={claimDelayedOrder ? { id: "", requestCode: claimDelayedOrder.requestCode, carrierName: claimDelayedOrder.carrierName, shopName: claimDelayedOrder.shopName, codAmount: claimDelayedOrder.codAmount } : undefined}
+        order={claimDelayedOrder ? { id: claimDelayedOrder.id, requestCode: claimDelayedOrder.requestCode, carrierName: claimDelayedOrder.carrierName, shopName: claimDelayedOrder.shopName, codAmount: claimDelayedOrder.codAmount } : undefined}
         source="FROM_DELAYED"
       />
     </div>

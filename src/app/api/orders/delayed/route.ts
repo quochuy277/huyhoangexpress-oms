@@ -24,6 +24,7 @@ export async function GET() {
         ]
       },
       select: {
+        id: true,
         requestCode: true,
         customerOrderCode: true,
         carrierOrderCode: true,

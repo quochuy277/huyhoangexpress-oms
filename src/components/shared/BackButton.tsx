@@ -3,11 +3,24 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-export function BackButton() {
+interface BackButtonProps {
+  from?: string;
+}
+
+export function BackButton({ from }: BackButtonProps) {
   const router = useRouter();
+
+  const handleBack = () => {
+    if (from) {
+      router.push(from);
+    } else {
+      router.back();
+    }
+  };
+
   return (
     <button
-      onClick={() => router.back()}
+      onClick={handleBack}
       className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
       aria-label="Quay lại"
     >

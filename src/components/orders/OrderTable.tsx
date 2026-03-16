@@ -7,6 +7,7 @@ import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X } from "lucide-react";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
+import { ClaimBadge } from "@/components/shared/ClaimBadge";
 import type { DeliveryStatus, Priority } from "@prisma/client";
 
 interface OrderRow {
@@ -25,6 +26,7 @@ interface OrderRow {
   revenue: number; // Used for something? No, removed from display.
   receiverPhone: string | null;
   receiverName: string | null;
+  claimOrder?: { issueType: string } | null;
 }
 
 interface ApiResponse {
@@ -221,17 +223,20 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                   )}
                   {/* Mã Yêu Cầu */}
                   <td className="px-3 py-2.5">
-                    <button
-                      onClick={() => router.push(`/orders/${order.requestCode}`)}
-                      className="font-mono text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
-                    >
-                      {order.requestCode}
-                    </button>
+                    <div className="flex flex-col gap-0.5">
+                      {order.claimOrder && <ClaimBadge issueType={order.claimOrder.issueType} />}
+                      <button
+                        onClick={() => router.push(`/orders/${order.requestCode}?from=${encodeURIComponent(`${pathname}?${searchParams.toString()}`)}`)}
+                        className="font-mono text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                      >
+                        {order.requestCode}
+                      </button>
+                    </div>
                   </td>
                   {/* Mã Đơn Đối Tác */}
                   <td className="px-3 py-2.5">
                     <button
-                      onClick={() => router.push(`/orders/${order.requestCode}`)}
+                      onClick={() => router.push(`/orders/${order.requestCode}?from=${encodeURIComponent(`${pathname}?${searchParams.toString()}`)}`)}
                       className="block w-full text-slate-700 truncate max-w-[140px] font-mono text-xs hover:text-blue-600 text-left"
                     >
                       {order.carrierOrderCode || "—"}
@@ -240,7 +245,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                   {/* Tên Cửa Hàng */}
                   <td className="px-3 py-2.5">
                     <button
-                      onClick={() => router.push(`/orders/${order.requestCode}`)}
+                      onClick={() => router.push(`/orders/${order.requestCode}?from=${encodeURIComponent(`${pathname}?${searchParams.toString()}`)}`)}
                       className="block w-full text-slate-700 truncate max-w-[180px] text-left"
                     >
                       {order.shopName || "—"}

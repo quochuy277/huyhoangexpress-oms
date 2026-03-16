@@ -4,11 +4,13 @@ import { useState } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, CheckSquare, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { Flag, CheckSquare, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
+import { ClaimBadge } from "@/components/shared/ClaimBadge";
+
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ReturnFilters } from "./ReturnFilterPanel";
 import { ReturnOrder } from "@/types/returns";
 import { format } from "date-fns";
@@ -42,11 +44,14 @@ interface Props {
 
 export function FullReturnTab({ data, filters, pageSize }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<string>("daysReturning");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [todoOrder, setTodoOrder] = useState<ReturnOrder | null>(null);
   const [todoDays, setTodoDays] = useState(0);
+  const [claimReturnOrder, setClaimReturnOrder] = useState<ReturnOrder | null>(null);
 
   // Filter
   let filtered = data.filter((o) => {
@@ -146,7 +151,18 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
                       {(currentPage - 1) * pageSize + idx + 1}
                     </TableCell>
                     <TableCell className="font-bold text-slate-800 text-[11px] px-2 truncate" title={o.requestCode}>
-                      <Link href={`/orders/${o.requestCode}`} className="hover:text-blue-600 hover:underline font-mono">{o.requestCode}</Link>
+                      <div className="flex flex-col gap-0.5">
+                        {o.claimOrder && <ClaimBadge issueType={o.claimOrder.issueType} />}
+                        <a
+                          href={`/orders/${o.requestCode}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const currentUrl = `${pathname}?${searchParams.toString()}`;
+                            router.push(`/orders/${o.requestCode}?from=${encodeURIComponent(currentUrl)}`);
+                          }}
+                          className="hover:text-blue-600 hover:underline font-mono cursor-pointer"
+                        >{o.requestCode}</a>
+                      </div>
                     </TableCell>
                     <TableCell className="text-slate-700 text-[11px] px-2 truncate">{o.carrierOrderCode || "-"}</TableCell>
                     <TableCell className="text-slate-700 text-[12px] px-2 truncate" title={o.shopName || ""}>{o.shopName || "-"}</TableCell>
@@ -163,11 +179,11 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
                     <TableCell className="px-1">
                       <div className="flex items-center gap-1 justify-center">
                         <button
-                          onClick={() => router.push(`/claims/new?requestCode=${o.requestCode}`)}
+                          onClick={() => setClaimReturnOrder(o)}
                           className="p-1 w-7 h-7 flex items-center justify-center text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
-                          title="Khiếu nại/Bồi hoàn"
+                          title="Chuyển vào Đơn có vấn đề"
                         >
-                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <Flag className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => { setTodoOrder(o); setTodoDays(days); }}
@@ -215,6 +231,14 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
           defaultPriority={getPriority(todoDays)}
         />
       )}
+
+      {/* Claim Dialog */}
+      <AddClaimFromPageDialog
+        open={!!claimReturnOrder}
+        onClose={() => setClaimReturnOrder(null)}
+        order={claimReturnOrder ? { id: claimReturnOrder.id, requestCode: claimReturnOrder.requestCode, shopName: claimReturnOrder.shopName, codAmount: claimReturnOrder.codAmount } : undefined}
+        source="FROM_RETURNS"
+      />
     </>
   );
 }
