@@ -307,6 +307,7 @@ model ClaimOrder {
 
   // Status change history
   statusHistory        ClaimStatusHistory[]
+  changeLogs           ClaimChangeLog[]
 
   @@index([issueType])
   @@index([claimStatus])
@@ -323,6 +324,19 @@ model ClaimStatusHistory {
   changedBy     String
   changedAt     DateTime     @default(now())
   note          String?
+
+  @@index([claimOrderId])
+}
+
+model ClaimChangeLog {
+  id            String     @id @default(cuid())
+  claimOrder    ClaimOrder @relation(fields: [claimOrderId], references: [id], onDelete: Cascade)
+  claimOrderId  String
+  fieldName     String     // "issueType", "issueDescription", "claimStatus", "processingContent", etc.
+  oldValue      String?
+  newValue      String?
+  changedBy     String
+  changedAt     DateTime   @default(now())
 
   @@index([claimOrderId])
 }

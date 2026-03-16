@@ -67,6 +67,14 @@ export async function GET(req: NextRequest) {
       orderBy = { detectedDate: sortDir };
     } else if (sortBy === "claimStatus") {
       orderBy = { claimStatus: sortDir };
+    } else if (sortBy === "issueType") {
+      orderBy = { issueType: sortDir };
+    } else if (sortBy === "shopName") {
+      orderBy = { order: { shopName: sortDir } };
+    } else if (sortBy === "status") {
+      orderBy = { order: { status: sortDir } };
+    } else if (sortBy === "codAmount") {
+      orderBy = { order: { codAmount: sortDir } };
     } else {
       orderBy = { deadline: "asc" };
     }

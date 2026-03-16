@@ -6,10 +6,11 @@ import {
   Search, Plus, Download, X, ChevronLeft, ChevronRight,
   AlertTriangle, Eye, CheckSquare, Check, Loader2,
   FileText, Clock, Ban, Zap, HelpCircle, Package, ShieldAlert,
-  ChevronDown, Calendar, RotateCcw
+  ChevronDown, Calendar, RotateCcw, MessageSquare, Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 
 /* ============================================================
    CONSTANTS & HELPERS
@@ -322,117 +323,342 @@ function AddClaimDialog({
 }
 
 /* ============================================================
-   DETAIL PANEL
+   FIELD LABEL MAP for change history display
+   ============================================================ */
+const FIELD_LABEL_MAP: Record<string, string> = {
+  claimStatus: "Trạng thái xử lý",
+  issueType: "Loại vấn đề",
+  issueDescription: "Nội dung vấn đề",
+  processingContent: "Nội dung xử lý",
+  carrierCompensation: "NVC đền bù",
+  customerCompensation: "Đền bù KH",
+  deadline: "Thời hạn",
+};
+
+function getDisplayValue(fieldName: string, value: string | null): string {
+  if (!value) return "—";
+  if (fieldName === "claimStatus") return CLAIM_STATUS_CONFIG[value]?.label || value;
+  if (fieldName === "issueType") return ISSUE_TYPE_CONFIG[value]?.label || value;
+  if (fieldName === "carrierCompensation" || fieldName === "customerCompensation") return formatVND(parseFloat(value) || 0);
+  if (fieldName === "deadline") {
+    try { return format(new Date(value), "dd/MM/yyyy"); } catch { return value; }
+  }
+  return value.length > 50 ? value.slice(0, 50) + "..." : value;
+}
+
+/* ============================================================
+   DETAIL PANEL — Redesigned 700px with inline editing
    ============================================================ */
 function ClaimDetailPanel({
-  claimId, open, onClose,
-}: { claimId: string; open: boolean; onClose: () => void }) {
+  claimId, open, onClose, onUpdate,
+}: { claimId: string; open: boolean; onClose: () => void; onUpdate?: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const fetchDetail = useCallback(() => {
+    if (!claimId) return;
+    setLoading(true);
+    fetch(`/api/claims/${claimId}`)
+      .then(r => r.json())
+      .then(d => setData(d))
+      .finally(() => setLoading(false));
+  }, [claimId]);
 
   useEffect(() => {
-    if (open && claimId) {
-      setLoading(true);
-      fetch(`/api/claims/${claimId}`)
-        .then(r => r.json())
-        .then(d => setData(d))
-        .finally(() => setLoading(false));
+    if (open && claimId) fetchDetail();
+  }, [open, claimId, fetchDetail]);
+
+  const saveField = async (field: string, value: any) => {
+    setSaving(true);
+    try {
+      await fetch(`/api/claims/${claimId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      fetchDetail();
+      onUpdate?.();
+    } finally {
+      setSaving(false);
     }
-  }, [open, claimId]);
+  };
 
   if (!open) return null;
 
   const statusCfg = data ? CLAIM_STATUS_CONFIG[data.claimStatus] : null;
+  const canEditCarrierComp = data?.claimStatus === "CARRIER_COMPENSATED";
+  const canEditCustomerComp = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"].includes(data?.claimStatus);
+
+  // Merge statusHistory + changeLogs into unified timeline
+  const timeline: any[] = [];
+  if (data?.statusHistory) {
+    data.statusHistory.forEach((h: any) => {
+      timeline.push({ type: "status", ...h });
+    });
+  }
+  if (data?.changeLogs) {
+    data.changeLogs.forEach((l: any) => {
+      if (l.fieldName !== "claimStatus") { // status changes already in statusHistory
+        timeline.push({ type: "change", ...l });
+      }
+    });
+  }
+  timeline.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
+
+  const sectionTitle = (icon: React.ReactNode, title: string) => (
+    <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", marginBottom: "10px", display: "flex", alignItems: "center", gap: "7px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+      {icon} {title}
+    </h3>
+  );
+
+  const infoRow = (label: string, value: React.ReactNode) => (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f1f5f9" }}>
+      <span style={{ color: "#6b7280", fontSize: "12px" }}>{label}</span>
+      <span style={{ fontWeight: 600, fontSize: "12px", color: "#1e293b", textAlign: "right", maxWidth: "55%" }}>{value}</span>
+    </div>
+  );
 
   return createPortal(
     <>
       <div style={overlayStyle} onClick={onClose} />
       <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: "520px", maxWidth: "100vw",
-        zIndex: 9999, background: "#fff", borderLeft: "1.5px solid #2563EB",
-        boxShadow: "-8px 0 30px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column",
+        position: "fixed", top: 0, right: 0, bottom: 0, width: "700px", maxWidth: "100vw",
+        zIndex: 9999, background: "#f8fafc", borderLeft: "2px solid #2563EB",
+        boxShadow: "-12px 0 40px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column",
+        animation: "slideIn 0.25s ease-out",
       }}>
-        <div style={headerStyle}>
-          <span style={titleStyle}>Chi tiết đơn có vấn đề</span>
-          <button style={closeBtnBase} onClick={onClose}><X size={18} /></button>
+        {/* Header */}
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "16px 24px", background: "#fff", borderBottom: "1px solid #e5e7eb",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ padding: "6px", borderRadius: "8px", background: "#eff6ff" }}>
+              <ShieldAlert size={18} color="#2563EB" />
+            </div>
+            <div>
+              <div style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>Chi Tiết Đơn Có Vấn Đề</div>
+              {data?.order?.requestCode && (
+                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "1px" }}>{data.order.requestCode}</div>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {saving && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
+            <button onClick={onClose} style={{ ...closeBtnBase, width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-          {loading && <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={20} /></div>}
+          {loading && <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={24} /></div>}
           {data && !loading && (
-            <>
-              {/* Section 1: Order Info */}
-              <div style={{ marginBottom: "20px" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <Package size={15} /> Thông tin đơn hàng
-                </h3>
-                <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "14px", fontSize: "13px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  <div><span style={{ color: "#6b7280" }}>Mã YC: </span><strong>{data.order?.requestCode}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>Đối tác: </span><strong>{data.order?.carrierName}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>Shop: </span><strong>{data.order?.shopName}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>COD: </span><strong style={{ color: "#059669" }}>{formatVND(data.order?.codAmount || 0)}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>Tổng phí: </span><strong>{formatVND(data.order?.totalFee || 0)}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>Trạng thái: </span><strong>{data.order?.status}</strong></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+
+              {/* === Section 1: Thông tin đơn hàng === */}
+              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+                {sectionTitle(<Package size={14} color="#2563EB" />, "Thông tin đơn hàng")}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+                  {infoRow("Mã yêu cầu", <span style={{ color: "#2563EB", fontWeight: 700 }}>{data.order?.requestCode || "—"}</span>)}
+                  {infoRow("Mã ĐT đối tác", data.order?.carrierOrderCode || "—")}
+                  {infoRow("Cửa hàng", data.order?.shopName || "—")}
+                  {infoRow("COD / Giá trị", <span style={{ color: "#059669" }}>{formatVND(data.order?.codAmount || 0)}</span>)}
+                  {infoRow("Tổng phí", formatVND(data.order?.totalFee || 0))}
+                  {infoRow("Trạng thái đơn", data.order?.status || "—")}
+                  {infoRow("Thời gian lấy hàng", data.order?.pickupTime ? format(new Date(data.order.pickupTime), "dd/MM/yyyy HH:mm") : "—")}
+                  {infoRow("Nhóm Vùng miền", data.order?.regionGroup || "—")}
                 </div>
               </div>
 
-              {/* Section 2: Issue Info */}
-              <div style={{ marginBottom: "20px" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <AlertTriangle size={15} /> Thông tin vấn đề
-                </h3>
-                <div style={{ background: "#fff7ed", borderRadius: "8px", padding: "14px", fontSize: "13px" }}>
-                  <div style={{ marginBottom: "6px" }}><span style={{ color: "#6b7280" }}>Loại: </span><span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${ISSUE_TYPE_CONFIG[data.issueType]?.bg} ${ISSUE_TYPE_CONFIG[data.issueType]?.text}`}>{ISSUE_TYPE_CONFIG[data.issueType]?.label}</span></div>
-                  {data.issueDescription && <div style={{ marginBottom: "6px" }}><span style={{ color: "#6b7280" }}>Nội dung: </span>{data.issueDescription}</div>}
-                  <div style={{ marginBottom: "6px" }}><span style={{ color: "#6b7280" }}>Ngày phát hiện: </span>{format(new Date(data.detectedDate), "dd/MM/yyyy", { locale: vi })}</div>
-                  {data.deadline && <div style={{ marginBottom: "6px" }}><span style={{ color: "#6b7280" }}>Thời hạn: </span>{format(new Date(data.deadline), "dd/MM/yyyy", { locale: vi })}</div>}
-                  <div><span style={{ color: "#6b7280" }}>Nguồn: </span>{data.source}</div>
-                </div>
-              </div>
-
-              {/* Section 3: Processing */}
-              <div style={{ marginBottom: "20px" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <FileText size={15} /> Xử lý
-                </h3>
-                <div style={{ background: "#f0fdf4", borderRadius: "8px", padding: "14px", fontSize: "13px" }}>
-                  {statusCfg && <div style={{ marginBottom: "8px" }}><span className={`inline-flex px-3 py-1 rounded-full text-[12px] font-bold ${statusCfg.bg} ${statusCfg.text}`}>{statusCfg.label}</span></div>}
-                  {data.processingContent && <div style={{ marginBottom: "8px" }} dangerouslySetInnerHTML={{ __html: data.processingContent }} />}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-                    <div><span style={{ color: "#6b7280" }}>NVC đền bù: </span><strong>{formatVND(data.carrierCompensation)}</strong></div>
-                    <div><span style={{ color: "#6b7280" }}>Đền bù KH: </span><strong>{formatVND(data.customerCompensation)}</strong></div>
+              {/* === Section 2: Thông tin vấn đề (editable) === */}
+              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #fde68a" }}>
+                {sectionTitle(<AlertTriangle size={14} color="#d97706" />, "Thông tin vấn đề")}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {/* Loại VĐ — editable select */}
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Loại vấn đề</label>
+                    <select
+                      value={data.issueType}
+                      onChange={e => saveField("issueType", e.target.value)}
+                      style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px", cursor: "pointer" }}
+                    >
+                      {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
+                        <option key={k} value={k}>{v.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Nội dung VĐ — editable textarea */}
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Nội dung vấn đề</label>
+                    <textarea
+                      defaultValue={data.issueDescription || ""}
+                      onBlur={e => {
+                        const v = e.target.value.trim();
+                        if (v !== (data.issueDescription || "")) saveField("issueDescription", v || null);
+                      }}
+                      placeholder="Mô tả chi tiết vấn đề..."
+                      style={{ ...inputStyle, minHeight: "60px", resize: "vertical", fontSize: "13px" }}
+                    />
+                  </div>
+                  {/* Read-only dates */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Ngày phát hiện</label>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
+                        {format(new Date(data.detectedDate), "dd/MM/yyyy", { locale: vi })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Ngày tồn đọng</label>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
+                        {daysBetween(data.detectedDate)} ngày
+                      </div>
+                    </div>
+                  </div>
+                  {/* Thời hạn — editable */}
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Thời hạn</label>
+                    <input
+                      type="date"
+                      defaultValue={data.deadline ? new Date(data.deadline).toISOString().split("T")[0] : ""}
+                      onChange={e => saveField("deadline", e.target.value || null)}
+                      style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Section 4: Status History */}
-              <div>
-                <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#374151", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <Clock size={15} /> Lịch sử xử lý
-                </h3>
-                <div style={{ borderLeft: "2px solid #e5e7eb", paddingLeft: "16px", marginLeft: "8px" }}>
-                  {data.statusHistory?.map((h: any, i: number) => (
-                    <div key={h.id} style={{ position: "relative", marginBottom: "16px" }}>
-                      <div style={{
-                        position: "absolute", left: "-24px", top: "2px", width: "12px", height: "12px",
-                        borderRadius: "50%", border: "2px solid",
-                        borderColor: i === 0 ? "#2563EB" : "#d1d5db",
-                        background: i === 0 ? "#2563EB" : "#fff",
-                      }} />
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a1a" }}>
-                        {CLAIM_STATUS_CONFIG[h.toStatus]?.label || h.toStatus}
-                      </div>
-                      <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
-                        {h.changedBy} — {format(new Date(h.changedAt), "dd/MM/yyyy HH:mm", { locale: vi })}
-                      </div>
-                      {h.note && <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>{h.note}</div>}
+              {/* === Section 3: Xử lý (editable) === */}
+              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #bbf7d0" }}>
+                {sectionTitle(<FileText size={14} color="#16a34a" />, "Xử lý")}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {/* TT Xử Lý — editable select */}
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Trạng thái xử lý</label>
+                    <select
+                      value={data.claimStatus}
+                      onChange={e => saveField("claimStatus", e.target.value)}
+                      style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px", cursor: "pointer" }}
+                    >
+                      {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
+                        <option key={k} value={k}>{v.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* ND XL — editable textarea */}
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Nội dung xử lý</label>
+                    <textarea
+                      defaultValue={data.processingContent || ""}
+                      onBlur={e => {
+                        const v = e.target.value.trim();
+                        if (v !== (data.processingContent || "")) saveField("processingContent", v || null);
+                      }}
+                      placeholder="Nhập nội dung xử lý..."
+                      style={{ ...inputStyle, minHeight: "60px", resize: "vertical", fontSize: "13px" }}
+                    />
+                  </div>
+                  {/* Compensation fields — conditionally editable */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>
+                        NVC đền bù
+                        {!canEditCarrierComp && <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 400 }}> (khóa)</span>}
+                      </label>
+                      {canEditCarrierComp ? (
+                        <input
+                          type="number"
+                          defaultValue={data.carrierCompensation || 0}
+                          onBlur={e => {
+                            const v = parseFloat(e.target.value) || 0;
+                            if (v !== data.carrierCompensation) saveField("carrierCompensation", v);
+                          }}
+                          min={0}
+                          style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
+                        />
+                      ) : (
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
+                          {formatVND(data.carrierCompensation || 0)}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    <div>
+                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>
+                        Đền bù KH
+                        {!canEditCustomerComp && <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 400 }}> (khóa)</span>}
+                      </label>
+                      {canEditCustomerComp ? (
+                        <input
+                          type="number"
+                          defaultValue={data.customerCompensation || 0}
+                          onBlur={e => {
+                            const v = parseFloat(e.target.value) || 0;
+                            if (v !== data.customerCompensation) saveField("customerCompensation", v);
+                          }}
+                          min={0}
+                          style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
+                        />
+                      ) : (
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
+                          {formatVND(data.customerCompensation || 0)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </>
+
+              {/* === Section 4: Lịch sử (merged timeline) === */}
+              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+                {sectionTitle(<Clock size={14} color="#6366f1" />, "Lịch sử thay đổi")}
+                {timeline.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "16px", color: "#9ca3af", fontSize: "12px" }}>Chưa có lịch sử</div>
+                ) : (
+                  <div style={{ borderLeft: "2px solid #e2e8f0", paddingLeft: "16px", marginLeft: "6px" }}>
+                    {timeline.map((item, i) => (
+                      <div key={item.id} style={{ position: "relative", marginBottom: "14px", paddingBottom: i < timeline.length - 1 ? "0" : "0" }}>
+                        <div style={{
+                          position: "absolute", left: "-23px", top: "3px", width: "10px", height: "10px",
+                          borderRadius: "50%",
+                          background: i === 0 ? (item.type === "status" ? "#2563EB" : "#8b5cf6") : "#e2e8f0",
+                          border: `2px solid ${i === 0 ? (item.type === "status" ? "#2563EB" : "#8b5cf6") : "#d1d5db"}`,
+                        }} />
+                        {item.type === "status" ? (
+                          <>
+                            <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                              <span style={{ color: "#6b7280", fontWeight: 400 }}>TT Xử lý → </span>
+                              {CLAIM_STATUS_CONFIG[item.toStatus]?.label || item.toStatus}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                            <span style={{ color: "#6b7280", fontWeight: 400 }}>{FIELD_LABEL_MAP[item.fieldName] || item.fieldName}: </span>
+                            <span style={{ color: "#dc2626", textDecoration: "line-through", marginRight: "4px" }}>
+                              {getDisplayValue(item.fieldName, item.oldValue)}
+                            </span>
+                            → <span style={{ color: "#059669" }}>
+                              {getDisplayValue(item.fieldName, item.newValue)}
+                            </span>
+                          </div>
+                        )}
+                        <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
+                          {item.changedBy} — {format(new Date(item.changedAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                        </div>
+                        {item.note && <div style={{ fontSize: "11px", color: "#9ca3af", fontStyle: "italic" }}>{item.note}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
           )}
         </div>
       </div>
+      <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity:0 } to { transform: translateX(0); opacity:1 } }`}</style>
     </>,
     document.body
   );
@@ -596,6 +822,10 @@ export default function ClaimsClient() {
   const [detailClaimId, setDetailClaimId] = useState<string | null>(null);
   const [processingPopup, setProcessingPopup] = useState<{ id: string; content: string } | null>(null);
 
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
   // Auto-detect
   const [detecting, setDetecting] = useState(false);
 
@@ -658,10 +888,96 @@ export default function ClaimsClient() {
     fetchClaims();
   };
 
+  const handleInlineEditField = async (claimId: string, field: string, value: string | null) => {
+    await fetch(`/api/claims/${claimId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    fetchClaims();
+  };
+
+  const handleDelete = async (claimId: string, requestCode: string) => {
+    if (!confirm(`Xác nhận xóa đơn ${requestCode} khỏi danh sách có vấn đề?`)) return;
+    try {
+      const res = await fetch(`/api/claims/${claimId}`, { method: "DELETE" });
+      if (!res.ok) { const err = await res.json(); alert(`Lỗi: ${err.error || "Không thể xóa"}`); return; }
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(claimId); return n; });
+      fetchClaims();
+      alert(`Đã xóa đơn ${requestCode} thành công!`);
+    } catch (e) {
+      alert("Lỗi kết nối. Vui lòng thử lại.");
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === claims.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(claims.map(c => c.id)));
+    }
+  };
+
+  const handleBulkAction = async (field: string, value: string) => {
+    if (selectedIds.size === 0) return;
+    setBulkProcessing(true);
+    try {
+      await fetch("/api/claims/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selectedIds], [field]: value }),
+      });
+      setSelectedIds(new Set());
+      fetchClaims();
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Xác nhận xóa ${selectedIds.size} đơn được chọn?`)) return;
+    const count = selectedIds.size;
+    setBulkProcessing(true);
+    try {
+      const res = await fetch("/api/claims/bulk", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      });
+      if (!res.ok) { const err = await res.json(); alert(`Lỗi: ${err.error || "Không thể xóa"}`); return; }
+      setSelectedIds(new Set());
+      fetchClaims();
+      alert(`Đã xóa ${count} đơn thành công!`);
+    } catch (e) {
+      alert("Lỗi kết nối. Vui lòng thử lại.");
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
   const toggleIssueFilter = (type: string) => {
     setFilterIssueType(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const toggleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortDir(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortDir("asc");
+    }
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
@@ -760,25 +1076,152 @@ export default function ClaimsClient() {
         </label>
       </div>
 
+      {/* Keyframe for InlineStaffNote save animation */}
+      <style>{`@keyframes fadeInOut { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1)} 75%{opacity:1} 100%{opacity:0;transform:scale(0.8)} }`}</style>
+
+      {/* Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px",
+          marginBottom: "10px", background: "#eff6ff", border: "1.5px solid #93c5fd",
+          borderRadius: "10px", fontSize: "13px", flexWrap: "wrap",
+        }}>
+          <span style={{ fontWeight: 700, color: "#1d4ed8" }}>
+            ✓ Đã chọn {selectedIds.size} đơn
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "12px", color: "#4b5563" }}>Loại VĐ:</span>
+            <select
+              onChange={e => { if (e.target.value) { handleBulkAction("issueType", e.target.value); e.target.value = ""; } }}
+              disabled={bulkProcessing}
+              style={{
+                border: "1px solid #93c5fd", borderRadius: "6px", padding: "4px 8px",
+                fontSize: "12px", background: "#fff", cursor: "pointer", outline: "none",
+              }}
+            >
+              <option value="">— Chọn —</option>
+              {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "12px", color: "#4b5563" }}>TT Xử Lý:</span>
+            <select
+              onChange={e => { if (e.target.value) { handleBulkAction("claimStatus", e.target.value); e.target.value = ""; } }}
+              disabled={bulkProcessing}
+              style={{
+                border: "1px solid #93c5fd", borderRadius: "6px", padding: "4px 8px",
+                fontSize: "12px", background: "#fff", cursor: "pointer", outline: "none",
+              }}
+            >
+              <option value="">— Chọn —</option>
+              {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkProcessing}
+            style={{
+              display: "flex", alignItems: "center", gap: "4px", padding: "5px 12px",
+              border: "1px solid #fca5a5", borderRadius: "6px", background: "#fef2f2",
+              color: "#dc2626", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            <Trash2 size={13} /> Xóa {selectedIds.size} đơn
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            style={{
+              background: "none", border: "none", color: "#6b7280", fontSize: "12px",
+              cursor: "pointer", textDecoration: "underline",
+            }}
+          >
+            Bỏ chọn
+          </button>
+          {bulkProcessing && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
+        </div>
+      )}
+
       {/* Table */}
-      <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "32px" }} />   {/* Checkbox */}
+            <col style={{ width: "36px" }} />   {/* STT */}
+            <col style={{ width: "105px" }} />  {/* Mã YC */}
+            <col style={{ width: "90px" }} />   {/* Mã ĐT */}
+            <col style={{ width: "90px" }} />   {/* Tên CH */}
+            <col style={{ width: "85px" }} />   {/* TT Đơn */}
+            <col style={{ width: "80px" }} />   {/* COD */}
+            <col style={{ width: "90px" }} />   {/* Loại VĐ */}
+            <col style={{ width: "120px" }} />  {/* ND VĐ */}
+            <col style={{ width: "70px" }} />   {/* Ngày PH */}
+            <col style={{ width: "55px" }} />   {/* Ngày TĐ */}
+            <col style={{ width: "105px" }} />  {/* TT Xử Lý */}
+            <col style={{ width: "55px" }} />   {/* ND XL */}
+            <col style={{ width: "85px" }} />   {/* Thời Hạn */}
+            <col style={{ width: "120px" }} />  {/* Thao Tác */}
+          </colgroup>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
-              {["STT", "Mã Yêu Cầu", "Mã ĐT", "Đối Tác", "Tên Cửa Hàng", "Trạng Thái Đơn", "COD/Giá Trị", "Tổng Phí", "Loại VĐ", "Nội Dung VĐ", "Ngày PH", "Ngày TĐ", "TT Xử Lý", "ND XL", "NVC Đền Bù", "Đền Bù KH", "Thời Hạn", "Ghi Chú", "Thao Tác"].map((h, i) => (
-                <th key={i} style={{
-                  padding: "10px 8px", textAlign: i >= 6 && i <= 7 || i >= 14 && i <= 15 ? "right" : "left",
-                  fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase",
-                  letterSpacing: "0.05em", whiteSpace: "nowrap",
-                }}>{h}</th>
+              <th style={{ padding: "8px 4px", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={claims.length > 0 && selectedIds.size === claims.length}
+                  onChange={toggleSelectAll}
+                  style={{ accentColor: "#2563EB", cursor: "pointer" }}
+                />
+              </th>
+              {([
+                { label: "STT", sortField: null, align: "left" },
+                { label: "Mã YC", sortField: null, align: "left" },
+                { label: "Mã ĐT", sortField: null, align: "left" },
+                { label: "Cửa Hàng", sortField: "shopName", align: "left" },
+                { label: "TT Đơn", sortField: "status", align: "left" },
+                { label: "COD", sortField: "codAmount", align: "right" },
+                { label: "Loại VĐ", sortField: "issueType", align: "left" },
+                { label: "ND VĐ", sortField: null, align: "left" },
+                { label: "Ngày PH", sortField: "detectedDate", align: "left" },
+                { label: "Ngày TĐ", sortField: "detectedDate", align: "left" },
+                { label: "TT Xử Lý", sortField: "claimStatus", align: "left" },
+                { label: "ND XL", sortField: null, align: "left" },
+                { label: "Thời Hạn", sortField: "deadline", align: "left" },
+                { label: "Thao Tác", sortField: null, align: "left" },
+              ] as { label: string; sortField: string | null; align: string }[]).map((col, i) => (
+                <th
+                  key={i}
+                  onClick={col.sortField ? () => toggleSort(col.sortField!) : undefined}
+                  style={{
+                    padding: "8px 4px",
+                    textAlign: col.align as any,
+                    fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase",
+                    letterSpacing: "0.05em", whiteSpace: "nowrap", overflow: "hidden",
+                    cursor: col.sortField ? "pointer" : "default",
+                    userSelect: "none",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => { if (col.sortField) e.currentTarget.style.background = "#eef2f7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  {col.label}
+                  {col.sortField && sortBy === col.sortField && (
+                    <span style={{ marginLeft: "3px", color: "#2563EB" }}>{sortDir === "asc" ? "↑" : "↓"}</span>
+                  )}
+                  {col.sortField && sortBy !== col.sortField && (
+                    <ChevronDown size={10} style={{ marginLeft: "2px", opacity: 0.3, display: "inline-block", verticalAlign: "middle" }} />
+                  )}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={19} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Đang tải...</td></tr>
+              <tr><td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Đang tải...</td></tr>
             ) : claims.length === 0 ? (
-              <tr><td colSpan={19} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>Không có đơn nào</td></tr>
+              <tr><td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>Không có đơn nào</td></tr>
             ) : (
               claims.map((c: any, idx: number) => {
                 const daysPending = daysBetween(c.detectedDate);
@@ -797,150 +1240,181 @@ export default function ClaimsClient() {
                     onMouseEnter={e => { if (!c.isCompleted) e.currentTarget.style.background = "#f0f7ff"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = c.isCompleted ? "#f9fafb" : idx % 2 === 0 ? "#fff" : "#fafbfc"; }}
                   >
+                    {/* 0. Checkbox */}
+                    <td style={{ padding: "4px", textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleSelect(c.id)}
+                        style={{ accentColor: "#2563EB", cursor: "pointer" }}
+                      />
+                    </td>
                     {/* 1. STT */}
-                    <td style={{ padding: "8px", color: "#94a3b8", fontWeight: 500 }}>
+                    <td style={{ padding: "6px", color: "#94a3b8", fontWeight: 500, fontSize: "12px" }}>
                       {(pagination.page - 1) * pagination.pageSize + idx + 1}
                     </td>
                     {/* 2. Mã Yêu Cầu */}
-                    <td style={{ padding: "8px" }}>
+                    <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button
                         onClick={() => setDetailClaimId(c.id)}
-                        style={{ fontWeight: 700, color: "#2563EB", background: "none", border: "none", cursor: "pointer", fontSize: "13px" }}
+                        style={{ fontWeight: 700, color: "#2563EB", background: "none", border: "none", cursor: "pointer", fontSize: "12px", fontFamily: "monospace" }}
+                        title={c.order?.requestCode}
                       >
                         {c.order?.requestCode}
                       </button>
                     </td>
                     {/* 3. Mã ĐT */}
-                    <td style={{ padding: "8px", color: "#475569", fontSize: "12px" }}>{c.order?.carrierOrderCode || "—"}</td>
-                    {/* 4. Đối Tác */}
-                    <td style={{ padding: "8px" }}>
-                      <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
-                        {c.order?.carrierName || "—"}
-                      </span>
-                    </td>
-                    {/* 5. Tên Cửa Hàng */}
-                    <td style={{ padding: "8px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#374151" }}>
+                    <td style={{ padding: "6px", color: "#475569", fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.order?.carrierOrderCode || ""}>{c.order?.carrierOrderCode || "—"}</td>
+                    {/* 4. Tên Cửa Hàng */}
+                    <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#374151", fontSize: "12px" }} title={c.order?.shopName || ""}>
                       {c.order?.shopName || "—"}
                     </td>
-                    {/* 6. Trạng Thái Đơn */}
-                    <td style={{ padding: "8px" }}>
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                    {/* 5. Trạng Thái Đơn — wrap long text */}
+                    <td style={{ padding: "6px" }}>
+                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600" style={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: "1.4" }}>
                         {c.order?.status || "—"}
                       </span>
                     </td>
-                    {/* 7. COD */}
-                    <td style={{ padding: "8px", textAlign: "right", fontWeight: 600, color: "#059669" }}>
+                    {/* 6. COD */}
+                    <td style={{ padding: "6px", textAlign: "right", fontWeight: 600, color: "#059669", fontSize: "12px", whiteSpace: "nowrap" }}>
                       {formatVND(c.order?.codAmount || 0)}
                     </td>
-                    {/* 8. Tổng Phí */}
-                    <td style={{ padding: "8px", textAlign: "right", color: "#475569" }}>
-                      {formatVND(c.order?.totalFee || 0)}
+                    {/* 7. Loại VĐ — INLINE EDITABLE */}
+                    <td style={{ padding: "6px" }}>
+                      <select
+                        value={c.issueType}
+                        onChange={e => handleInlineEditField(c.id, "issueType", e.target.value)}
+                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${issCfg.bg} ${issCfg.text} ${issCfg.border}`}
+                        style={{ outline: "none", appearance: "auto", maxWidth: "100%" }}
+                      >
+                        {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
+                          <option key={k} value={k}>{v.label}</option>
+                        ))}
+                      </select>
                     </td>
-                    {/* 9. Loại VĐ */}
-                    <td style={{ padding: "8px" }}>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${issCfg.bg} ${issCfg.text} ${issCfg.border}`}>
-                        {issCfg.label}
+                    {/* 8. Nội Dung VĐ — INLINE EDITABLE, full-text display */}
+                    <td style={{ padding: "6px", verticalAlign: "top" }}>
+                      <div
+                        contentEditable
+                        suppressContentEditableWarning
+                        onBlur={e => {
+                          const newVal = (e.currentTarget.textContent || "").trim();
+                          if (newVal !== (c.issueDescription || "")) {
+                            handleInlineEditField(c.id, "issueDescription", newVal || null);
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            (e.target as HTMLElement).blur();
+                          }
+                        }}
+                        style={{
+                          fontSize: "11px", lineHeight: "1.4",
+                          color: c.issueDescription ? "#374151" : "#9ca3af",
+                          fontStyle: c.issueDescription ? "normal" : "italic",
+                          background: c.issueDescription ? "#fffef5" : "transparent",
+                          border: c.issueDescription ? "1px solid #e5e7eb" : "1px dashed #d1d5db",
+                          borderRadius: "4px",
+                          padding: "3px 6px",
+                          outline: "none",
+                          minHeight: "20px",
+                          wordBreak: "break-word",
+                          whiteSpace: "pre-wrap",
+                          cursor: "text",
+                          transition: "all 0.15s",
+                        }}
+                        onFocus={e => {
+                          e.currentTarget.style.border = "1px solid #2563EB";
+                          e.currentTarget.style.boxShadow = "0 0 0 2px rgba(37,99,235,0.12)";
+                          e.currentTarget.style.background = "#fffff0";
+                        }}
+                        onBlurCapture={e => {
+                          e.currentTarget.style.border = c.issueDescription ? "1px solid #e5e7eb" : "1px dashed #d1d5db";
+                          e.currentTarget.style.boxShadow = "none";
+                          e.currentTarget.style.background = c.issueDescription ? "#fffef5" : "transparent";
+                        }}
+                      >
+                        {c.issueDescription || "Nhập nội dung..."}
+                      </div>
+                    </td>
+                    {/* 9. Ngày PH */}
+                    <td style={{ padding: "6px", color: "#475569", fontSize: "11px", whiteSpace: "nowrap" }}>
+                      {format(new Date(c.detectedDate), "dd/MM/yy")}
+                    </td>
+                    {/* 10. Ngày TĐ */}
+                    <td style={{ padding: "6px" }}>
+                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold ${daysPending <= 7 ? "bg-green-100 text-green-700" : daysPending <= 14 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+                        {daysPending}d
                       </span>
                     </td>
-                    {/* 10. Nội Dung VĐ */}
-                    <td style={{ padding: "8px", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6b7280", fontSize: "12px" }}
-                      title={c.issueDescription || ""}
-                    >
-                      {c.issueDescription || "—"}
-                    </td>
-                    {/* 11. Ngày PH */}
-                    <td style={{ padding: "8px", color: "#475569", fontSize: "12px", whiteSpace: "nowrap" }}>
-                      {format(new Date(c.detectedDate), "dd/MM/yyyy")}
-                    </td>
-                    {/* 12. Ngày TĐ */}
-                    <td style={{ padding: "8px" }}>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${daysPending <= 7 ? "bg-green-100 text-green-700" : daysPending <= 14 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                        {daysPending} ngày
-                      </span>
-                    </td>
-                    {/* 13. TT Xử Lý */}
-                    <td style={{ padding: "8px" }}>
+                    {/* 11. TT Xử Lý */}
+                    <td style={{ padding: "6px" }}>
                       <StatusDropdown claimId={c.id} currentStatus={c.claimStatus} onUpdate={fetchClaims} />
                     </td>
-                    {/* 14. ND XL */}
-                    <td style={{ padding: "8px" }}>
+                    {/* 12. ND XL */}
+                    <td style={{ padding: "6px" }}>
                       <button
                         onClick={() => setProcessingPopup({ id: c.id, content: c.processingContent || "" })}
                         style={{
-                          padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: "6px",
-                          background: "#fff", cursor: "pointer", fontSize: "12px", color: "#6b7280",
-                          display: "flex", alignItems: "center", gap: "4px",
+                          padding: "3px 6px", border: "1px solid #e5e7eb", borderRadius: "4px",
+                          background: "#fff", cursor: "pointer", fontSize: "11px", color: "#6b7280",
+                          display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap",
                         }}
                       >
-                        <FileText size={12} /> {c.processingContent ? "Sửa" : "Thêm"}
+                        <FileText size={11} /> {c.processingContent ? "Sửa" : "Thêm"}
                       </button>
                     </td>
-                    {/* 15. NVC Đền Bù */}
-                    <td style={{ padding: "8px", textAlign: "right" }}>
-                      {CARRIER_COMP_EDITABLE.includes(c.claimStatus) ? (
-                        <input
-                          type="number"
-                          defaultValue={c.carrierCompensation}
-                          onBlur={e => handleInlineEdit(c.id, "carrierCompensation", Number(e.target.value))}
-                          style={{ width: "80px", textAlign: "right", border: "1px solid #d1d5db", borderRadius: "6px", padding: "4px 6px", fontSize: "12px" }}
-                        />
-                      ) : (
-                        <span style={{ color: c.carrierCompensation > 0 ? "#0d9488" : "#94a3b8", fontSize: "12px" }}>
-                          {formatVND(c.carrierCompensation)}
-                        </span>
-                      )}
+                    {/* 13. Thời Hạn — INLINE EDITABLE */}
+                    <td style={{ padding: "6px" }}>
+                      <input
+                        type="date"
+                        defaultValue={c.deadline ? format(new Date(c.deadline), "yyyy-MM-dd") : ""}
+                        onChange={e => handleInlineEditField(c.id, "deadline", e.target.value || null)}
+                        style={{
+                          width: "100%", fontSize: "11px",
+                          fontWeight: 600,
+                          border: "1px solid #e5e7eb", borderRadius: "4px",
+                          padding: "3px 4px", outline: "none", boxSizing: "border-box",
+                          color: c.deadline
+                            ? (daysLeft < 0 ? "#dc2626" : daysLeft <= 3 ? "#ca8a04" : "#475569")
+                            : "#9ca3af",
+                          background: c.deadline
+                            ? (daysLeft < 0 ? "#fef2f2" : daysLeft <= 3 ? "#fefce8" : "#fff")
+                            : "#fff",
+                        }}
+                      />
                     </td>
-                    {/* 16. Đền Bù KH */}
-                    <td style={{ padding: "8px", textAlign: "right" }}>
-                      {CUSTOMER_COMP_EDITABLE.includes(c.claimStatus) ? (
-                        <input
-                          type="number"
-                          defaultValue={c.customerCompensation}
-                          onBlur={e => handleInlineEdit(c.id, "customerCompensation", Number(e.target.value))}
-                          style={{ width: "80px", textAlign: "right", border: "1px solid #d1d5db", borderRadius: "6px", padding: "4px 6px", fontSize: "12px" }}
-                        />
-                      ) : (
-                        <span style={{ color: c.customerCompensation > 0 ? "#0d9488" : "#94a3b8", fontSize: "12px" }}>
-                          {formatVND(c.customerCompensation)}
-                        </span>
-                      )}
-                    </td>
-                    {/* 17. Thời Hạn */}
-                    <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
-                      {c.deadline ? (
-                        <span
-                          style={{
-                            fontSize: "12px", fontWeight: 600, padding: "2px 6px", borderRadius: "4px",
-                            background: daysLeft < 0 ? "#fef2f2" : daysLeft <= 3 ? "#fefce8" : "transparent",
-                            color: daysLeft < 0 ? "#dc2626" : daysLeft <= 3 ? "#ca8a04" : "#475569",
-                          }}
-                        >
-                          {format(new Date(c.deadline), "dd/MM/yyyy")}
-                        </span>
-                      ) : "—"}
-                    </td>
-                    {/* 18. Ghi Chú */}
-                    <td style={{ padding: "8px", maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6b7280", fontSize: "12px" }}>
-                      {c.order?.staffNotes || "—"}
-                    </td>
-                    {/* 19. Thao Tác */}
-                    <td style={{ padding: "8px" }}>
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        <button
-                          onClick={() => setDetailClaimId(c.id)}
-                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleComplete(c.id, c.order?.requestCode)}
-                          disabled={!COMPLETION_STATUSES.includes(c.claimStatus) || c.isCompleted}
-                          className="p-1.5 text-green-500 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Hoàn tất"
-                        >
-                          <Check size={14} />
-                        </button>
+                    {/* 14. Thao Tác + Ghi Chú */}
+                    <td style={{ padding: "6px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        {/* Row 1: action buttons */}
+                        <div style={{ display: "flex", gap: "2px", alignItems: "center" }}>
+                          <button
+                            onClick={() => setDetailClaimId(c.id)}
+                            className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleComplete(c.id, c.order?.requestCode)}
+                            disabled={!COMPLETION_STATUSES.includes(c.claimStatus) || c.isCompleted}
+                            className="p-1 w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Hoàn tất"
+                          >
+                            <Check size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
+                            className="p-1 w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 rounded border border-transparent hover:border-red-200 transition-colors"
+                            title="Xóa đơn"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        {/* Row 2: inline staff notes (Ghi Chú) */}
+                        <InlineStaffNote requestCode={c.order?.requestCode || ""} initialValue={c.order?.staffNotes || ""} />
                       </div>
                     </td>
                   </tr>
@@ -1001,6 +1475,7 @@ export default function ClaimsClient() {
         claimId={detailClaimId || ""}
         open={!!detailClaimId}
         onClose={() => setDetailClaimId(null)}
+        onUpdate={fetchClaims}
       />
 
       {processingPopup && (
