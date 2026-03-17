@@ -11,6 +11,7 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
+import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 
 /* ============================================================
    CONSTANTS & HELPERS
@@ -350,8 +351,13 @@ function getDisplayValue(fieldName: string, value: string | null): string {
    DETAIL PANEL — Redesigned 700px with inline editing
    ============================================================ */
 function ClaimDetailPanel({
-  claimId, open, onClose, onUpdate,
-}: { claimId: string; open: boolean; onClose: () => void; onUpdate?: () => void }) {
+  claimId, open, onClose, onUpdate, onAddTodo, onComplete, onDelete,
+}: {
+  claimId: string; open: boolean; onClose: () => void; onUpdate?: () => void;
+  onAddTodo?: (data: any) => void;
+  onComplete?: (id: string, requestCode: string) => void;
+  onDelete?: (id: string, requestCode: string) => void;
+}) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -444,8 +450,58 @@ function ClaimDetailPanel({
               )}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             {saving && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
+            {data && onAddTodo && (
+              <button
+                onClick={() => onAddTodo(data)}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
+                  borderRadius: "8px", border: "1.5px solid #93c5fd", background: "#eff6ff",
+                  color: "#2563EB", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#dbeafe"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#eff6ff"; }}
+                title="Thêm vào Công Việc"
+              >
+                <CheckSquare size={13} /> Công Việc
+              </button>
+            )}
+            {data && onComplete && (
+              <button
+                onClick={() => onComplete(claimId, data.order?.requestCode || "")}
+                disabled={!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
+                  borderRadius: "8px", border: "1.5px solid #bbf7d0", background: "#f0fdf4",
+                  color: "#16a34a", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.15s",
+                  opacity: (!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted) ? 0.4 : 1,
+                }}
+                onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#dcfce7"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#f0fdf4"; }}
+                title={data.isCompleted ? "Đã hoàn tất" : !COMPLETION_STATUSES.includes(data.claimStatus) ? "Chưa đủ điều kiện hoàn tất" : "Hoàn tất xử lý"}
+              >
+                <Check size={13} /> Hoàn tất
+              </button>
+            )}
+            {data && onDelete && (
+              <button
+                onClick={() => onDelete(claimId, data.order?.requestCode || "")}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
+                  borderRadius: "8px", border: "1.5px solid #fecaca", background: "#fef2f2",
+                  color: "#dc2626", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#fee2e2"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#fef2f2"; }}
+                title="Xóa đơn"
+              >
+                <Trash2 size={13} /> Xóa
+              </button>
+            )}
             <button onClick={onClose} style={{ ...closeBtnBase, width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X size={18} />
             </button>
@@ -470,6 +526,10 @@ function ClaimDetailPanel({
                   {infoRow("Trạng thái đơn", data.order?.status || "—")}
                   {infoRow("Thời gian lấy hàng", data.order?.pickupTime ? format(new Date(data.order.pickupTime), "dd/MM/yyyy HH:mm") : "—")}
                   {infoRow("Nhóm Vùng miền", data.order?.regionGroup || "—")}
+                </div>
+                <div style={{ marginTop: "8px", padding: "5px 0", borderBottom: "1px solid #f1f5f9" }}>
+                  <span style={{ color: "#6b7280", fontSize: "12px", display: "block", marginBottom: "4px" }}>Ghi chú nội bộ</span>
+                  <span style={{ fontWeight: 500, fontSize: "12px", color: "#1e293b", whiteSpace: "pre-wrap" }}>{data.order?.internalNotes || "—"}</span>
                 </div>
               </div>
 
@@ -803,6 +863,106 @@ function ProcessingContentPopup({
 }
 
 /* ============================================================
+   CONFIRM ACTION DIALOG — Beautiful replacement for confirm/alert
+   ============================================================ */
+function ConfirmActionDialog({
+  open, onClose, onConfirm, title, description, confirmLabel, confirmColor, icon, loading, successMsg,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  confirmColor: "red" | "green";
+  icon: React.ReactNode;
+  loading?: boolean;
+  successMsg?: string | null;
+}) {
+  if (!open) return null;
+
+  const colors = confirmColor === "red"
+    ? { bg: "#dc2626", hover: "#b91c1c", iconBg: "#fef2f2", iconBorder: "#fecaca" }
+    : { bg: "#16a34a", hover: "#15803d", iconBg: "#f0fdf4", iconBorder: "#bbf7d0" };
+
+  return createPortal(
+    <>
+      <div style={{ position: "fixed", inset: 0, zIndex: 10050, backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }} onClick={onClose} />
+      <div style={{
+        position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        zIndex: 10051, background: "#fff", borderRadius: "16px",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
+        width: "420px", maxWidth: "calc(100vw - 32px)", overflow: "hidden",
+        animation: "confirmPopIn 0.2s ease-out",
+      }}>
+        {successMsg ? (
+          <div style={{ padding: "40px 32px", textAlign: "center" }}>
+            <div style={{
+              width: "56px", height: "56px", borderRadius: "50%", margin: "0 auto 16px",
+              background: "#f0fdf4", border: "2px solid #bbf7d0",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "confirmPopIn 0.3s ease-out",
+            }}>
+              <Check size={28} color="#16a34a" />
+            </div>
+            <div style={{ fontSize: "16px", fontWeight: 700, color: "#1e293b", marginBottom: "6px" }}>Thành công!</div>
+            <div style={{ fontSize: "13px", color: "#6b7280" }}>{successMsg}</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ padding: "28px 28px 0" }}>
+              <div style={{
+                width: "52px", height: "52px", borderRadius: "50%", margin: "0 auto 16px",
+                background: colors.iconBg, border: `2px solid ${colors.iconBorder}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {icon}
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "17px", fontWeight: 700, color: "#1e293b", marginBottom: "8px" }}>{title}</div>
+                <div style={{ fontSize: "13px", color: "#6b7280", lineHeight: "1.6" }}>{description}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px", padding: "24px 28px 28px", justifyContent: "center" }}>
+              <button
+                onClick={onClose}
+                disabled={loading}
+                style={{
+                  flex: 1, padding: "10px 20px", borderRadius: "10px", fontSize: "14px", fontWeight: 600,
+                  border: "1.5px solid #e5e7eb", background: "#fff", color: "#374151", cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.borderColor = "#d1d5db"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={onConfirm}
+                disabled={loading}
+                style={{
+                  flex: 1, padding: "10px 20px", borderRadius: "10px", fontSize: "14px", fontWeight: 600,
+                  border: "none", background: colors.bg, color: "#fff", cursor: loading ? "not-allowed" : "pointer",
+                  opacity: loading ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.background = colors.hover; }}
+                onMouseLeave={e => { e.currentTarget.style.background = colors.bg; }}
+              >
+                {loading && <Loader2 className="animate-spin" size={16} />}
+                {confirmLabel}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+      <style>{`@keyframes confirmPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
+    </>,
+    document.body
+  );
+}
+
+/* ============================================================
    MAIN COMPONENT
    ============================================================ */
 export default function ClaimsClient() {
@@ -821,6 +981,9 @@ export default function ClaimsClient() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [detailClaimId, setDetailClaimId] = useState<string | null>(null);
   const [processingPopup, setProcessingPopup] = useState<{ id: string; content: string } | null>(null);
+  const [todoClaimOrder, setTodoClaimOrder] = useState<any | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; requestCode: string; loading: boolean; success: string | null } | null>(null);
+  const [completeConfirm, setCompleteConfirm] = useState<{ id: string; requestCode: string; loading: boolean; success: string | null } | null>(null);
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -869,14 +1032,25 @@ export default function ClaimsClient() {
   // Run auto-detect on first load
   useEffect(() => { runAutoDetect(); }, []);
 
-  const handleComplete = async (claimId: string, requestCode: string) => {
-    if (!confirm(`Xác nhận đơn ${requestCode} đã hoàn tất xử lý?`)) return;
-    await fetch(`/api/claims/${claimId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isCompleted: true }),
-    });
-    fetchClaims();
+  const handleComplete = (claimId: string, requestCode: string) => {
+    setCompleteConfirm({ id: claimId, requestCode, loading: false, success: null });
+  };
+
+  const executeComplete = async () => {
+    if (!completeConfirm) return;
+    setCompleteConfirm(prev => prev ? { ...prev, loading: true } : null);
+    try {
+      await fetch(`/api/claims/${completeConfirm.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCompleted: true }),
+      });
+      setCompleteConfirm(prev => prev ? { ...prev, loading: false, success: `Đơn ${prev.requestCode} đã hoàn tất xử lý.` } : null);
+      fetchClaims();
+      setTimeout(() => setCompleteConfirm(null), 1500);
+    } catch {
+      setCompleteConfirm(prev => prev ? { ...prev, loading: false } : null);
+    }
   };
 
   const handleInlineEdit = async (claimId: string, field: string, value: number) => {
@@ -897,16 +1071,25 @@ export default function ClaimsClient() {
     fetchClaims();
   };
 
-  const handleDelete = async (claimId: string, requestCode: string) => {
-    if (!confirm(`Xác nhận xóa đơn ${requestCode} khỏi danh sách có vấn đề?`)) return;
+  const handleDelete = (claimId: string, requestCode: string) => {
+    setDeleteConfirm({ id: claimId, requestCode, loading: false, success: null });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleteConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
-      const res = await fetch(`/api/claims/${claimId}`, { method: "DELETE" });
-      if (!res.ok) { const err = await res.json(); alert(`Lỗi: ${err.error || "Không thể xóa"}`); return; }
-      setSelectedIds(prev => { const n = new Set(prev); n.delete(claimId); return n; });
+      const res = await fetch(`/api/claims/${deleteConfirm.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeleteConfirm(prev => prev ? { ...prev, loading: false } : null);
+        return;
+      }
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(deleteConfirm.id); return n; });
+      setDeleteConfirm(prev => prev ? { ...prev, loading: false, success: `Đã xóa đơn ${prev.requestCode} khỏi danh sách có vấn đề.` } : null);
       fetchClaims();
-      alert(`Đã xóa đơn ${requestCode} thành công!`);
-    } catch (e) {
-      alert("Lỗi kết nối. Vui lòng thử lại.");
+      setTimeout(() => setDeleteConfirm(null), 1500);
+    } catch {
+      setDeleteConfirm(prev => prev ? { ...prev, loading: false } : null);
     }
   };
 
@@ -1148,23 +1331,8 @@ export default function ClaimsClient() {
       {/* Table */}
       <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed" }}>
-          <colgroup>
-            <col style={{ width: "32px" }} />   {/* Checkbox */}
-            <col style={{ width: "36px" }} />   {/* STT */}
-            <col style={{ width: "105px" }} />  {/* Mã YC */}
-            <col style={{ width: "90px" }} />   {/* Mã ĐT */}
-            <col style={{ width: "90px" }} />   {/* Tên CH */}
-            <col style={{ width: "85px" }} />   {/* TT Đơn */}
-            <col style={{ width: "80px" }} />   {/* COD */}
-            <col style={{ width: "90px" }} />   {/* Loại VĐ */}
-            <col style={{ width: "120px" }} />  {/* ND VĐ */}
-            <col style={{ width: "70px" }} />   {/* Ngày PH */}
-            <col style={{ width: "55px" }} />   {/* Ngày TĐ */}
-            <col style={{ width: "105px" }} />  {/* TT Xử Lý */}
-            <col style={{ width: "55px" }} />   {/* ND XL */}
-            <col style={{ width: "85px" }} />   {/* Thời Hạn */}
-            <col style={{ width: "120px" }} />  {/* Thao Tác */}
-          </colgroup>
+          {/* Checkbox | STT | Mã YC | Mã ĐT | Tên CH | TT Đơn | COD | Loại VĐ | ND VĐ | Ngày PH | Ngày TĐ | TT Xử Lý | ND XL | Thời Hạn | Thao Tác */}
+          <colgroup><col style={{ width: "32px" }} /><col style={{ width: "36px" }} /><col style={{ width: "105px" }} /><col style={{ width: "90px" }} /><col style={{ width: "90px" }} /><col style={{ width: "85px" }} /><col style={{ width: "80px" }} /><col style={{ width: "90px" }} /><col style={{ width: "120px" }} /><col style={{ width: "70px" }} /><col style={{ width: "55px" }} /><col style={{ width: "105px" }} /><col style={{ width: "55px" }} /><col style={{ width: "85px" }} /><col style={{ width: "120px" }} /></colgroup>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
               <th style={{ padding: "8px 4px", textAlign: "center" }}>
@@ -1398,6 +1566,13 @@ export default function ClaimsClient() {
                             <Eye size={12} />
                           </button>
                           <button
+                            onClick={(e) => { e.stopPropagation(); setTodoClaimOrder(c); }}
+                            className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 rounded border border-transparent hover:border-blue-200 transition-colors"
+                            title="Thêm vào Công Việc"
+                          >
+                            <CheckSquare size={12} />
+                          </button>
+                          <button
                             onClick={() => handleComplete(c.id, c.order?.requestCode)}
                             disabled={!COMPLETION_STATUSES.includes(c.claimStatus) || c.isCompleted}
                             className="p-1 w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1476,6 +1651,15 @@ export default function ClaimsClient() {
         open={!!detailClaimId}
         onClose={() => setDetailClaimId(null)}
         onUpdate={fetchClaims}
+        onAddTodo={(data) => {
+          setTodoClaimOrder({
+            order: data.order,
+            issueType: data.issueType,
+            claimStatus: data.claimStatus,
+          });
+        }}
+        onComplete={(id, rc) => handleComplete(id, rc)}
+        onDelete={(id, rc) => handleDelete(id, rc)}
       />
 
       {processingPopup && (
@@ -1487,6 +1671,45 @@ export default function ClaimsClient() {
           onUpdate={fetchClaims}
         />
       )}
+
+      {/* Todo Dialog */}
+      {todoClaimOrder && (
+        <AddTodoDialog
+          open={!!todoClaimOrder}
+          onClose={() => setTodoClaimOrder(null)}
+          defaultTitle={`Xử lý đơn ${todoClaimOrder.order?.requestCode || todoClaimOrder.requestCode || ""}`}
+          defaultDescription={`Đơn: ${todoClaimOrder.order?.requestCode || todoClaimOrder.requestCode || ""} - Shop: ${todoClaimOrder.order?.shopName || todoClaimOrder.shopName || ""} - Loại VĐ: ${ISSUE_TYPE_CONFIG[todoClaimOrder.issueType]?.label || todoClaimOrder.issueType || ""} - TT: ${CLAIM_STATUS_CONFIG[todoClaimOrder.claimStatus]?.label || todoClaimOrder.claimStatus || ""}`}
+          defaultPriority="HIGH"
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmActionDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={executeDelete}
+        title="Xóa đơn có vấn đề"
+        description={`Bạn có chắc chắn muốn xóa đơn ${deleteConfirm?.requestCode || ""} khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.`}
+        confirmLabel="Xóa đơn"
+        confirmColor="red"
+        icon={<Trash2 size={26} color="#dc2626" />}
+        loading={deleteConfirm?.loading}
+        successMsg={deleteConfirm?.success}
+      />
+
+      {/* Complete Confirmation Dialog */}
+      <ConfirmActionDialog
+        open={!!completeConfirm}
+        onClose={() => setCompleteConfirm(null)}
+        onConfirm={executeComplete}
+        title="Hoàn tất xử lý"
+        description={`Xác nhận đơn ${completeConfirm?.requestCode || ""} đã hoàn tất xử lý? Trạng thái sẽ được đánh dấu là đã xong.`}
+        confirmLabel="Hoàn tất"
+        confirmColor="green"
+        icon={<Check size={26} color="#16a34a" />}
+        loading={completeConfirm?.loading}
+        successMsg={completeConfirm?.success}
+      />
     </div>
   );
 }

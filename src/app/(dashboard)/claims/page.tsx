@@ -1,10 +1,17 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import ClaimsClient from "@/components/claims/ClaimsClient";
+import ClaimsPageWrapper from "@/components/claims/ClaimsPageWrapper";
 
 export default async function ClaimsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  return <ClaimsClient />;
+  const user = session.user as any;
+
+  return (
+    <ClaimsPageWrapper
+      userRole={user.role || "STAFF"}
+      permissionGroupId={user.permissionGroupId || null}
+    />
+  );
 }
