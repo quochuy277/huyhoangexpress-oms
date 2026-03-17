@@ -37,7 +37,9 @@ model User {
 
   attendances      Attendance[]
   loginHistories   LoginHistory[]
-  todoItems        TodoItem[]
+  leaveRequests    LeaveRequest[]
+  assignedTodos    TodoItem[]    @relation("TodoAssignee")
+  createdTodos     TodoItem[]    @relation("TodoCreator")
   uploadHistories  UploadHistory[]
   claimOrders      ClaimOrder[]
   scoredEmployees  EmployeeScore[] @relation("ScoredBy")
@@ -201,6 +203,7 @@ model Order {
   // Relations
   claimOrder          ClaimOrder?
   returnTracking      ReturnTracking?
+  todoItems           TodoItem[]
 
   @@index([status])
   @@index([carrierName])
@@ -371,23 +374,49 @@ enum ClaimSource {
 }
 
 model TodoItem {
-  id          String      @id @default(cuid())
-  title       String
-  description String?
-  status      TodoStatus  @default(TODO)
-  priority    Priority    @default(MEDIUM)
-  dueDate     DateTime?
-  sortOrder   Int         @default(0)
-  assignee    User        @relation(fields: [assigneeId], references: [id])
-  assigneeId  String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              String      @id @default(cuid())
+  title           String
+  description     String?     @db.Text
+  status          TodoStatus  @default(TODO)
+  priority        Priority    @default(MEDIUM)
+  dueDate         DateTime?
+  sortOrder       Int         @default(0)
+
+  linkedOrderId   String?
+  linkedOrder     Order?      @relation(fields: [linkedOrderId], references: [id])
+  source          TodoSource  @default(MANUAL)
+
+  comments        TodoComment[]
+
+  assignee        User        @relation("TodoAssignee", fields: [assigneeId], references: [id])
+  assigneeId      String
+  createdBy       User        @relation("TodoCreator", fields: [createdById], references: [id])
+  createdById     String
+
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model TodoComment {
+  id          String    @id @default(cuid())
+  todoItem    TodoItem  @relation(fields: [todoItemId], references: [id], onDelete: Cascade)
+  todoItemId  String
+  content     String    @db.Text
+  authorName  String
+  authorId    String
+  createdAt   DateTime  @default(now())
+
+  @@index([todoItemId])
 }
 
 enum TodoStatus {
   TODO
   IN_PROGRESS
-  REVIEW
   DONE
 }
 
@@ -398,37 +427,89 @@ enum Priority {
   URGENT
 }
 
+enum TodoSource {
+  MANUAL
+  FROM_DELAYED
+  FROM_RETURNS
+  FROM_CLAIMS
+  FROM_ORDERS
+}
+
 model Attendance {
-  id          String            @id @default(cuid())
-  user        User              @relation(fields: [userId], references: [id])
-  userId      String
-  date        DateTime          @db.Date
-  checkIn     DateTime?
-  checkOut    DateTime?
-  totalHours  Float?
-  status      AttendanceStatus  @default(PRESENT)
-  notes       String?
+  id              String            @id @default(cuid())
+  user            User              @relation(fields: [userId], references: [id])
+  userId          String
+  date            DateTime          @db.Date
+  firstLogin      DateTime?
+  lastLogout      DateTime?
+  totalMinutes    Int               @default(0)
+  status          AttendanceStatus  @default(ABSENT)
+  isLate          Boolean           @default(false)
+  lateMinutes     Int               @default(0)
+  isManualEdit    Boolean           @default(false)
+  editedBy        String?
+  editNote        String?
 
   @@unique([userId, date])
+  @@index([date])
+  @@index([userId, date])
 }
 
 enum AttendanceStatus {
   PRESENT
-  ABSENT
-  LATE
   HALF_DAY
+  ABSENT
   ON_LEAVE
+  UNAPPROVED_LEAVE
 }
 
 model LoginHistory {
-  id          String    @id @default(cuid())
-  user        User      @relation(fields: [userId], references: [id])
-  userId      String
-  loginTime   DateTime  @default(now())
-  logoutTime  DateTime?
-  duration    Int?
-  ipAddress   String?
-  userAgent   String?
+  id            String    @id @default(cuid())
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String
+  loginTime     DateTime  @default(now())
+  logoutTime    DateTime?
+  duration      Int?
+  ipAddress     String?
+  userAgent     String?
+  deviceType    String?
+  logoutReason  String?
+
+  @@index([userId, loginTime])
+}
+
+model SystemSetting {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  value     String
+  updatedBy String?
+  updatedAt DateTime  @updatedAt
+}
+
+model LeaveRequest {
+  id            String        @id @default(cuid())
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  dateFrom      DateTime      @db.Date
+  dateTo        DateTime      @db.Date
+  totalDays     Int
+  reason        String
+  leaveStatus   LeaveStatus   @default(PENDING)
+  approvedBy    String?
+  approvedAt    DateTime?
+  rejectedBy    String?
+  rejectedAt    DateTime?
+  rejectReason  String?
+  createdAt     DateTime      @default(now())
+
+  @@index([userId])
+  @@index([leaveStatus])
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model EmployeeScore {
@@ -464,4 +545,91 @@ model ImportantLink {
   createdBy   String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// ============================================================
+// FINANCE — Cashbook (from uploaded files)
+// ============================================================
+
+model CashbookEntry {
+  id              String        @id @default(cuid())
+  transactionTime DateTime
+  receiptCode     String        @unique
+  groupType       CashbookGroup
+  content         String
+  amount          Float
+  balance         Float
+  rawCod          Float?
+  shippingFee     Float?
+  shopName        String?
+  uploadedAt      DateTime      @default(now())
+  uploadedBy      String
+
+  @@index([transactionTime])
+  @@index([groupType])
+  @@index([receiptCode])
+}
+
+enum CashbookGroup {
+  COD
+  SHOP_PAYOUT
+  RECONCILIATION_FEE
+  TOP_UP
+  COMPENSATION
+  COOPERATION_FEE
+  OTHER
+}
+
+model CashbookUpload {
+  id            String    @id @default(cuid())
+  fileName      String
+  rowCount      Int
+  newRows       Int
+  duplicateRows Int
+  dateFrom      DateTime?
+  dateTo        DateTime?
+  uploadedBy    String
+  uploadedAt    DateTime  @default(now())
+}
+
+// ============================================================
+// FINANCE — Expenses (manual entries)
+// ============================================================
+
+model ExpenseCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isSystem  Boolean   @default(false)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+  budgets   MonthlyBudget[]
+}
+
+model Expense {
+  id             String          @id @default(cuid())
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
+  categoryId     String
+  title          String
+  amount         Float
+  date           DateTime        @db.Date
+  note           String?
+  attachmentUrl  String?
+  attachmentName String?
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([categoryId])
+  @@index([date])
+}
+
+model MonthlyBudget {
+  id           String          @id @default(cuid())
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  month        DateTime        @db.Date
+  budgetAmount Float
+
+  @@unique([categoryId, month])
 }

@@ -1680,6 +1680,8 @@ export default function ClaimsClient() {
           defaultTitle={`Xử lý đơn ${todoClaimOrder.order?.requestCode || todoClaimOrder.requestCode || ""}`}
           defaultDescription={`Đơn: ${todoClaimOrder.order?.requestCode || todoClaimOrder.requestCode || ""} - Shop: ${todoClaimOrder.order?.shopName || todoClaimOrder.shopName || ""} - Loại VĐ: ${ISSUE_TYPE_CONFIG[todoClaimOrder.issueType]?.label || todoClaimOrder.issueType || ""} - TT: ${CLAIM_STATUS_CONFIG[todoClaimOrder.claimStatus]?.label || todoClaimOrder.claimStatus || ""}`}
           defaultPriority="HIGH"
+          linkedOrderId={todoClaimOrder.orderId || todoClaimOrder.order?.id}
+          source="FROM_CLAIMS"
         />
       )}
 

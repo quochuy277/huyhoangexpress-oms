@@ -1,8 +1,18 @@
-export default function TodosPage() {
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import TodosClient from "@/components/todos/TodosClient";
+
+export default async function TodosPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const user = session.user as any;
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Công Việc</h1>
-      <p className="text-gray-500 mt-2">Sẽ được xây dựng ở Phase 8</p>
-    </div>
+    <TodosClient
+      userId={user.id}
+      userName={user.name || "User"}
+      userRole={user.role || "STAFF"}
+    />
   );
 }

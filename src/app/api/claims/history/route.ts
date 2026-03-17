@@ -16,8 +16,7 @@ export async function GET(req: NextRequest) {
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
 
-  // Build combined query from ClaimStatusHistory + ClaimChangeLog
-  // We'll use raw SQL for the UNION query to combine different tables
+  // Build conditions for WHERE clause
   const conditions: string[] = [];
   const params: any[] = [];
   let paramIndex = 1;
@@ -49,13 +48,12 @@ export async function GET(req: NextRequest) {
   let actionFilter = "";
   if (action === "new") actionFilter = `AND h."actionType" IN ('Thêm đơn có vấn đề', 'Tự động phát hiện')`;
   else if (action === "status") actionFilter = `AND h."actionType" = 'Chuyển trạng thái'`;
-  else if (action === "update") actionFilter = `AND h."actionType" = 'Cập nhật nội dung xử lý'`;
+  else if (action === "update") actionFilter = `AND h."actionType" IN ('Cập nhật nội dung xử lý', 'Cập nhật loại vấn đề', 'Cập nhật nội dung VĐ', 'Cập nhật thời hạn', 'Cập nhật')`;
   else if (action === "compensation") actionFilter = `AND h."actionType" IN ('Nhập tiền NVC đền bù', 'Nhập tiền đền bù KH')`;
   else if (action === "complete") actionFilter = `AND h."actionType" IN ('Đánh dấu hoàn tất', 'Hủy hoàn tất')`;
   else if (action === "auto") actionFilter = `AND h."actionType" = 'Tự động phát hiện'`;
 
   try {
-    // Combined query: status changes + change logs + creation events
     const countQuery = `
       SELECT COUNT(*) as total FROM (
         SELECT sh."id"
@@ -80,15 +78,21 @@ export async function GET(req: NextRequest) {
         CROSS JOIN LATERAL (
           SELECT cl."changedBy", cl."changedAt",
           CASE
+            WHEN cl."fieldName" = 'claimStatus' THEN 'Chuyển trạng thái'
+            WHEN cl."fieldName" = 'issueType' THEN 'Cập nhật loại vấn đề'
+            WHEN cl."fieldName" = 'issueDescription' THEN 'Cập nhật nội dung VĐ'
             WHEN cl."fieldName" = 'processingContent' THEN 'Cập nhật nội dung xử lý'
             WHEN cl."fieldName" = 'carrierCompensation' THEN 'Nhập tiền NVC đền bù'
             WHEN cl."fieldName" = 'customerCompensation' THEN 'Nhập tiền đền bù KH'
+            WHEN cl."fieldName" = 'deadline' THEN 'Cập nhật thời hạn'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'Đánh dấu hoàn tất'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'Hủy hoàn tất'
             ELSE 'Cập nhật'
           END as "actionType"
         ) h
-        ${whereClause} ${actionFilter}
+        WHERE cl."fieldName" != 'claimStatus'
+        ${conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : ""}
+        ${actionFilter}
       ) combined
     `;
 
@@ -125,9 +129,13 @@ export async function GET(req: NextRequest) {
         SELECT cl."id", cl."changedAt" as "timestamp", cl."changedBy" as "staff",
           o."requestCode",
           CASE
+            WHEN cl."fieldName" = 'claimStatus' THEN 'Chuyển trạng thái'
+            WHEN cl."fieldName" = 'issueType' THEN 'Cập nhật loại vấn đề'
+            WHEN cl."fieldName" = 'issueDescription' THEN 'Cập nhật nội dung VĐ'
             WHEN cl."fieldName" = 'processingContent' THEN 'Cập nhật nội dung xử lý'
             WHEN cl."fieldName" = 'carrierCompensation' THEN 'Nhập tiền NVC đền bù'
             WHEN cl."fieldName" = 'customerCompensation' THEN 'Nhập tiền đền bù KH'
+            WHEN cl."fieldName" = 'deadline' THEN 'Cập nhật thời hạn'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'Đánh dấu hoàn tất'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'Hủy hoàn tất'
             ELSE 'Cập nhật'
@@ -137,6 +145,9 @@ export async function GET(req: NextRequest) {
             WHEN cl."fieldName" IN ('carrierCompensation', 'customerCompensation') THEN 'green'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'green'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'red'
+            WHEN cl."fieldName" = 'issueType' THEN 'blue'
+            WHEN cl."fieldName" = 'issueDescription' THEN 'blue'
+            WHEN cl."fieldName" = 'deadline' THEN 'blue'
             ELSE 'yellow'
           END as "dotColor"
         FROM "ClaimChangeLog" cl
@@ -145,15 +156,21 @@ export async function GET(req: NextRequest) {
         CROSS JOIN LATERAL (
           SELECT cl."changedBy", cl."changedAt",
           CASE
+            WHEN cl."fieldName" = 'claimStatus' THEN 'Chuyển trạng thái'
+            WHEN cl."fieldName" = 'issueType' THEN 'Cập nhật loại vấn đề'
+            WHEN cl."fieldName" = 'issueDescription' THEN 'Cập nhật nội dung VĐ'
             WHEN cl."fieldName" = 'processingContent' THEN 'Cập nhật nội dung xử lý'
             WHEN cl."fieldName" = 'carrierCompensation' THEN 'Nhập tiền NVC đền bù'
             WHEN cl."fieldName" = 'customerCompensation' THEN 'Nhập tiền đền bù KH'
+            WHEN cl."fieldName" = 'deadline' THEN 'Cập nhật thời hạn'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'Đánh dấu hoàn tất'
             WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'Hủy hoàn tất'
             ELSE 'Cập nhật'
           END as "actionType"
         ) h
-        ${whereClause} ${actionFilter}
+        WHERE cl."fieldName" != 'claimStatus'
+        ${conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : ""}
+        ${actionFilter}
       ) combined
       ORDER BY "timestamp" DESC
       LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}

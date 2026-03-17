@@ -269,6 +269,8 @@ export function WaitingReturnTab({ data, filters, pageSize, onConfirmAskedToggle
           defaultTitle={`Trả hàng cho khách ${todoOrder.requestCode}`}
           defaultDescription={`Đơn chờ trả: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - Về kho ngày ${getWarehouseDate(todoOrder) ? format(getWarehouseDate(todoOrder)!, "dd/MM/yyyy") : "?"}`}
           defaultPriority="HIGH"
+          linkedOrderId={todoOrder.id}
+          source="FROM_RETURNS"
         />
       )}
 

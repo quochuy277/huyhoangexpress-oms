@@ -10,6 +10,8 @@ interface AddTodoDialogProps {
   defaultTitle: string;
   defaultDescription: string;
   defaultPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  linkedOrderId?: string;
+  source?: string;
 }
 
 export function AddTodoDialog({
@@ -18,6 +20,8 @@ export function AddTodoDialog({
   defaultTitle,
   defaultDescription,
   defaultPriority,
+  linkedOrderId,
+  source,
 }: AddTodoDialogProps) {
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
@@ -54,6 +58,8 @@ export function AddTodoDialog({
           description: description.trim(),
           priority,
           dueDate: dueDate || null,
+          linkedOrderId: linkedOrderId || null,
+          source: source || "MANUAL",
         }),
       });
 

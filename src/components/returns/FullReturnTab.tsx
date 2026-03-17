@@ -229,6 +229,8 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
           defaultTitle={`Theo dõi đơn hoàn ${todoOrder.requestCode}`}
           defaultDescription={`Đơn hoàn toàn bộ: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - Đang hoàn ${todoDays} ngày`}
           defaultPriority={getPriority(todoDays)}
+          linkedOrderId={todoOrder.id}
+          source="FROM_RETURNS"
         />
       )}
 

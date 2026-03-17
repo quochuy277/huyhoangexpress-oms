@@ -1,8 +1,15 @@
-export default function FinancePage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Tài Chính</h1>
-      <p className="text-gray-500 mt-2">Sẽ được xây dựng ở Phase 10</p>
-    </div>
-  );
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import FinancePageClient from "@/components/finance/FinancePageClient";
+
+export default async function FinancePage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const { role, permissions } = session.user as any;
+  if (!permissions?.canViewFinancePage && role !== "ADMIN") redirect("/");
+
+  const isAdmin = role === "ADMIN";
+
+  return <FinancePageClient isAdmin={isAdmin} />;
 }

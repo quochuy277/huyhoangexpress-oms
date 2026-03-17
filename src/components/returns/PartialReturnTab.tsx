@@ -255,6 +255,8 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
           defaultTitle={`Xử lý đơn hoàn 1 phần ${todoOrder.requestCode}`}
           defaultDescription={`Đơn hoàn 1 phần: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - Mã 1 phần: ${todoOrder.partialOrderCode}`}
           defaultPriority="MEDIUM"
+          linkedOrderId={todoOrder.id}
+          source="FROM_RETURNS"
         />
       )}
 

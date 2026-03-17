@@ -1,4 +1,4 @@
-import { PrismaClient, Role, DeliveryStatus, IssueType, ClaimStatus, TodoStatus, Priority, AttendanceStatus } from "@prisma/client";
+import { PrismaClient, Role, DeliveryStatus, IssueType, ClaimStatus, TodoStatus, Priority, AttendanceStatus, TodoSource } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -348,7 +348,7 @@ async function main() {
     "Review đơn hàng lỗi nhập từ file Excel",
   ];
 
-  const todoStatuses = [TodoStatus.TODO, TodoStatus.IN_PROGRESS, TodoStatus.REVIEW, TodoStatus.DONE];
+  const todoStatuses = [TodoStatus.TODO, TodoStatus.IN_PROGRESS, TodoStatus.DONE];
   const priorities = [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.URGENT];
 
   for (let i = 0; i < 10; i++) {
@@ -361,6 +361,10 @@ async function main() {
         dueDate: new Date(Date.now() + (i - 3) * 24 * 3600 * 1000),
         sortOrder: i,
         assigneeId: i % 2 === 0 ? staff1.id : staff2.id,
+        createdById: admin.id,
+        source: i < 3 ? TodoSource.FROM_DELAYED : i < 5 ? TodoSource.FROM_RETURNS : i < 7 ? TodoSource.FROM_CLAIMS : TodoSource.MANUAL,
+        linkedOrderId: i < 5 ? undefined : undefined,
+        completedAt: undefined,
       },
     });
   }
@@ -380,13 +384,15 @@ async function main() {
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
       if (isWeekend) continue;
 
-      const checkIn = new Date(date);
-      checkIn.setHours(8 + Math.floor(Math.random() * 1), Math.floor(Math.random() * 30), 0, 0);
+      const firstLogin = new Date(date);
+      firstLogin.setHours(8 + Math.floor(Math.random() * 1), Math.floor(Math.random() * 30), 0, 0);
 
-      const checkOut = new Date(date);
-      checkOut.setHours(17 + Math.floor(Math.random() * 1), Math.floor(Math.random() * 30), 0, 0);
+      const lastLogout = new Date(date);
+      lastLogout.setHours(17 + Math.floor(Math.random() * 1), Math.floor(Math.random() * 30), 0, 0);
 
-      const totalHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+      const totalMinutes = Math.floor((lastLogout.getTime() - firstLogin.getTime()) / 60000);
+      const isLate = firstLogin.getHours() >= 9 || (firstLogin.getHours() === 8 && firstLogin.getMinutes() > 30);
+      const lateMinutes = isLate ? (firstLogin.getHours() * 60 + firstLogin.getMinutes()) - (8 * 60 + 30) : 0;
 
       await prisma.attendance.upsert({
         where: { userId_date: { userId: user.id, date } },
@@ -394,10 +400,12 @@ async function main() {
         create: {
           userId: user.id,
           date,
-          checkIn,
-          checkOut,
-          totalHours: Math.round(totalHours * 100) / 100,
-          status: checkIn.getHours() >= 9 ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
+          firstLogin,
+          lastLogout,
+          totalMinutes,
+          isLate,
+          lateMinutes: Math.max(0, lateMinutes),
+          status: totalMinutes / 60 >= 4 ? AttendanceStatus.PRESENT : totalMinutes / 60 >= 2 ? AttendanceStatus.HALF_DAY : AttendanceStatus.ABSENT,
         },
       });
     }
@@ -425,6 +433,8 @@ async function main() {
           duration: Math.floor((logoutTime.getTime() - loginTime.getTime()) / 60000),
           ipAddress: "192.168.1." + Math.floor(Math.random() * 254 + 1),
           userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0",
+          deviceType: "Chrome / Windows",
+          logoutReason: "manual",
         },
       });
     }

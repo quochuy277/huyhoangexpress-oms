@@ -1,8 +1,23 @@
-export default function AttendancePage() {
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import AttendancePageClient from "@/components/attendance/AttendancePageClient";
+
+export default async function AttendancePage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const { id, role, permissions } = session.user as any;
+
+  const canViewAll = role === "ADMIN" || role === "MANAGER" || permissions?.canViewAllAttendance;
+  const canEdit = role === "ADMIN" || role === "MANAGER" || permissions?.canEditAttendance;
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Chấm Công</h1>
-      <p className="text-gray-500 mt-2">Sẽ được xây dựng ở Phase 9</p>
-    </div>
+    <AttendancePageClient
+      userId={id}
+      userRole={role}
+      userName={session.user.name || ""}
+      canViewAll={!!canViewAll}
+      canEdit={!!canEdit}
+    />
   );
 }

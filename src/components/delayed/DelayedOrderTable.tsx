@@ -304,6 +304,8 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
           defaultTitle={`Xử lý đơn ${todoOrder.requestCode}`}
           defaultDescription={`Đơn: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - KH: ${todoOrder.receiverName} - Hoãn ${todoOrder.delayCount} lần - Nguy cơ: ${riskToVietnamese(todoOrder.risk)}`}
           defaultPriority={riskToPriority(todoOrder.risk)}
+          linkedOrderId={todoOrder.id}
+          source="FROM_DELAYED"
         />
       )}
 

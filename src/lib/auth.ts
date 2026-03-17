@@ -4,10 +4,49 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { extractPermissions, getDefaultPermissions } from "@/lib/permissions";
+import { parseDeviceType, getVietnamToday, isAfterTime, calculateLateMinutes, getAttendanceSettings } from "@/lib/attendance";
+import { headers } from "next/headers";
+import type { Role } from "@prisma/client";
+import type { PermissionSet } from "@/lib/permissions";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 }, // 8 hours
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as { role: Role }).role;
+        token.name = user.name;
+        token.permissions = (user as { permissions: PermissionSet }).permissions;
+        token.permissionsUpdatedAt = Date.now();
+      }
+
+      // Refresh permissions from DB every 5 minutes (Node.js only — safe here)
+      const REFRESH_INTERVAL = 5 * 60 * 1000;
+      const lastUpdate = (token.permissionsUpdatedAt as number) || 0;
+      if (token.id && Date.now() - lastUpdate > REFRESH_INTERVAL) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true, permissionGroup: true },
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.permissions = dbUser.permissionGroup
+              ? extractPermissions(dbUser.permissionGroup as unknown as Record<string, unknown>)
+              : getDefaultPermissions(dbUser.role);
+          }
+          token.permissionsUpdatedAt = Date.now();
+        } catch {
+          // Silently fail — keep existing permissions
+        }
+      }
+
+      return token;
+    },
+  },
   providers: [
     Credentials({
       name: "Credentials",
@@ -36,24 +75,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (!isValid) return null;
 
-          // Record login history (non-blocking)
+          // Get request headers for IP and user-agent
+          let ipAddress = "unknown";
+          let userAgent = "unknown";
+          try {
+            const hdrs = await headers();
+            ipAddress = hdrs.get("x-forwarded-for") || hdrs.get("x-real-ip") || "unknown";
+            userAgent = hdrs.get("user-agent") || "unknown";
+          } catch { /* headers not available */ }
+
+          const deviceType = parseDeviceType(userAgent);
+          const now = new Date();
+
+          // Create LoginHistory (non-blocking)
           prisma.loginHistory.create({
-            data: { userId: user.id },
+            data: {
+              userId: user.id,
+              loginTime: now,
+              ipAddress,
+              userAgent,
+              deviceType,
+            },
           }).catch(() => {});
 
-          // Auto check-in attendance (non-blocking)
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          prisma.attendance.upsert({
-            where: { userId_date: { userId: user.id, date: today } },
-            update: {},
-            create: {
-              userId: user.id,
-              date: today,
-              checkIn: new Date(),
-              status:
-                new Date().getHours() >= 9 ? "LATE" : "PRESENT",
-            },
+          // Auto check-in attendance with late detection (non-blocking)
+          const today = getVietnamToday();
+          getAttendanceSettings().then(settings => {
+            const late = isAfterTime(now, settings.lateTime);
+            const lateMins = calculateLateMinutes(now, settings.lateTime);
+
+            prisma.attendance.upsert({
+              where: { userId_date: { userId: user.id, date: today } },
+              create: {
+                userId: user.id,
+                date: today,
+                firstLogin: now,
+                isLate: late,
+                lateMinutes: lateMins,
+                status: "ABSENT",
+              },
+              update: {},
+            }).catch(() => {});
           }).catch(() => {});
 
           // Build permissions from permissionGroup or fallback to role

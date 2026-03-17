@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable experimental features as needed
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
 };
 
 export default nextConfig;

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import IdleLogoutProvider from "@/components/attendance/IdleLogoutProvider";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 
@@ -30,7 +31,11 @@ export default async function DashboardLayout({
           userEmail={email ?? ""}
           userRole={role as Role}
         />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6">
+          <IdleLogoutProvider>
+            {children}
+          </IdleLogoutProvider>
+        </main>
       </div>
     </div>
   );

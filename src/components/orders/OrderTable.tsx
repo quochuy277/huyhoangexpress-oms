@@ -400,6 +400,8 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
           defaultTitle={`Xử lý đơn ${todoModalOrder.requestCode}`}
           defaultDescription={`Đơn hàng: ${todoModalOrder.requestCode} - ${todoModalOrder.shopName || "Không rõ shop"} - ${todoModalOrder.receiverName || "Không rõ KH"}`}
           defaultPriority="MEDIUM"
+          linkedOrderId={todoModalOrder.id}
+          source="FROM_ORDERS"
         />
       )}
 
