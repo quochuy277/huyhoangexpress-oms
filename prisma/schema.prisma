@@ -44,6 +44,8 @@ model User {
   claimOrders      ClaimOrder[]
   scoredEmployees  EmployeeScore[] @relation("ScoredBy")
   receivedScores   EmployeeScore[] @relation("ReceivedScore")
+  infoChangeRequests InfoChangeRequest[]
+  feedbacks        Feedback[]
 }
 
 enum Role {
@@ -63,12 +65,16 @@ model PermissionGroup {
   canUploadExcel          Boolean @default(true)
   canDeleteOrders         Boolean @default(false)
   canEditStaffNotes       Boolean @default(true)
+  canExportOrders         Boolean @default(false)
 
   // === Tài chính ===
   canViewRevenue          Boolean @default(false)
   canViewCarrierFee       Boolean @default(false)
   canViewFinancePage      Boolean @default(false)
   canViewDashboardFinance Boolean @default(false)
+  canManageExpenses       Boolean @default(false)
+  canUploadCashbook       Boolean @default(false)
+  canManageBudgets        Boolean @default(false)
 
   // === Chăm sóc đơn Hoãn ===
   canViewDelayed          Boolean @default(true)
@@ -81,6 +87,8 @@ model PermissionGroup {
   canViewClaims           Boolean @default(true)
   canCreateClaim          Boolean @default(true)
   canUpdateClaim          Boolean @default(false)
+  canDeleteClaim          Boolean @default(false)
+  canViewCompensation     Boolean @default(false)
 
   // === Công việc ===
   canViewAllTodos         Boolean @default(false)
@@ -89,6 +97,16 @@ model PermissionGroup {
   canViewAllAttendance    Boolean @default(false)
   canEditAttendance       Boolean @default(false)
   canScoreEmployees       Boolean @default(false)
+
+  // === Nghỉ phép ===
+  canApproveLeave         Boolean @default(false)
+
+  // === Tài liệu ===
+  canManageDocuments      Boolean @default(false)
+  canManageLinks          Boolean @default(false)
+
+  // === Thông báo ===
+  canCreateAnnouncement   Boolean @default(false)
 
   // === Quản trị ===
   canManageUsers          Boolean @default(false)
@@ -633,4 +651,79 @@ model MonthlyBudget {
   budgetAmount Decimal 
 
   @@unique([categoryId, month])
+}
+
+// ============================================================
+// ANNOUNCEMENTS — Company-wide notifications from Admin
+// ============================================================
+
+model Announcement {
+  id              String    @id @default(cuid())
+  title           String
+  content         String    @db.Text
+  attachmentUrl   String?
+  attachmentName  String?
+  isPinned        Boolean   @default(false)
+  createdBy       String
+  createdByName   String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  reads           AnnouncementRead[]
+
+  @@index([createdAt])
+  @@index([isPinned])
+}
+
+model AnnouncementRead {
+  id              String       @id @default(cuid())
+  announcement    Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  announcementId  String
+  userId          String
+  readAt          DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+}
+
+// ============================================================
+// USER PROFILE — Info change requests & Feedback
+// ============================================================
+
+model InfoChangeRequest {
+  id          String        @id @default(cuid())
+  user        User          @relation(fields: [userId], references: [id])
+  userId      String
+  fieldName   String
+  fieldLabel  String
+  oldValue    String?
+  newValue    String
+  status      RequestStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime      @default(now())
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  userName  String
+  content   String   @db.Text
+  isRead    Boolean  @default(false)
+  readBy    String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
