@@ -13,6 +13,9 @@ export async function PATCH(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
+    if (!session.user.permissions?.canManagePermissions) {
+      return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
+    }
 
     const { id } = await params;
     const body = await request.json();
@@ -59,6 +62,9 @@ export async function DELETE(
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    if (!session.user.permissions?.canManagePermissions) {
+      return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
     }
 
     const { id } = await params;

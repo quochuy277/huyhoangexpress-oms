@@ -54,7 +54,8 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
       {/* Tab Bar */}
       <div style={{
         display: "flex", borderBottom: "2px solid #e5e7eb",
-        background: "#fff", paddingLeft: "4px", marginBottom: "16px",
+        background: "#fff", paddingLeft: "4px", marginBottom: "12px",
+        overflowX: "auto", WebkitOverflowScrolling: "touch",
       }}>
         {tabs.map(t => (
           <button
@@ -62,13 +63,14 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
             onClick={() => setActiveTab(t.key)}
             style={{
               display: "flex", alignItems: "center", gap: "6px",
-              padding: "10px 20px", fontSize: "13px",
+              padding: "10px 14px", fontSize: "13px",
               fontWeight: activeTab === t.key ? 700 : 500,
               color: activeTab === t.key ? t.color : "#6b7280",
               background: "transparent", border: "none",
               borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent",
               marginBottom: "-2px", cursor: "pointer",
               transition: "all 0.15s",
+              whiteSpace: "nowrap", flexShrink: 0,
             }}
           >
             {t.icon} {t.label}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseExcelBuffer, buildOrderData } from "@/lib/excel-parser";
+import { uploadLimiter } from "@/lib/rate-limiter";
 
 const BATCH_SIZE = 500;
 
@@ -11,6 +12,10 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
+
+  // Rate limit
+  const rateLimited = uploadLimiter.check(session.user.id!);
+  if (rateLimited) return rateLimited;
   const permissions = session.user.permissions;
   if (!permissions?.canUploadExcel) {
     return NextResponse.json(

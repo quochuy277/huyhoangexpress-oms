@@ -10,6 +10,9 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
+    if (!session.user.permissions?.canManagePermissions) {
+      return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
+    }
 
     const groups = await prisma.permissionGroup.findMany({
       include: { _count: { select: { users: true } } },
@@ -29,6 +32,9 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    if (!session.user.permissions?.canManagePermissions) {
+      return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
     }
 
     const body = await request.json();

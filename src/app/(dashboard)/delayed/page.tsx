@@ -112,13 +112,13 @@ export default function DelayedOrdersPage() {
   return (
     <div className="flex-1 space-y-6 pt-2 pb-8">
       {/* Header */}
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
-            <PackageX className="w-8 h-8 text-amber-500" />
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
+            <PackageX className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500" />
             Chăm Sóc Đơn Hoãn
           </h2>
-          <p className="text-slate-500 mt-2">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 sm:mt-2">
             Phân tích tự động nội dung Ghi chú đa luồng để tìm ra tần suất và lý do hoãn giao thực sự.
           </p>
         </div>
@@ -142,7 +142,7 @@ export default function DelayedOrdersPage() {
           </div>
 
           {/* Row 3: Filter & Table */}
-          <div className="flex flex-col h-[800px]">
+          <div className="flex flex-col" style={{ height: 'auto', minHeight: '500px' }}>
             <DelayedFilterPanel 
               orders={orders}
               filteredOrders={filteredOrders}

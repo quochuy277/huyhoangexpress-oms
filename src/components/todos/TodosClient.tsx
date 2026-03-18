@@ -159,7 +159,7 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
     <>
       <div style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,0.4)" }} onClick={onClose} />
       <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: "480px", maxWidth: "100vw",
+        position: "fixed", top: 0, right: 0, bottom: 0, width: "min(480px, 100vw)",
         zIndex: 10051, background: "#fff", boxShadow: "-4px 0 20px rgba(0,0,0,0.1)",
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
@@ -454,12 +454,12 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px", height: "100%" }}>
       {/* Page title + controls */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
         <div>
           <h1 style={{ fontSize: "20px", fontWeight: 700, color: "#1e293b", margin: 0 }}>Công Việc</h1>
           <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0" }}>Quản lý và theo dõi công việc</p>
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           {canViewAll && (
             <select value={scope} onChange={e => { setScope(e.target.value as any); setPagination(p => ({ ...p, page: 1 })); }} style={{ ...inputStyle, fontWeight: 600 }}>
               <option value="mine">Của tôi</option>
@@ -509,7 +509,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         {summaryCards.map((c, i) => (
           <button
             key={i}
@@ -528,7 +528,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
 
       {/* Filters */}
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ position: "relative", flex: "0 0 200px" }}>
+        <div style={{ position: "relative", flex: "1 1 auto", minWidth: "140px" }}>
           <Search size={14} style={{ position: "absolute", left: "10px", top: "9px", color: "#9ca3af" }} />
           <input style={{ ...inputStyle, paddingLeft: "32px", width: "100%" }} placeholder="Tìm kiếm..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} />
         </div>
@@ -556,7 +556,8 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
         ) : view === "list" ? (
           /* =============== LIST VIEW =============== */
           <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", minWidth: "800px" }}>
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e5e7eb" }}>
                   <th style={{ padding: "8px", width: "36px" }}>☐</th>
@@ -617,6 +618,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
                 })}
               </tbody>
             </table>
+            </div>
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
@@ -633,7 +635,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
         ) : (
           /* =============== KANBAN VIEW =============== */
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", height: "100%" }}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4" style={{ height: "100%" }}>
               {[
                 { id: "todo", label: "Cần làm", items: todoItems, color: "#6b7280" },
                 { id: "inprogress", label: "Đang làm", items: inProgressItems, color: "#d97706" },

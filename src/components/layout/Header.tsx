@@ -2,7 +2,7 @@
 
 import { logoutAction } from "@/lib/actions/auth-actions";
 import type { Role } from "@prisma/client";
-import { Bell, LogOut, User, ChevronDown, ExternalLink, Pin, Paperclip } from "lucide-react";
+import { Bell, LogOut, User, ChevronDown, ExternalLink, Pin, Paperclip, Menu } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { UserProfileDialog } from "@/components/shared/UserProfileDialog";
@@ -26,6 +26,7 @@ interface HeaderProps {
   userEmail: string;
   userRole: Role;
   pageTitle?: string;
+  onMobileMenuToggle?: () => void;
 }
 
 interface AnnouncementPreview {
@@ -39,7 +40,7 @@ interface AnnouncementPreview {
   isRead: boolean;
 }
 
-export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps) {
+export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuToggle }: HeaderProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
@@ -50,7 +51,6 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
   const [announcements, setAnnouncements] = useState<AnnouncementPreview[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // Fetch overdue + announcement counts for bell badge
   useEffect(() => {
     const fetchCounts = () => {
       fetch("/api/todos/overdue-count").then(r => r.json()).then(d => setOverdueCount(d.count || 0)).catch(() => {});
@@ -61,7 +61,6 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch details when bell opens
   useEffect(() => {
     if (bellOpen) {
       fetch("/api/todos/reminders").then(r => r.json()).then(d => {
@@ -82,16 +81,25 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
   const totalBadge = overdueCount + announcementCount;
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
-      {/* Page title */}
-      <div>
+    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 shrink-0">
+      {/* Left side: hamburger + page title */}
+      <div className="flex items-center gap-2">
+        {/* Mobile hamburger */}
+        <button
+          onClick={onMobileMenuToggle}
+          className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors md:hidden"
+          aria-label="Mở menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         {pageTitle && (
-          <h1 className="text-lg font-semibold text-slate-800">{pageTitle}</h1>
+          <h1 className="text-lg font-semibold text-slate-800 hidden sm:block">{pageTitle}</h1>
         )}
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Notification bell */}
         <div className="relative">
           <button
@@ -116,7 +124,7 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
           {bellOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setBellOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-slate-200 rounded-xl shadow-xl z-20" style={{ overflow: "hidden" }}>
+              <div className="absolute right-0 sm:right-0 top-full mt-2 w-[calc(100vw-1.5rem)] sm:w-96 max-w-96 bg-white border border-slate-200 rounded-xl shadow-xl z-20 -mr-1 sm:mr-0" style={{ overflow: "hidden" }}>
                 {/* Tab bar */}
                 <div style={{ display: "flex", borderBottom: "1px solid #e5e7eb" }}>
                   <button onClick={() => setBellTab("todos")} style={{
@@ -139,7 +147,6 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
 
                 <div className="max-h-72 overflow-auto">
                   {bellTab === "todos" ? (
-                    /* Todos tab */
                     overdueCount === 0 ? (
                       <div className="px-4 py-6 text-center text-sm text-slate-400">Không có công việc quá hạn 🎉</div>
                     ) : (
@@ -160,7 +167,6 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
                       </>
                     )
                   ) : (
-                    /* Announcements tab */
                     announcements.length === 0 ? (
                       <div className="px-4 py-6 text-center text-sm text-slate-400">Không có thông báo 📢</div>
                     ) : (
@@ -206,7 +212,7 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
         <div className="relative">
           <button
             onClick={() => { setMenuOpen(!menuOpen); setBellOpen(false); }}
-            className="flex items-center gap-3 pl-3 pr-2 py-2 rounded-lg hover:bg-slate-100 transition-colors"
+            className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-1 sm:pr-2 py-1.5 sm:py-2 rounded-lg hover:bg-slate-100 transition-colors"
           >
             {/* Avatar */}
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">
@@ -226,14 +232,13 @@ export function Header({ userName, userEmail, userRole, pageTitle }: HeaderProps
             </div>
 
             <ChevronDown
-              className={`w-4 h-4 text-slate-400 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+              className={`w-4 h-4 text-slate-400 transition-transform hidden sm:block ${menuOpen ? "rotate-180" : ""}`}
             />
           </button>
 
           {/* Dropdown */}
           {menuOpen && (
             <>
-              {/* Backdrop */}
               <div
                 className="fixed inset-0 z-10"
                 onClick={() => setMenuOpen(false)}

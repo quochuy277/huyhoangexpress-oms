@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import type { Prisma, DeliveryStatus } from "@prisma/client";
 import { mapStatusToVietnamese } from "@/lib/status-mapper";
+import { exportLimiter } from "@/lib/rate-limiter";
 
 export async function GET(req: NextRequest) {
   // Auth check
@@ -11,9 +12,13 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
-  if (session.user.role === "VIEWER") {
+  if (!session.user.permissions?.canExportOrders) {
     return NextResponse.json({ error: "Không có quyền xuất file" }, { status: 403 });
   }
+
+  // Rate limit
+  const rateLimited = exportLimiter.check(session.user.id!);
+  if (rateLimited) return rateLimited;
 
   const { searchParams } = new URL(req.url);
 

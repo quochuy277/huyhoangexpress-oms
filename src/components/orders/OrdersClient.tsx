@@ -65,14 +65,14 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
   };
 
   return (
-    <div className="space-y-4 flex flex-col h-[calc(100vh-8rem)]">
+    <div className="space-y-3 sm:space-y-4 flex flex-col h-[calc(100vh-6.5rem)] sm:h-[calc(100vh-8rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản Lý Đơn Hàng</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Tìm kiếm, lọc và quản lý toàn bộ đơn hàng</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Quản Lý Đơn Hàng</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Tìm kiếm, lọc và quản lý toàn bộ đơn hàng</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {selectedRows.length > 0 && isAdminOrManager && (
             <button
               onClick={handleDelete}

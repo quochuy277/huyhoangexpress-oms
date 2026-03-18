@@ -47,15 +47,11 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const user = session.user as { id: string; name?: string; role: string; permissionGroupId?: string };
-
-  // Check permission
-  let allowed = user.role === "ADMIN";
-  if (!allowed && user.permissionGroupId) {
-    const pg = await prisma.permissionGroup.findUnique({ where: { id: user.permissionGroupId } });
-    if (pg?.canCreateAnnouncement) allowed = true;
+  // Check permission from JWT
+  if (!session.user.permissions?.canCreateAnnouncement) {
+    return NextResponse.json({ error: "Không có quyền tạo thông báo" }, { status: 403 });
   }
-  if (!allowed) return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
+  const user = session.user as { id: string; name?: string };
 
   const body = await req.json();
   const { title, content, attachmentUrl, attachmentName, isPinned } = body;

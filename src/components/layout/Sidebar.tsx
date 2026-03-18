@@ -18,6 +18,7 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 
 interface NavItem {
@@ -43,14 +44,15 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   userRole: Role;
   permissions?: PermissionSet;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ userRole, permissions }: SidebarProps) {
+export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Load saved state on mount
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("sidebar_collapsed");
@@ -58,6 +60,11 @@ export function Sidebar({ userRole, permissions }: SidebarProps) {
       setCollapsed(JSON.parse(saved));
     }
   }, []);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    onMobileClose?.();
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleCollapse = () => {
     const newVal = !collapsed;
@@ -68,39 +75,44 @@ export function Sidebar({ userRole, permissions }: SidebarProps) {
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.requiredPermission) return true;
     if (permissions) return permissions[item.requiredPermission];
-    // Fallback to old role check if permissions not provided
     if (item.requiredPermission === "canManageUsers") return userRole === "ADMIN";
     if (item.requiredPermission === "canViewFinancePage") return userRole === "ADMIN" || userRole === "MANAGER";
     return true;
   });
 
-  return (
-    <aside
-      className={cn(
-        "flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 relative",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
+  const sidebarContent = (isMobile: boolean) => (
+    <>
       {/* Logo */}
       <div
-        className={cn("flex items-center h-16 px-4 border-b border-slate-800 overflow-hidden", collapsed ? "justify-center cursor-pointer hover:bg-slate-800 transition-colors" : "")}
-        onClick={() => collapsed && toggleCollapse()}
-        title={collapsed ? "Mở rộng" : undefined}
+        className={cn(
+          "flex items-center h-16 px-4 border-b border-slate-800 overflow-hidden shrink-0",
+          !isMobile && collapsed ? "justify-center cursor-pointer hover:bg-slate-800 transition-colors" : ""
+        )}
+        onClick={() => !isMobile && collapsed && toggleCollapse()}
+        title={!isMobile && collapsed ? "Mở rộng" : undefined}
       >
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0">
           <Package className="w-5 h-5 text-white" />
         </div>
-        {!collapsed && (
-          <div className="ml-3 overflow-hidden">
+        {(isMobile || !collapsed) && (
+          <div className="ml-3 overflow-hidden flex-1">
             <p className="text-white font-bold text-sm leading-tight truncate">
               HuyHoang Express
             </p>
             <p className="text-slate-500 text-xs truncate">Quản lý vận chuyển</p>
           </div>
         )}
+        {isMobile && (
+          <button
+            onClick={onMobileClose}
+            className="ml-auto p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      {collapsed && (
+      {!isMobile && collapsed && (
         <div className="flex justify-center mt-4">
           <button
             onClick={toggleCollapse}
@@ -125,7 +137,7 @@ export function Sidebar({ userRole, permissions }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              title={collapsed ? item.label : undefined}
+              title={!isMobile && collapsed ? item.label : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group",
                 isActive
@@ -139,7 +151,7 @@ export function Sidebar({ userRole, permissions }: SidebarProps) {
                   !isActive && "group-hover:scale-110"
                 )}
               />
-              {!collapsed && (
+              {(isMobile || !collapsed) && (
                 <span className="truncate">{item.label}</span>
               )}
             </Link>
@@ -147,9 +159,9 @@ export function Sidebar({ userRole, permissions }: SidebarProps) {
         })}
       </nav>
 
-      {/* Collapse button */}
-      {!collapsed && (
-        <div className="px-2 pb-4">
+      {/* Collapse button - desktop only */}
+      {!isMobile && !collapsed && (
+        <div className="px-2 pb-4 shrink-0">
           <button
             onClick={toggleCollapse}
             className="flex items-center justify-center w-full gap-2 py-2.5 px-3 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all text-sm"
@@ -160,6 +172,35 @@ export function Sidebar({ userRole, permissions }: SidebarProps) {
           </button>
         </div>
       )}
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden md:flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 relative shrink-0",
+          collapsed ? "w-16" : "w-64"
+        )}
+      >
+        {sidebarContent(false)}
+      </aside>
+
+      {/* Mobile overlay sidebar */}
+      {mobileOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            onClick={onMobileClose}
+          />
+          {/* Drawer */}
+          <aside className="fixed inset-y-0 left-0 w-72 bg-slate-900 z-50 md:hidden flex flex-col animate-in slide-in-from-left duration-200">
+            {sidebarContent(true)}
+          </aside>
+        </>
+      )}
+    </>
   );
 }

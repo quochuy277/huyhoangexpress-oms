@@ -161,7 +161,7 @@ export default function ReturnsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -196,30 +196,33 @@ export default function ReturnsPage() {
       </div>
 
       {/* Tab Headers */}
-      <div style={{ display: "flex", borderBottom: "2px solid #e5e7eb", gap: "0" }}>
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => handleSetActiveTab(t.key)}
-            style={{
-              padding: "10px 20px",
-              fontSize: "13px",
-              fontWeight: activeTab === t.key ? 600 : 500,
-              color: activeTab === t.key ? t.color : "#6b7280",
-              background: "transparent",
-              border: "none",
-              borderBottom: activeTab === t.key ? `2px solid ${t.color}` : "2px solid transparent",
-              marginBottom: "-2px",
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-          >
-            {t.label} ({t.count})
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+        <div className="flex overflow-x-auto" style={{ borderBottom: "2px solid #e5e7eb" }}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => handleSetActiveTab(t.key)}
+              style={{
+                padding: "10px 16px",
+                fontSize: "13px",
+                fontWeight: activeTab === t.key ? 600 : 500,
+                color: activeTab === t.key ? t.color : "#6b7280",
+                background: "transparent",
+                border: "none",
+                borderBottom: activeTab === t.key ? `2px solid ${t.color}` : "2px solid transparent",
+                marginBottom: "-2px",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t.label} ({t.count})
+            </button>
+          ))}
+        </div>
 
         {/* Right side: page size + export */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px", paddingBottom: "6px" }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px", padding: "6px 0" }}>
           <select
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}

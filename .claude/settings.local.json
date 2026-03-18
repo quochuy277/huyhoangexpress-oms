@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(find /e/AAA_CODE/Order_Manager -name .env* -o -name *error* -o -name *log*)",
+      "Bash(grep -rn AUTH_SECRET /e/AAA_CODE/Order_Manager/ --include=*.ts --include=*.env* --include=*.mjs)",
+      "Bash(ls /e/AAA_CODE/Order_Manager/.env*)",
+      "Bash(grep -rn \"huyhoang\\\\|AUTH_SECRET\" /e/AAA_CODE/Order_Manager/src/ --include=*.ts --include=*.tsx)",
+      "Bash(grep -rn \"prisma.user.update\\\\|prisma.user.findUnique\" /e/AAA_CODE/Order_Manager/src/app/api/admin/users/[id]/password/route.ts)"
     ]
   }
 }

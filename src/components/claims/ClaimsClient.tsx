@@ -193,7 +193,7 @@ function AddClaimDialog({
   return createPortal(
     <>
       <div style={overlayStyle} onClick={onClose} />
-      <div style={{ ...dialogBase, width: step === "search" ? "560px" : "640px" }}>
+      <div style={{ ...dialogBase, width: "min(" + (step === "search" ? "560px" : "640px") + ", calc(100vw - 32px))" }}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ padding: "8px", borderRadius: "8px", background: "#eff6ff" }}>
@@ -429,7 +429,7 @@ function ClaimDetailPanel({
     <>
       <div style={overlayStyle} onClick={onClose} />
       <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: "700px", maxWidth: "100vw",
+        position: "fixed", top: 0, right: 0, bottom: 0, width: "min(700px, 100vw)",
         zIndex: 9999, background: "#f8fafc", borderLeft: "2px solid #2563EB",
         boxShadow: "-12px 0 40px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column",
         animation: "slideIn 0.25s ease-out",
@@ -437,7 +437,7 @@ function ClaimDetailPanel({
         {/* Header */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "16px 24px", background: "#fff", borderBottom: "1px solid #e5e7eb",
+          padding: "12px 16px", background: "#fff", borderBottom: "1px solid #e5e7eb",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ padding: "6px", borderRadius: "8px", background: "#eff6ff" }}>
@@ -450,7 +450,7 @@ function ClaimDetailPanel({
               )}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
             {saving && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
             {data && onAddTodo && (
               <button
@@ -509,7 +509,7 @@ function ClaimDetailPanel({
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
           {loading && <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={24} /></div>}
           {data && !loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
@@ -831,7 +831,7 @@ function ProcessingContentPopup({
   return createPortal(
     <>
       <div style={overlayStyle} onClick={onClose} />
-      <div style={{ ...dialogBase, width: "560px" }}>
+      <div style={{ ...dialogBase, width: "min(560px, calc(100vw - 32px))" }}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ padding: "8px", borderRadius: "8px", background: "#eff6ff" }}>
@@ -1167,7 +1167,7 @@ export default function ClaimsClient() {
   return (
     <div style={{ padding: "0" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: "8px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a1a", display: "flex", alignItems: "center", gap: "10px" }}>
             <ShieldAlert size={24} className="text-blue-600" />
@@ -1177,7 +1177,7 @@ export default function ClaimsClient() {
             Quản lý khiếu nại, bồi hoàn và các đơn hàng có vấn đề
           </p>
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <button
             onClick={runAutoDetect}
             disabled={detecting}
@@ -1202,7 +1202,7 @@ export default function ClaimsClient() {
       {/* Filters */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "16px", alignItems: "center" }}>
         {/* Search */}
-        <div style={{ position: "relative", flex: "0 0 260px" }}>
+        <div style={{ position: "relative", flex: "1 1 auto", minWidth: "140px" }}>
           <Search size={14} style={{ position: "absolute", left: "10px", top: "9px", color: "#9ca3af" }} />
           <input
             style={{ ...inputStyle, paddingLeft: "32px", padding: "7px 10px 7px 32px", fontSize: "13px" }}
@@ -1330,7 +1330,8 @@ export default function ClaimsClient() {
 
       {/* Table */}
       <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed" }}>
+        <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed", minWidth: "1100px" }}>
           {/* Checkbox | STT | Mã YC | Mã ĐT | Tên CH | TT Đơn | COD | Loại VĐ | ND VĐ | Ngày PH | Ngày TĐ | TT Xử Lý | ND XL | Thời Hạn | Thao Tác */}
           <colgroup><col style={{ width: "32px" }} /><col style={{ width: "36px" }} /><col style={{ width: "105px" }} /><col style={{ width: "90px" }} /><col style={{ width: "90px" }} /><col style={{ width: "85px" }} /><col style={{ width: "80px" }} /><col style={{ width: "90px" }} /><col style={{ width: "120px" }} /><col style={{ width: "70px" }} /><col style={{ width: "55px" }} /><col style={{ width: "105px" }} /><col style={{ width: "55px" }} /><col style={{ width: "85px" }} /><col style={{ width: "120px" }} /></colgroup>
           <thead>
@@ -1598,6 +1599,7 @@ export default function ClaimsClient() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination */}

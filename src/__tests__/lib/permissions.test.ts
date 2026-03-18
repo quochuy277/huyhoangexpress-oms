@@ -17,9 +17,9 @@ describe("getDefaultPermissions", () => {
       }
     });
 
-    it("has exactly 20 permissions", () => {
+    it("has exactly PERMISSION_KEYS.length permissions", () => {
       const perms = getDefaultPermissions("ADMIN");
-      expect(Object.keys(perms)).toHaveLength(20);
+      expect(Object.keys(perms)).toHaveLength(PERMISSION_KEYS.length);
     });
   });
 

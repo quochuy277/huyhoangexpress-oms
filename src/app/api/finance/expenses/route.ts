@@ -40,8 +40,7 @@ export async function POST(req: NextRequest) {
     const { session, error } = await requireFinanceAccess();
     if (error) return error;
 
-    const role = session!.user.role;
-    if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
+    if (!session!.user.permissions?.canManageExpenses) return NextResponse.json({ error: "Không có quyền quản lý chi phí" }, { status: 403 });
 
     const body = await req.json();
     const parsed = expenseSchema.safeParse(body);

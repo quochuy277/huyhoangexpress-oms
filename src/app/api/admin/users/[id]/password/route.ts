@@ -13,6 +13,9 @@ export async function PATCH(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
+    if (!session.user.permissions?.canManageUsers) {
+      return NextResponse.json({ error: "Không có quyền quản lý nhân viên" }, { status: 403 });
+    }
 
     const { id } = await params;
     const { newPassword } = await request.json();

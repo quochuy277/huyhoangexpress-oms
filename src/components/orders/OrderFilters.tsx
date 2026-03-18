@@ -117,9 +117,9 @@ export function OrderFilters({ hideExport }: OrderFiltersProps) {
   return (
     <div className="space-y-3">
       {/* Row 1: Search + Advanced Toggle + Export */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Tìm theo mã đơn, tên, SĐT, mã vận đơn..."
@@ -131,7 +131,7 @@ export function OrderFilters({ hideExport }: OrderFiltersProps) {
                 updateParam("search", val);
               }, 400);
             }}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full pl-8 sm:pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
           {isPending && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />}
         </div>
@@ -161,7 +161,7 @@ export function OrderFilters({ hideExport }: OrderFiltersProps) {
       </div>
 
       {/* Row 2: Basic Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         <select value={currentStatus} onChange={(e) => updateParam("status", e.target.value)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 text-slate-600">
           <option value="">Tất cả trạng thái</option>
           {STATUS_OPTIONS.map((s) => (
@@ -193,7 +193,7 @@ export function OrderFilters({ hideExport }: OrderFiltersProps) {
 
       {/* Row 3: Advanced Filters */}
       {showAdvanced && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-3 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-3 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
           {/* Shop Name */}
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Cửa Hàng</label>
