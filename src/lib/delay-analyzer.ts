@@ -12,7 +12,7 @@ export type RawOrder = {
   receiverProvince?: string | null;
   status: string;
   deliveryStatus?: string;
-  codAmount?: number;
+  codAmount?: number | { toNumber: () => number };
   createdTime?: Date | null;
   pickupTime?: Date | null;
   lastUpdated?: Date | null;
@@ -264,7 +264,7 @@ export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
     fullAddress: addrParts.join(' - '),
     status,
     deliveryStatus: order.deliveryStatus || '',
-    codAmount: order.codAmount || 0,
+    codAmount: Number(order.codAmount ?? 0),
     createdTime: order.createdTime || null,
     carrierName: order.carrierName || '',
     delayCount,

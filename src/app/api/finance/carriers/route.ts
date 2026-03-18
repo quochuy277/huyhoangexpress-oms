@@ -29,12 +29,12 @@ export async function GET(req: NextRequest) {
       const c = o.carrierName || "Khác";
       if (!map[c]) map[c] = { carrier: c, orderCount: 0, totalFee: 0, carrierFee: 0, revenue: 0, negativeCount: 0, returnFee: 0, codTotal: 0 };
       map[c].orderCount++;
-      map[c].totalFee += o.totalFee || 0;
-      map[c].carrierFee += o.carrierFee || 0;
-      map[c].revenue += o.revenue || 0;
-      map[c].codTotal += o.codAmount || 0;
-      if ((o.revenue || 0) < 0) map[c].negativeCount++;
-      if (o.deliveryStatus === "RETURNED_FULL" || o.deliveryStatus === "RETURNED_PARTIAL") map[c].returnFee += o.returnFee || 0;
+      map[c].totalFee += Number(o.totalFee ?? 0);
+      map[c].carrierFee += Number(o.carrierFee ?? 0);
+      map[c].revenue += Number(o.revenue ?? 0);
+      map[c].codTotal += Number(o.codAmount ?? 0);
+      if (Number(o.revenue ?? 0) < 0) map[c].negativeCount++;
+      if (o.deliveryStatus === "RETURNED_FULL" || o.deliveryStatus === "RETURNED_PARTIAL") map[c].returnFee += Number(o.returnFee ?? 0);
     });
 
     const carriers = Object.values(map)

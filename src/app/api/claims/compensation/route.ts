@@ -68,8 +68,8 @@ export async function GET(req: NextRequest) {
         && !c.isCompleted
     );
 
-    const totalCarrierComp = carrierCompClaims.reduce((sum, c) => sum + c.carrierCompensation, 0);
-    const totalCustomerComp = customerCompClaims.reduce((sum, c) => sum + c.customerCompensation, 0);
+    const totalCarrierComp = carrierCompClaims.reduce((sum, c) => sum + Number(c.carrierCompensation), 0);
+    const totalCustomerComp = customerCompClaims.reduce((sum, c) => sum + Number(c.customerCompensation), 0);
 
     const summary = {
       carrierTotal: totalCarrierComp,
@@ -101,11 +101,11 @@ export async function GET(req: NextRequest) {
       if (!c.isCompleted) s.processing++;
       if (c.claimStatus === "CUSTOMER_COMPENSATED") {
         s.compensated++;
-        s.totalPaid += c.customerCompensation;
+        s.totalPaid += Number(c.customerCompensation);
       }
       if (c.claimStatus === "CUSTOMER_REJECTED") s.rejected++;
-      if (!c.isCompleted && c.customerCompensation === 0 && c.carrierCompensation > 0) {
-        s.totalPending += c.carrierCompensation; // estimate
+      if (!c.isCompleted && Number(c.customerCompensation) === 0 && Number(c.carrierCompensation) > 0) {
+        s.totalPending += Number(c.carrierCompensation);
       }
     }
 
@@ -125,8 +125,8 @@ export async function GET(req: NextRequest) {
 
       monthlyData.push({
         month: monthStr,
-        carrier: monthClaims.filter(c => c.claimStatus === "CARRIER_COMPENSATED").reduce((s, c) => s + c.carrierCompensation, 0),
-        customer: monthClaims.filter(c => c.claimStatus === "CUSTOMER_COMPENSATED").reduce((s, c) => s + c.customerCompensation, 0),
+        carrier: monthClaims.filter(c => c.claimStatus === "CARRIER_COMPENSATED").reduce((s, c) => s + Number(c.carrierCompensation), 0),
+        customer: monthClaims.filter(c => c.claimStatus === "CUSTOMER_COMPENSATED").reduce((s, c) => s + Number(c.customerCompensation), 0),
       });
     }
 

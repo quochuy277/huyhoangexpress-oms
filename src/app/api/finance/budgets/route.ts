@@ -22,10 +22,10 @@ export async function GET(req: NextRequest) {
     });
 
     const spentMap: Record<string, number> = {};
-    expenses.forEach(e => { spentMap[e.categoryId] = (spentMap[e.categoryId] || 0) + e.amount; });
+    expenses.forEach(e => { spentMap[e.categoryId] = (spentMap[e.categoryId] || 0) + Number(e.amount); });
 
     const budgetMap: Record<string, number> = {};
-    budgets.forEach(b => { budgetMap[b.categoryId] = b.budgetAmount; });
+    budgets.forEach(b => { budgetMap[b.categoryId] = Number(b.budgetAmount); });
 
     const result = categories.map(c => ({
       categoryId: c.id,

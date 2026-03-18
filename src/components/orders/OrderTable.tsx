@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { formatVND, formatDate } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X } from "lucide-react";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 import type { DeliveryStatus, Priority } from "@prisma/client";
@@ -47,10 +48,9 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [todoModalOrder, setTodoModalOrder] = useState<OrderRow | null>(null);
   const [claimOrder, setClaimOrder] = useState<OrderRow | null>(null);
+  const queryClient = useQueryClient();
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
 
@@ -58,32 +58,18 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
   const sortBy = searchParams.get("sortBy") || "createdTime";
   const sortOrder = searchParams.get("sortOrder") || "desc";
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    try {
+  const queryKey = ["orders", searchParams.toString()];
+  const { data, isLoading: loading } = useQuery<ApiResponse>({
+    queryKey,
+    queryFn: async () => {
       const params = new URLSearchParams(searchParams.toString());
       const res = await fetch(`/api/orders?${params.toString()}`);
-      if (res.ok) {
-        const json: ApiResponse = await res.json();
-        setData(json);
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, [searchParams]);
+      if (!res.ok) throw new Error("Failed to fetch orders");
+      return res.json();
+    },
+  });
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
-
-  useEffect(() => {
-    (window as any).__refetchOrders = fetchOrders;
-    return () => {
-      delete (window as any).__refetchOrders;
-    };
-  }, [fetchOrders]);
+  const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ["orders"] });
 
   const handleSort = (column: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -409,7 +395,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
       <AddClaimFromPageDialog
         open={!!claimOrder}
         onClose={() => setClaimOrder(null)}
-        onSuccess={() => fetchOrders()}
+        onSuccess={() => refetchOrders()}
         order={claimOrder || undefined}
         source="FROM_ORDERS"
       />

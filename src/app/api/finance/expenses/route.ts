@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { expenseSchema } from "@/lib/validations";
 
 // GET — list expenses with filters
 export async function GET(req: NextRequest) {
@@ -43,17 +44,17 @@ export async function POST(req: NextRequest) {
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const body = await req.json();
-    const { categoryId, title, amount, date, note, attachmentUrl, attachmentName } = body;
-
-    if (!categoryId || !title || !amount || !date) {
-      return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
+    const parsed = expenseSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dữ liệu không hợp lệ", details: parsed.error.flatten() }, { status: 400 });
     }
+    const { categoryId, title, amount, date, note, attachmentUrl, attachmentName } = parsed.data;
 
     const expense = await prisma.expense.create({
       data: {
         categoryId,
         title,
-        amount: parseFloat(amount),
+        amount,
         date: new Date(date),
         note: note || null,
         attachmentUrl: attachmentUrl || null,

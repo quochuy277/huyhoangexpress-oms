@@ -12,7 +12,7 @@ function getDateRange(period: string, from?: string, to?: string) {
     case "half": return { from: subMonths(startOfMonth(now), 5), to: now };
     case "year": return { from: startOfYear(now), to: now };
     case "custom": return { from: from ? new Date(from) : subMonths(now, 1), to: to ? new Date(to) : now };
-    default: return { from: startOfMonth(now), to: now }; // month
+    default: return { from: startOfMonth(now), to: now };
   }
 }
 
@@ -20,43 +20,52 @@ const REVENUE_STATUSES: DeliveryStatus[] = ["RECONCILED", "RETURNED_FULL", "RETU
 
 export async function GET(req: NextRequest) {
   try {
-    const { session, error } = await requireFinanceAccess();
+    const { error } = await requireFinanceAccess();
     if (error) return error;
 
     const url = new URL(req.url);
     const period = url.searchParams.get("period") || "month";
     const range = getDateRange(period, url.searchParams.get("from") || undefined, url.searchParams.get("to") || undefined);
 
-    // Summary cards — from revenue-eligible orders (RECONCILED, RETURNED_FULL, RETURNED_PARTIAL)
-    const orders = await prisma.order.findMany({
-      where: {
-        deliveryStatus: { in: REVENUE_STATUSES },
-        createdTime: { gte: range.from, lte: range.to },
-      },
-      select: { totalFee: true, carrierFee: true, codAmount: true, carrierName: true, shopName: true },
-    });
+    const revenueWhere = {
+      deliveryStatus: { in: REVENUE_STATUSES },
+      createdTime: { gte: range.from, lte: range.to },
+    };
 
-    const totalRevenue = orders.reduce((s, o) => s + (o.totalFee || 0), 0);
-    const totalCarrierFee = orders.reduce((s, o) => s + (o.carrierFee || 0), 0);
-    const grossProfit = totalRevenue - totalCarrierFee; // Doanh thu ròng
-    const totalCod = orders.filter(o => o.codAmount).reduce((s, o) => s + (o.codAmount || 0), 0);
-    const orderCount = orders.length;
+    // Summary cards — use aggregate instead of fetch-all
+    const [summaryAgg, orderCount, codAgg] = await Promise.all([
+      prisma.order.aggregate({
+        where: revenueWhere,
+        _sum: { totalFee: true, carrierFee: true },
+      }),
+      prisma.order.count({ where: revenueWhere }),
+      prisma.order.aggregate({
+        where: { ...revenueWhere, codAmount: { gt: 0 } },
+        _sum: { codAmount: true },
+      }),
+    ]);
+
+    const totalRevenue = Number(summaryAgg._sum.totalFee ?? 0);
+    const totalCarrierFee = Number(summaryAgg._sum.carrierFee ?? 0);
+    const grossProfit = totalRevenue - totalCarrierFee;
+    const totalCod = Number(codAgg._sum.codAmount ?? 0);
     const margin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
 
-    // Previous period for comparison (compare grossProfit = DR ròng)
+    // Previous period — also use aggregate
     const duration = range.to.getTime() - range.from.getTime();
     const prevFrom = new Date(range.from.getTime() - duration);
     const prevTo = new Date(range.from.getTime() - 1);
-    const prevOrders = await prisma.order.findMany({
+    const prevAgg = await prisma.order.aggregate({
       where: { deliveryStatus: { in: REVENUE_STATUSES }, createdTime: { gte: prevFrom, lte: prevTo } },
-      select: { carrierFee: true, totalFee: true },
+      _sum: { totalFee: true, carrierFee: true },
     });
-    const prevGrossProfit = prevOrders.reduce((s, o) => s + (o.totalFee || 0) - (o.carrierFee || 0), 0);
+    const prevGrossProfit = Number(prevAgg._sum.totalFee ?? 0) - Number(prevAgg._sum.carrierFee ?? 0);
     const revenueChange = prevGrossProfit > 0 ? Math.round(((grossProfit - prevGrossProfit) / prevGrossProfit) * 100) : 0;
 
-    // Trend chart — last 6 months (fetch all at once, group by month)
+    // Trend chart — still needs per-month grouping, use groupBy
     const trendFrom = startOfMonth(subMonths(new Date(), 5));
     const trendTo = endOfMonth(new Date());
+
     const [trendOrders, trendClaims, trendExpenses] = await Promise.all([
       prisma.order.findMany({
         where: { deliveryStatus: { in: REVENUE_STATUSES }, createdTime: { gte: trendFrom, lte: trendTo } },
@@ -80,39 +89,49 @@ export async function GET(req: NextRequest) {
       const mTo = endOfMonth(m);
 
       const mOrders = trendOrders.filter(o => o.createdTime && o.createdTime >= mFrom && o.createdTime <= mTo);
-      const rev = mOrders.reduce((s, o) => s + (o.totalFee || 0), 0);
-      const carrierCost = mOrders.reduce((s, o) => s + (o.carrierFee || 0), 0);
-      const profit = rev - carrierCost; // Doanh thu ròng
+      const rev = mOrders.reduce((s, o) => s + Number(o.totalFee ?? 0), 0);
+      const carrierCost = mOrders.reduce((s, o) => s + Number(o.carrierFee ?? 0), 0);
+      const profit = rev - carrierCost;
 
       const mClaims = trendClaims.filter(c => c.detectedDate && c.detectedDate >= mFrom && c.detectedDate <= mTo);
-      const claimNetCost = mClaims.reduce((s, c) => s + (c.customerCompensation || 0) - (c.carrierCompensation || 0), 0);
+      const claimNetCost = mClaims.reduce((s, c) => s + Number(c.customerCompensation ?? 0) - Number(c.carrierCompensation ?? 0), 0);
 
       const mExpenses = trendExpenses.filter(e => e.date >= mFrom && e.date <= mTo);
-      const expenseTotal = mExpenses.reduce((s, e) => s + e.amount, 0);
+      const expenseTotal = mExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
       const totalCost = Math.max(0, claimNetCost) + expenseTotal;
-
       trendData.push({ month: key, profit, totalCost });
     }
 
-    // Distribution by carrier
-    const carrierMap: Record<string, { revenue: number; fee: number; count: number }> = {};
-    orders.forEach(o => {
-      const c = o.carrierName || "Khác";
-      if (!carrierMap[c]) carrierMap[c] = { revenue: 0, fee: 0, count: 0 };
-      carrierMap[c].revenue += o.totalFee || 0;
-      carrierMap[c].fee += o.carrierFee || 0;
-      carrierMap[c].count++;
+    // Carrier distribution — use groupBy
+    const carrierGroups = await prisma.order.groupBy({
+      by: ["carrierName"],
+      where: revenueWhere,
+      _sum: { totalFee: true, carrierFee: true },
+      _count: true,
     });
-    const carrierDistribution = Object.entries(carrierMap).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue);
+    const carrierDistribution = carrierGroups
+      .map(g => ({
+        name: g.carrierName || "Khác",
+        revenue: Number(g._sum.totalFee ?? 0),
+        fee: Number(g._sum.carrierFee ?? 0),
+        count: g._count,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
 
-    // Distribution by shop
-    const shopMap: Record<string, number> = {};
-    orders.forEach(o => {
-      const s = o.shopName || "Khác";
-      shopMap[s] = (shopMap[s] || 0) + (o.totalFee || 0) - (o.carrierFee || 0);
+    // Shop distribution — use groupBy
+    const shopGroups = await prisma.order.groupBy({
+      by: ["shopName"],
+      where: revenueWhere,
+      _sum: { totalFee: true, carrierFee: true },
     });
-    const shopDistribution = Object.entries(shopMap).map(([name, revenue]) => ({ name, revenue })).sort((a, b) => b.revenue - a.revenue).slice(0, 15);
+    const shopDistribution = shopGroups
+      .map(g => ({
+        name: g.shopName || "Khác",
+        revenue: Number(g._sum.totalFee ?? 0) - Number(g._sum.carrierFee ?? 0),
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 15);
 
     return NextResponse.json({
       summary: { totalRevenue, totalCarrierFee, grossProfit, totalCod, orderCount, margin, revenueChange },

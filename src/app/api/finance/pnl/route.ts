@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
       where: { deliveryStatus: { in: REVENUE_STATUSES }, createdTime: { gte: from, lte: to } },
       select: { totalFee: true, carrierFee: true },
     });
-    const totalFeeFromShop = orders.reduce((s, o) => s + (o.totalFee || 0), 0);
-    const totalCarrierFee = orders.reduce((s, o) => s + (o.carrierFee || 0), 0);
+    const totalFeeFromShop = orders.reduce((s, o) => s + Number(o.totalFee ?? 0), 0);
+    const totalCarrierFee = orders.reduce((s, o) => s + Number(o.carrierFee ?? 0), 0);
     const netRevenue = totalFeeFromShop - totalCarrierFee;
 
     // Auto claims data
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
       where: { detectedDate: { gte: from, lte: to } },
       select: { customerCompensation: true, carrierCompensation: true },
     });
-    const customerComp = claims.reduce((s, c) => s + (c.customerCompensation || 0), 0);
-    const carrierComp = claims.reduce((s, c) => s + (c.carrierCompensation || 0), 0);
+    const customerComp = claims.reduce((s, c) => s + Number(c.customerCompensation ?? 0), 0);
+    const carrierComp = claims.reduce((s, c) => s + Number(c.carrierCompensation ?? 0), 0);
     const claimDiff = carrierComp - customerComp; // negative if we pay more than carrier pays us
 
     const grossProfit = netRevenue + claimDiff;
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     expenses.forEach(e => {
       const cid = e.categoryId;
       if (!categoryTotals[cid]) categoryTotals[cid] = { name: e.category.name, total: 0, sortOrder: e.category.sortOrder };
-      categoryTotals[cid].total += e.amount;
+      categoryTotals[cid].total += Number(e.amount);
     });
     const operatingExpenses = Object.values(categoryTotals).sort((a, b) => a.sortOrder - b.sortOrder);
     const totalOperatingExpenses = operatingExpenses.reduce((s, c) => s + c.total, 0);

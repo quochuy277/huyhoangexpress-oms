@@ -2,50 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, DeliveryStatus } from "@prisma/client";
+import { ordersQuerySchema, parseSearchParams } from "@/lib/validations";
 
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
+const ALLOWED_SORT_COLUMNS = [
+  "createdTime", "requestCode", "shopName", "receiverName",
+  "deliveryStatus", "codAmount", "revenue", "carrierName",
+  "receiverProvince", "lastUpdated", "importedAt", "totalFee", "customerWeight",
+];
 
 export async function GET(req: NextRequest) {
-  // Auth check
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
   const { searchParams } = new URL(req.url);
+  const parsed = ordersQuerySchema.safeParse(parseSearchParams(searchParams));
 
-  // Pagination
-  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-  const pageSize = Math.min(
-    MAX_PAGE_SIZE,
-    Math.max(1, parseInt(searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE), 10))
-  );
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Tham số không hợp lệ", details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const {
+    page, pageSize, search, status: statusFilter, carrier,
+    fromDate, toDate, hasNotes, shopName: shopNameFilter,
+    salesStaff: salesStaffFilter, partialOrderType, regionGroup,
+    sortBy, sortOrder,
+  } = parsed.data;
+
   const skip = (page - 1) * pageSize;
-
-  // Basic Filters
-  const search = searchParams.get("search")?.trim();
-  const statusFilter = searchParams.get("status");
-  const carrier = searchParams.get("carrier");
-  const fromDate = searchParams.get("fromDate");
-  const toDate = searchParams.get("toDate");
-
-  // Advanced Filters
-  const hasNotes = searchParams.get("hasNotes"); // 'true' | 'false' | ''
-  const shopNameFilter = searchParams.get("shopName"); // comma-separated
-  const salesStaffFilter = searchParams.get("salesStaff"); // comma-separated
-  const partialOrderType = searchParams.get("partialOrderType"); // 'Đơn toàn bộ', 'Đơn một phần'
-  const regionGroup = searchParams.get("regionGroup");
-
-  // Sort
-  const sortBy = searchParams.get("sortBy") || "createdTime";
-  const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
   // Build WHERE clause
   const where: Prisma.OrderWhereInput = {};
   const AND: Prisma.OrderWhereInput[] = [];
 
-  // Search: requestCode, receiverName, receiverPhone, shopName, carrierOrderCode
   if (search) {
     AND.push({
       OR: [
@@ -64,7 +57,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (carrier) AND.push({ carrierName: carrier });
-  
+
   if (fromDate) AND.push({ createdTime: { gte: new Date(fromDate) } });
   if (toDate) {
     const endDate = new Date(toDate);
@@ -72,9 +65,10 @@ export async function GET(req: NextRequest) {
     AND.push({ createdTime: { lte: endDate } });
   }
 
-  // Handle Advanced Filters
-  if (hasNotes === 'true') {    AND.push({ staffNotes: { not: null, notIn: [''] } });
-  } else if (hasNotes === 'false') {    AND.push({ OR: [{ staffNotes: null }, { staffNotes: '' }] });
+  if (hasNotes === "true") {
+    AND.push({ staffNotes: { not: null, notIn: [""] } });
+  } else if (hasNotes === "false") {
+    AND.push({ OR: [{ staffNotes: null }, { staffNotes: "" }] });
   }
 
   if (shopNameFilter) {
@@ -88,9 +82,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (partialOrderType) {
-    if (partialOrderType === 'Đơn toàn bộ' || partialOrderType === 'Đơn một phần') {
-      AND.push({ partialOrderType });
-    }
+    AND.push({ partialOrderType });
   }
 
   if (regionGroup) {
@@ -101,12 +93,7 @@ export async function GET(req: NextRequest) {
     where.AND = AND;
   }
 
-  const allowedSortColumns = [
-    "createdTime", "requestCode", "shopName", "receiverName",
-    "deliveryStatus", "codAmount", "revenue", "carrierName",
-    "receiverProvince", "lastUpdated", "importedAt", "totalFee", "customerWeight"
-  ];
-  const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : "createdTime";
+  const safeSortBy = ALLOWED_SORT_COLUMNS.includes(sortBy) ? sortBy : "createdTime";
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
@@ -122,8 +109,8 @@ export async function GET(req: NextRequest) {
         codAmount: true,
         totalFee: true,
         customerWeight: true,
-        partialOrderType: true,        staffNotes: true,
-        // needed for other things possibly
+        partialOrderType: true,
+        staffNotes: true,
         receiverName: true,
         receiverPhone: true,
         revenue: true,

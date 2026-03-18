@@ -10,12 +10,14 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Format number as Vietnamese currency (VND)
+ * Accepts Prisma Decimal, number, null, or undefined
  * @example formatVND(1500000) → "1.500.000đ"
  */
-export function formatVND(amount: number): string {
-  if (isNaN(amount)) return "0đ";
+export function formatVND(amount: number | { toNumber?: () => number } | null | undefined): string {
+  const num = amount == null ? 0 : typeof amount === "number" ? amount : Number(amount);
+  if (isNaN(num)) return "0đ";
   return (
-    new Intl.NumberFormat("vi-VN").format(Math.round(amount)) + "đ"
+    new Intl.NumberFormat("vi-VN").format(Math.round(num)) + "đ"
   );
 }
 

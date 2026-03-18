@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       orderBy: { revenue: "asc" },
     });
 
-    const totalLoss = orders.reduce((s, o) => s + (o.revenue || 0), 0);
+    const totalLoss = orders.reduce((s, o) => s + Number(o.revenue ?? 0), 0);
 
     // Most frequent carrier
     const carrierCount: Record<string, number> = {};

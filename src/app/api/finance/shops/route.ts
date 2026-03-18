@@ -34,11 +34,11 @@ export async function GET(req: NextRequest) {
       const s = o.shopName || "Không rõ";
       if (!map[s]) map[s] = { shop: s, total: 0, delivered: 0, returned: 0, revenue: 0, codTotal: 0, totalFee: 0 };
       map[s].total++;
-      map[s].totalFee += o.totalFee || 0;
+      map[s].totalFee += Number(o.totalFee ?? 0);
       if (DELIVERED_OK.includes(o.deliveryStatus)) map[s].delivered++;
       if (RETURNED.includes(o.deliveryStatus)) map[s].returned++;
-      if (REVENUE_STATUSES.includes(o.deliveryStatus)) map[s].revenue += (o.totalFee || 0) - (o.carrierFee || 0);
-      map[s].codTotal += o.codAmount || 0;
+      if (REVENUE_STATUSES.includes(o.deliveryStatus)) map[s].revenue += Number(o.totalFee ?? 0) - Number(o.carrierFee ?? 0);
+      map[s].codTotal += Number(o.codAmount ?? 0);
     });
 
     const shops = Object.values(map)
