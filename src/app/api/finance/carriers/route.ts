@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeliveryStatus } from "@prisma/client";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 const COMPLETED: DeliveryStatus[] = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL", "DELIVERED"] as DeliveryStatus[];
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { error } = await requireFinanceAccess();
+    if (error) return error;
 
     const url = new URL(req.url);
     const period = url.searchParams.get("period") || "month";
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       select: { carrierName: true, totalFee: true, carrierFee: true, revenue: true, codAmount: true, returnFee: true, deliveryStatus: true },
     });
 
-    const map: Record<string, any> = {};
+    const map: Record<string, { carrier: string; orderCount: number; totalFee: number; carrierFee: number; revenue: number; negativeCount: number; returnFee: number; codTotal: number }> = {};
     orders.forEach(o => {
       const c = o.carrierName || "Khác";
       if (!map[c]) map[c] = { carrier: c, orderCount: 0, totalFee: 0, carrierFee: 0, revenue: 0, negativeCount: 0, returnFee: 0, codTotal: 0 };
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
     });
 
     const carriers = Object.values(map)
-      .map((c: any) => ({ ...c, margin: c.totalFee > 0 ? Math.round((c.revenue / c.totalFee) * 1000) / 10 : 0 }))
-      .sort((a: any, b: any) => b.revenue - a.revenue);
+      .map(c => ({ ...c, margin: c.totalFee > 0 ? Math.round((c.revenue / c.totalFee) * 1000) / 10 : 0 }))
+      .sort((a, b) => b.revenue - a.revenue);
 
     return NextResponse.json({ carriers });
   } catch (error) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 const GROUP_MAP: Record<string, string> = {
   "COD": "COD",
@@ -14,8 +14,8 @@ const GROUP_MAP: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
 
     const formData = await req.formData();
     const file = formData.get("file") as File;

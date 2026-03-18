@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeliveryStatus } from "@prisma/client";
 import { format, subMonths, startOfMonth, endOfMonth, startOfQuarter, startOfYear } from "date-fns";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 function getDateRange(period: string, from?: string, to?: string) {
   const now = new Date();
@@ -20,8 +20,8 @@ const REVENUE_STATUSES: DeliveryStatus[] = ["RECONCILED", "RETURNED_FULL", "RETU
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
 
     const url = new URL(req.url);
     const period = url.searchParams.get("period") || "month";

@@ -338,7 +338,7 @@ export function parseExcelBuffer(buffer: ArrayBuffer): ParseResult {
         totalFee,
         carrierFee,
         ghsvInsuranceFee: num(mapped.ghsvInsuranceFee),
-        revenue: ['RECONCILED', 'RETURNED_FULL', 'RETURNED_PARTIAL'].includes(deliveryStatus) ? (carrierFee - totalFee) : 0,
+        revenue: ['RECONCILED', 'RETURNED_FULL', 'RETURNED_PARTIAL'].includes(deliveryStatus) ? (totalFee - carrierFee) : 0,
 
         creatorShopName: str(mapped.creatorShopName),
         creatorPhone: str(mapped.creatorPhone),

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 // GET — list all categories
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { error } = await requireFinanceAccess();
+    if (error) return error;
 
     const categories = await prisma.expenseCategory.findMany({
       orderBy: { sortOrder: "asc" },
@@ -21,9 +21,10 @@ export async function GET() {
 // POST — create custom category (admin)
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-    const { role } = session.user as any;
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
+
+    const role = session!.user.role;
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const { name } = await req.json();
@@ -34,8 +35,9 @@ export async function POST(req: NextRequest) {
       data: { name: name.trim(), isSystem: false, sortOrder: (maxSort._max.sortOrder || 0) + 1 },
     });
     return NextResponse.json({ category });
-  } catch (error: any) {
-    if (error?.code === "P2002") return NextResponse.json({ error: "Danh mục đã tồn tại" }, { status: 409 });
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string };
+    if (prismaErr?.code === "P2002") return NextResponse.json({ error: "Danh mục đã tồn tại" }, { status: 409 });
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

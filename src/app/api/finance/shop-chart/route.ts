@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { subDays, subWeeks, subMonths, startOfDay, startOfWeek, startOfMonth, format } from "date-fns";
+import { subDays, subWeeks, subMonths, startOfWeek, startOfMonth, format } from "date-fns";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { error } = await requireFinanceAccess();
+    if (error) return error;
 
     const url = new URL(req.url);
     const shopsParam = url.searchParams.get("shops") || "";
@@ -34,7 +34,6 @@ export async function GET(req: NextRequest) {
       select: { creatorShopName: true, createdTime: true },
     });
 
-    // Group by bucket + shop
     const buckets: Record<string, Record<string, number>> = {};
     orders.forEach(o => {
       if (!o.createdTime) return;

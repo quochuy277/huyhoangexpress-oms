@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 // GET — list expenses with filters
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { error } = await requireFinanceAccess();
+    if (error) return error;
 
     const url = new URL(req.url);
     const month = url.searchParams.get("month");
     const category = url.searchParams.get("category");
     const search = url.searchParams.get("search");
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (month) {
       const [y, m] = month.split("-").map(Number);
       where.date = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0) };
@@ -36,9 +36,10 @@ export async function GET(req: NextRequest) {
 // POST — create expense (admin only)
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-    const { role } = session.user as any;
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
+
+    const role = session!.user.role;
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const body = await req.json();
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
         note: note || null,
         attachmentUrl: attachmentUrl || null,
         attachmentName: attachmentName || null,
-        createdBy: session.user.name || session.user.id!,
+        createdBy: session!.user.name || session!.user.id!,
       },
       include: { category: { select: { name: true } } },
     });

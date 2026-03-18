@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeliveryStatus } from "@prisma/client";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { error } = await requireFinanceAccess();
+    if (error) return error;
 
     const url = new URL(req.url);
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);

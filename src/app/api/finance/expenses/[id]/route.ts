@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 // PUT — update expense
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-    const { role } = session.user as any;
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
+
+    const role = session!.user.role;
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const { id } = await params;
@@ -37,9 +38,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 // DELETE — delete expense
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-    const { role } = session.user as any;
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
+
+    const role = session!.user.role;
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const { id } = await params;

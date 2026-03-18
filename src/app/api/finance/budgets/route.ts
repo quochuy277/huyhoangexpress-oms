@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireFinanceAccess } from "@/lib/finance-auth";
 
 // GET — budgets for a month
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    const { error } = await requireFinanceAccess();
+    if (error) return error;
 
     const url = new URL(req.url);
     const monthStr = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
       select: { categoryId: true, amount: true },
     });
 
-    // Sum expenses by category
     const spentMap: Record<string, number> = {};
     expenses.forEach(e => { spentMap[e.categoryId] = (spentMap[e.categoryId] || 0) + e.amount; });
 
@@ -48,16 +47,16 @@ export async function GET(req: NextRequest) {
 // PUT — set budgets for a month (admin only)
 export async function PUT(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-    const { role } = session.user as any;
+    const { session, error } = await requireFinanceAccess();
+    if (error) return error;
+
+    const role = session!.user.role;
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const { month, budgets } = await req.json();
     const [y, m] = month.split("-").map(Number);
     const monthDate = new Date(y, m - 1, 1);
 
-    // Upsert each budget
     for (const b of budgets) {
       if (b.amount > 0) {
         await prisma.monthlyBudget.upsert({

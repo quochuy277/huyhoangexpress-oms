@@ -115,19 +115,19 @@ model Order {
   pickupTime          DateTime?
 
   // Financial fields
-  codAmount           Float     @default(0)
-  codOriginal         Float     @default(0)
-  declaredValue       Float     @default(0)
-  shippingFee         Float     @default(0)
-  surcharge           Float     @default(0)
-  overweightFee       Float     @default(0)
-  insuranceFee        Float     @default(0)
-  codServiceFee       Float     @default(0)
-  returnFee           Float     @default(0)
-  totalFee            Float     @default(0)
-  carrierFee          Float     @default(0)
-  ghsvInsuranceFee    Float     @default(0)
-  revenue             Float     @default(0) // Doanh thu = totalFee - carrierFee
+  codAmount           Decimal   @default(0)
+  codOriginal         Decimal   @default(0)
+  declaredValue       Decimal   @default(0)
+  shippingFee         Decimal   @default(0)
+  surcharge           Decimal   @default(0)
+  overweightFee       Decimal   @default(0)
+  insuranceFee        Decimal   @default(0)
+  codServiceFee       Decimal   @default(0)
+  returnFee           Decimal   @default(0)
+  totalFee            Decimal   @default(0)
+  carrierFee          Decimal   @default(0)
+  ghsvInsuranceFee    Decimal   @default(0)
+  revenue             Decimal   @default(0) // Doanh thu = totalFee - carrierFee
 
   // Creator info
   creatorShopName     String?
@@ -291,8 +291,8 @@ model ClaimOrder {
   processingContent    String?     @db.Text
 
   // Compensation
-  carrierCompensation  Float       @default(0)
-  customerCompensation Float       @default(0)
+  carrierCompensation  Decimal     @default(0)
+  customerCompensation Decimal     @default(0)
 
   // Completion
   isCompleted          Boolean     @default(false)
@@ -459,6 +459,7 @@ enum AttendanceStatus {
   PRESENT
   HALF_DAY
   ABSENT
+  LATE
   ON_LEAVE
   UNAPPROVED_LEAVE
 }
@@ -557,10 +558,10 @@ model CashbookEntry {
   receiptCode     String        @unique
   groupType       CashbookGroup
   content         String
-  amount          Float
-  balance         Float
-  rawCod          Float?
-  shippingFee     Float?
+  amount          Decimal 
+  balance         Decimal 
+  rawCod          Decimal?
+  shippingFee     Decimal?
   shopName        String?
   uploadedAt      DateTime      @default(now())
   uploadedBy      String
@@ -611,7 +612,7 @@ model Expense {
   category       ExpenseCategory @relation(fields: [categoryId], references: [id])
   categoryId     String
   title          String
-  amount         Float
+  amount         Decimal 
   date           DateTime        @db.Date
   note           String?
   attachmentUrl  String?
@@ -629,7 +630,7 @@ model MonthlyBudget {
   category     ExpenseCategory @relation(fields: [categoryId], references: [id])
   categoryId   String
   month        DateTime        @db.Date
-  budgetAmount Float
+  budgetAmount Decimal 
 
   @@unique([categoryId, month])
 }
