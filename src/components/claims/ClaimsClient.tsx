@@ -6,12 +6,13 @@ import {
   Search, Plus, Download, X, ChevronLeft, ChevronRight,
   AlertTriangle, Eye, CheckSquare, Check, Loader2,
   FileText, Clock, Ban, Zap, HelpCircle, Package, ShieldAlert,
-  ChevronDown, Calendar, RotateCcw, MessageSquare, Trash2
+  ChevronDown, Calendar, RotateCcw, MessageSquare, Trash2, Truck
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 
 /* ============================================================
    CONSTANTS & HELPERS
@@ -351,12 +352,13 @@ function getDisplayValue(fieldName: string, value: string | null): string {
    DETAIL PANEL — Redesigned 700px with inline editing
    ============================================================ */
 function ClaimDetailPanel({
-  claimId, open, onClose, onUpdate, onAddTodo, onComplete, onDelete,
+  claimId, open, onClose, onUpdate, onAddTodo, onComplete, onDelete, onTrackOrder,
 }: {
   claimId: string; open: boolean; onClose: () => void; onUpdate?: () => void;
   onAddTodo?: (data: any) => void;
   onComplete?: (id: string, requestCode: string) => void;
   onDelete?: (id: string, requestCode: string) => void;
+  onTrackOrder?: (requestCode: string) => void;
 }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -452,6 +454,27 @@ function ClaimDetailPanel({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
             {saving && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
+            {data && (
+              <button
+                onClick={() => {
+                  const rc = data.order?.requestCode;
+                  if (rc && onTrackOrder) {
+                    onTrackOrder(rc);
+                  }
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
+                  borderRadius: "8px", border: "1.5px solid #6ee7b7", background: "#ecfdf5",
+                  color: "#059669", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#d1fae5"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#ecfdf5"; }}
+                title="Tra hành trình"
+              >
+                <Truck size={13} /> Hành trình
+              </button>
+            )}
             {data && onAddTodo && (
               <button
                 onClick={() => onAddTodo(data)}
@@ -984,6 +1007,7 @@ export default function ClaimsClient() {
   const [todoClaimOrder, setTodoClaimOrder] = useState<any | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; requestCode: string; loading: boolean; success: string | null } | null>(null);
   const [completeConfirm, setCompleteConfirm] = useState<{ id: string; requestCode: string; loading: boolean; success: string | null } | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1588,6 +1612,13 @@ export default function ClaimsClient() {
                           >
                             <Trash2 size={12} />
                           </button>
+                          <button
+                            onClick={() => setTrackingCode(c.order?.requestCode || "")}
+                            className="p-1 w-6 h-6 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 rounded border border-transparent hover:border-emerald-200 transition-colors"
+                            title="Tra hành trình"
+                          >
+                            <Truck size={12} />
+                          </button>
                         </div>
                         {/* Row 2: inline staff notes (Ghi Chú) */}
                         <InlineStaffNote requestCode={c.order?.requestCode || ""} initialValue={c.order?.staffNotes || ""} />
@@ -1662,6 +1693,7 @@ export default function ClaimsClient() {
         }}
         onComplete={(id, rc) => handleComplete(id, rc)}
         onDelete={(id, rc) => handleDelete(id, rc)}
+        onTrackOrder={(rc) => setTrackingCode(rc)}
       />
 
       {processingPopup && (
@@ -1713,6 +1745,13 @@ export default function ClaimsClient() {
         icon={<Check size={26} color="#16a34a" />}
         loading={completeConfirm?.loading}
         successMsg={completeConfirm?.success}
+      />
+
+      {/* Tracking Popup */}
+      <TrackingPopup
+        requestCode={trackingCode || ""}
+        isOpen={!!trackingCode}
+        onClose={() => setTrackingCode(null)}
       />
     </div>
   );

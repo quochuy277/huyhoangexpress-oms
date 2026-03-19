@@ -11,11 +11,12 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, AlertTriangle, Info, CheckSquare, Flag } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, Info, CheckSquare, Flag, Truck } from "lucide-react";
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { CopyOrderButton } from "./CopyOrderButton";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
+import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
@@ -32,6 +33,7 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [todoOrder, setTodoOrder] = useState<ProcessedDelayedOrder | null>(null);
   const [claimDelayedOrder, setClaimDelayedOrder] = useState<ProcessedDelayedOrder | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
 
   const sortedData = [...data].sort((a, b) => {
     let va = a[sortKey] as any;
@@ -259,6 +261,16 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
                           >
                             <Flag className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTrackingCode(o.requestCode);
+                            }}
+                            className="p-1 w-7 h-7 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-colors rounded"
+                            title="Tra hành trình"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                         {/* Row 2: inline staff notes */}
                         <InlineStaffNote requestCode={o.requestCode} initialValue={o.staffNotes} />
@@ -315,6 +327,13 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
         onClose={() => setClaimDelayedOrder(null)}
         order={claimDelayedOrder ? { id: claimDelayedOrder.id, requestCode: claimDelayedOrder.requestCode, carrierName: claimDelayedOrder.carrierName, shopName: claimDelayedOrder.shopName, codAmount: claimDelayedOrder.codAmount } : undefined}
         source="FROM_DELAYED"
+      />
+
+      {/* Tracking Popup */}
+      <TrackingPopup
+        requestCode={trackingCode || ""}
+        isOpen={!!trackingCode}
+        onClose={() => setTrackingCode(null)}
       />
     </div>
   );

@@ -4,10 +4,11 @@ import { useState } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Flag, CheckSquare, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { Flag, CheckSquare, Info, ChevronLeft, ChevronRight, Truck } from "lucide-react";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
+import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -46,6 +47,7 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
   const [todoOrder, setTodoOrder] = useState<ReturnOrder | null>(null);
   const [confirmingCode, setConfirmingCode] = useState<string | null>(null);
   const [claimReturnOrder, setClaimReturnOrder] = useState<ReturnOrder | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
 
   // Filter
   let filtered = data.filter((o) => {
@@ -194,6 +196,13 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
                         >
                           <CheckSquare className="w-3.5 h-3.5" />
                         </button>
+                        <button
+                          onClick={() => setTrackingCode(o.requestCode)}
+                          className="p-1 w-7 h-7 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-colors rounded"
+                          title="Tra hành trình"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -266,6 +275,13 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
         onClose={() => setClaimReturnOrder(null)}
         order={claimReturnOrder ? { id: claimReturnOrder.id, requestCode: claimReturnOrder.requestCode, shopName: claimReturnOrder.shopName, codAmount: claimReturnOrder.codAmount } : undefined}
         source="FROM_RETURNS"
+      />
+
+      {/* Tracking Popup */}
+      <TrackingPopup
+        requestCode={trackingCode || ""}
+        isOpen={!!trackingCode}
+        onClose={() => setTrackingCode(null)}
       />
     </>
   );

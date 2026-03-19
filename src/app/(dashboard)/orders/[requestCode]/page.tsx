@@ -4,6 +4,7 @@ import { formatVND, formatDate, formatDateOnly } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { Package, MapPin, User, CreditCard, FileText, Truck } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
+import { TrackingTimelineSection } from "@/components/tracking/TrackingTimelineSection";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -192,6 +193,9 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           );
         })}
       </div>
+
+      {/* Tracking Timeline */}
+      <TrackingTimelineSection requestCode={order.requestCode} />
 
       {/* Notes section */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

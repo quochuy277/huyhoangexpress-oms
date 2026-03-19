@@ -4,8 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { formatVND, formatDate } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X, Truck } from "lucide-react";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
@@ -50,6 +51,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
   const searchParams = useSearchParams();
   const [todoModalOrder, setTodoModalOrder] = useState<OrderRow | null>(null);
   const [claimOrder, setClaimOrder] = useState<OrderRow | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
@@ -124,7 +126,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
     { key: "customerWeight", label: "Khối Lượng KH", sortable: true, width: "w-[100px]", right: true },
     { key: "partialOrderType", label: "Đơn Hàng Một Phần", sortable: true, width: "w-[130px]" },
     { key: "staffNotes", label: "Ghi Chú", sortable: false, width: "w-[180px]" },
-    { key: "actions", label: "Thao Tác", sortable: false, width: "w-[100px]" },
+    { key: "actions", label: "Thao Tác", sortable: false, width: "w-[130px]" },
   ];
 
   return (
@@ -307,6 +309,16 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                       >
                         <CheckSquare className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTrackingCode(order.requestCode);
+                        }}
+                        className="p-1.5 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-colors rounded"
+                        title="Tra hành trình"
+                      >
+                        <Truck className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -398,6 +410,13 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
         onSuccess={() => refetchOrders()}
         order={claimOrder || undefined}
         source="FROM_ORDERS"
+      />
+
+      {/* Tracking Popup */}
+      <TrackingPopup
+        requestCode={trackingCode || ""}
+        isOpen={!!trackingCode}
+        onClose={() => setTrackingCode(null)}
       />
     </div>
   );
