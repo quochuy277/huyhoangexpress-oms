@@ -46,6 +46,10 @@ model User {
   receivedScores   EmployeeScore[] @relation("ReceivedScore")
   infoChangeRequests InfoChangeRequest[]
   feedbacks        Feedback[]
+
+  // CRM relations
+  shopAssignments     ShopAssignment[]  @relation("ShopAssignments")
+  prospectAssignments ShopProspect[]    @relation("ProspectAssignments")
 }
 
 enum Role {
@@ -111,6 +115,11 @@ model PermissionGroup {
   // === Quản trị ===
   canManageUsers          Boolean @default(false)
   canManagePermissions    Boolean @default(false)
+
+  // === CRM ===
+  canViewCRM              Boolean @default(true)
+  canManageCRM            Boolean @default(false)
+  canViewAllShops         Boolean @default(false)
 
   // System flag
   isSystemGroup           Boolean @default(false)
@@ -451,6 +460,7 @@ enum TodoSource {
   FROM_RETURNS
   FROM_CLAIMS
   FROM_ORDERS
+  FROM_CRM
 }
 
 model Attendance {
@@ -726,4 +736,156 @@ enum RequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ============================================================
+// CRM MODELS
+// ============================================================
+
+model ShopProfile {
+  id              String          @id @default(cuid())
+  shopName        String          @unique
+  phone           String?
+  email           String?
+  contactPerson   String?
+  zalo            String?
+  address         String?
+  internalShopNote    String?     @db.Text
+  classification  ShopClass?
+  startDate       DateTime?       @db.Date
+
+  assignments     ShopAssignment[]
+  careLogs        ShopCareLog[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([shopName])
+}
+
+enum ShopClass {
+  VIP
+  NORMAL
+  NEW
+  WARNING
+  INACTIVE
+}
+
+model ShopAssignment {
+  id          String      @id @default(cuid())
+  shop        ShopProfile @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId      String
+  user        User        @relation("ShopAssignments", fields: [userId], references: [id])
+  userId      String
+  assignedBy  String
+  assignedAt  DateTime    @default(now())
+
+  @@unique([shopId, userId])
+  @@index([userId])
+  @@index([shopId])
+}
+
+model ShopCareLog {
+  id              String        @id @default(cuid())
+  shop            ShopProfile   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId          String
+  contactMethod   ContactMethod
+  content         String        @db.Text
+  result          CareResult?
+  relatedOrderId  String?
+  followUpDate    DateTime?     @db.Date
+  isAutoLog       Boolean       @default(false)
+  authorName      String
+  authorId        String
+  createdAt       DateTime      @default(now())
+
+  @@index([shopId, createdAt])
+}
+
+enum ContactMethod {
+  PHONE_CALL
+  MESSAGE
+  EMAIL
+  IN_PERSON
+  SYSTEM
+  OTHER
+}
+
+enum CareResult {
+  RESOLVED
+  IN_PROGRESS
+  WAITING
+  UNSATISFIED
+  OTHER
+}
+
+model ShopProspect {
+  id              String          @id @default(cuid())
+  shopName        String
+  phone           String?
+  email           String?
+  contactPerson   String?
+  zalo            String?
+  address         String?
+  source          ProspectSource
+  sourceDetail    String?
+  productType     String?
+  estimatedSize   ProspectSize?
+  currentCarrier  String?
+  stage           PipelineStage   @default(DISCOVERED)
+  note            String?         @db.Text
+  lostReason      String?
+  isLost          Boolean         @default(false)
+
+  assigneeId      String
+  assignee        User            @relation("ProspectAssignments", fields: [assigneeId], references: [id])
+
+  contactLogs     ProspectContactLog[]
+
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([stage])
+  @@index([assigneeId])
+  @@index([isLost])
+}
+
+enum ProspectSource {
+  FACEBOOK
+  SHOPEE
+  TIKTOK_SHOP
+  REFERRAL
+  DIRECT
+  LANDING_PAGE
+  OTHER
+}
+
+enum ProspectSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum PipelineStage {
+  DISCOVERED
+  CONTACTED
+  NEGOTIATING
+  TRIAL
+  CONVERTED
+}
+
+model ProspectContactLog {
+  id            String        @id @default(cuid())
+  prospect      ShopProspect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  prospectId    String
+  contactMethod ContactMethod
+  content       String        @db.Text
+  result        CareResult?
+  followUpDate  DateTime?     @db.Date
+  authorName    String
+  authorId      String
+  createdAt     DateTime      @default(now())
+
+  @@index([prospectId, createdAt])
 }

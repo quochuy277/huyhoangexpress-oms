@@ -43,6 +43,10 @@ export interface PermissionSet {
   // Admin
   canManageUsers: boolean;
   canManagePermissions: boolean;
+  // CRM
+  canViewCRM: boolean;
+  canManageCRM: boolean;
+  canViewAllShops: boolean;
 }
 
 /** All permission keys */
@@ -59,6 +63,7 @@ export const PERMISSION_KEYS: (keyof PermissionSet)[] = [
   "canManageDocuments", "canManageLinks",
   "canCreateAnnouncement",
   "canManageUsers", "canManagePermissions",
+  "canViewCRM", "canManageCRM", "canViewAllShops",
 ];
 
 /** Fallback permissions based on legacy Role enum (for users without permissionGroup) */
@@ -71,7 +76,7 @@ export function getDefaultPermissions(role: Role): PermissionSet {
       return allTrue;
 
     case "MANAGER":
-      return { ...allTrue, canManageUsers: false, canManagePermissions: false };
+      return { ...allTrue, canManageUsers: false, canManagePermissions: false, canManageCRM: false };
 
     case "STAFF":
       return {
@@ -83,6 +88,7 @@ export function getDefaultPermissions(role: Role): PermissionSet {
         canViewReturns: true,
         canViewClaims: true,
         canCreateClaim: true,
+        canViewCRM: true,
       };
 
     case "VIEWER":
@@ -92,6 +98,7 @@ export function getDefaultPermissions(role: Role): PermissionSet {
         canViewDelayed: true,
         canViewReturns: true,
         canViewClaims: true,
+        canViewCRM: true,
       };
 
     default:
@@ -189,6 +196,14 @@ export const PERMISSION_CATEGORIES = [
     keys: [
       { key: "canManageUsers" as const, label: "Quản lý nhân viên" },
       { key: "canManagePermissions" as const, label: "Quản lý nhóm quyền" },
+    ],
+  },
+  {
+    title: "CRM",
+    keys: [
+      { key: "canViewCRM" as const, label: "Xem trang CRM / Quản lý khách hàng" },
+      { key: "canManageCRM" as const, label: "Gán NV, override phân loại, sửa thông tin shop" },
+      { key: "canViewAllShops" as const, label: "Xem tất cả shop (không chỉ shop được gán)" },
     ],
   },
 ];

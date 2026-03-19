@@ -37,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/claims", label: "Bồi Hoàn / Khiếu Nại", icon: FileWarning, requiredPermission: "canViewClaims" },
   { href: "/todos", label: "Công Việc", icon: CheckSquare },
   { href: "/attendance", label: "Chấm Công", icon: Clock },
+  { href: "/crm", label: "Quản Lý KH", icon: Users, requiredPermission: "canViewCRM" },
   { href: "/finance", label: "Tài Chính", icon: BarChart2, requiredPermission: "canViewFinancePage" },
   { href: "/admin/users", label: "Quản Lý Nhân Viên", icon: Users, requiredPermission: "canManageUsers" },
 ];
