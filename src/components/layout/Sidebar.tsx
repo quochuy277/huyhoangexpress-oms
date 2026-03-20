@@ -30,7 +30,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Tổng Quan", icon: LayoutDashboard },
+  { href: "/overview", label: "Tổng Quan", icon: LayoutDashboard },
   { href: "/orders", label: "Quản Lý Đơn Hàng", icon: Package, requiredPermission: "canViewOrders" },
   { href: "/delayed", label: "Chăm Sóc Đơn Hoãn", icon: AlertCircle, requiredPermission: "canViewDelayed" },
   { href: "/returns", label: "Theo Dõi Đơn Hoàn", icon: RotateCcw, requiredPermission: "canViewReturns" },
@@ -129,10 +129,7 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         {visibleItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const isActive = pathname.startsWith(item.href);
 
           return (
             <Link

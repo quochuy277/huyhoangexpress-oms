@@ -10,11 +10,15 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isAuthPage = nextUrl.pathname.startsWith("/login");
+      const isLandingPage = nextUrl.pathname === "/";
 
       if (isAuthPage) {
-        if (isLoggedIn) return Response.redirect(new URL("/", nextUrl));
+        if (isLoggedIn) return Response.redirect(new URL("/orders", nextUrl));
         return true;
       }
+
+      // Landing page is public
+      if (isLandingPage) return true;
 
       if (!isLoggedIn) return false;
       return true;

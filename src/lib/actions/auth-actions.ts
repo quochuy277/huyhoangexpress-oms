@@ -11,7 +11,7 @@ export async function loginAction(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/",
+      redirectTo: "/orders",
     });
   } catch (error) {
     if (error instanceof AuthError) {

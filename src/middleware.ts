@@ -21,9 +21,12 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
   const isLoggedIn = !!session?.user;
 
   // Public routes
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+  const isPublicPage = pathname === "/" || pathname.startsWith("/login");
+  const isPublicApi = pathname.startsWith("/api/auth") || pathname.startsWith("/api/landing");
+
+  if (isPublicPage || isPublicApi) {
     if (isLoggedIn && pathname.startsWith("/login")) {
-      return NextResponse.redirect(new URL("/", req.url));
+      return NextResponse.redirect(new URL("/orders", req.url));
     }
     return NextResponse.next();
   }
@@ -46,7 +49,7 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
   if (permissions) {
     for (const [route, permKey] of Object.entries(ROUTE_PERMISSIONS)) {
       if (pathname.startsWith(route) && !permissions[permKey]) {
-        return NextResponse.redirect(new URL("/", req.url));
+        return NextResponse.redirect(new URL("/orders", req.url));
       }
     }
   }
