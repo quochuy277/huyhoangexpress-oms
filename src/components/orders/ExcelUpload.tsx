@@ -12,6 +12,7 @@ interface UploadSummary {
   failedRows: number;
   parseErrors: number;
   processingTime: number;
+  totalChanges?: number;
 }
 
 interface UploadError {
@@ -28,7 +29,7 @@ interface UploadResult {
 }
 
 interface ExcelUploadProps {
-  onUploadComplete?: () => void;
+  onUploadComplete?: (totalChanges?: number) => void;
 }
 
 export function ExcelUpload({ onUploadComplete }: ExcelUploadProps) {
@@ -71,7 +72,7 @@ export function ExcelUpload({ onUploadComplete }: ExcelUploadProps) {
       } else {
         setResult(data);
         if (data.success) {
-          onUploadComplete?.();
+          onUploadComplete?.(data.summary?.totalChanges);
         }
       }
     } catch {

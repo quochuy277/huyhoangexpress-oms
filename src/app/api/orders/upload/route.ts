@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseExcelBuffer, buildOrderData } from "@/lib/excel-parser";
 import { uploadLimiter } from "@/lib/rate-limiter";
+import { detectOrderChanges } from "@/lib/change-detector";
+import type { DetectedChange } from "@/lib/change-detector";
 
 const BATCH_SIZE = 500;
 
@@ -62,32 +64,67 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: false,
       summary: parseResult.summary,
-      errors: parseResult.errors.slice(0, 50), // Limit error output
+      errors: parseResult.errors.slice(0, 50),
     });
   }
 
-  // 5. Batch upsert — Full Overwrite Mode
+  // 5. Batch upsert with change detection
+  // Strategy: query existing BEFORE upsert (outside transaction),
+  // detect changes in memory, then upsert in parallel (original pattern),
+  // then bulk insert change logs.
   let newCount = 0;
   let updatedCount = 0;
   let failedCount = 0;
-  const upsertErrors: Array<{ row: number; requestCode: string; message: string }> = [];
+  let totalChanges = 0;
+  const allDetectedChanges: DetectedChange[] = [];
+  const upsertErrors: Array<{
+    row: number;
+    requestCode: string;
+    message: string;
+  }> = [];
 
-  for (let batchStart = 0; batchStart < parseResult.orders.length; batchStart += BATCH_SIZE) {
-    const batch = parseResult.orders.slice(batchStart, batchStart + BATCH_SIZE);
-
-    // Check which requestCodes already exist
+  for (
+    let batchStart = 0;
+    batchStart < parseResult.orders.length;
+    batchStart += BATCH_SIZE
+  ) {
+    const batch = parseResult.orders.slice(
+      batchStart,
+      batchStart + BATCH_SIZE
+    );
     const requestCodes = batch.map((o) => o.requestCode);
+
+    // a. Query existing orders BEFORE upsert — get old data for comparison
     const existingOrders = await prisma.order.findMany({
       where: { requestCode: { in: requestCodes } },
-      select: { requestCode: true },
+      select: {
+        requestCode: true,
+        deliveryStatus: true,
+        internalNotes: true,
+      },
     });
-    const existingSet = new Set(existingOrders.map((o) => o.requestCode));
+    const existingMap = new Map(
+      existingOrders.map((o) => [o.requestCode, o])
+    );
 
-    // Process each order in the batch
+    // b. Detect changes in memory (BEFORE any upserts)
+    for (const order of batch) {
+      const existing = existingMap.get(order.requestCode);
+      if (existing) {
+        const changes = detectOrderChanges(
+          existing,
+          order.deliveryStatus,
+          order.internalNotes
+        );
+        allDetectedChanges.push(...changes);
+      }
+    }
+
+    // c. Upsert orders in parallel (original pattern — no transaction wrapper)
     const promises = batch.map(async (order, idx) => {
       try {
         const data = buildOrderData(order);
-        const isExisting = existingSet.has(order.requestCode);
+        const isExisting = existingMap.has(order.requestCode);
 
         await prisma.order.upsert({
           where: { requestCode: order.requestCode },
@@ -95,7 +132,7 @@ export async function POST(req: NextRequest) {
             requestCode: order.requestCode,
             ...data,
           },
-          update: data, // Full overwrite — all fields including null
+          update: data,
         });
 
         if (isExisting) {
@@ -106,7 +143,7 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         failedCount++;
         upsertErrors.push({
-          row: batchStart + idx + 2, // +2 for header row + 1-index
+          row: batchStart + idx + 2,
           requestCode: order.requestCode,
           message: err instanceof Error ? err.message : String(err),
         });
@@ -117,10 +154,12 @@ export async function POST(req: NextRequest) {
   }
 
   const processingTime = Date.now() - startTime;
+  totalChanges = allDetectedChanges.length;
 
   // 6. Save upload history
+  let uploadHistoryId: string | null = null;
   try {
-    await prisma.uploadHistory.create({
+    const uploadHistory = await prisma.uploadHistory.create({
       data: {
         fileName: file.name,
         fileSize: file.size,
@@ -139,13 +178,39 @@ export async function POST(req: NextRequest) {
         carrierName: parseResult.orders[0]?.carrierName || null,
         uploadedById: session.user.id,
         processingTime,
+        totalChanges,
       },
     });
-  } catch {
-    // Non-critical — upload history save failure shouldn't break response
+    uploadHistoryId = uploadHistory.id;
+  } catch (err) {
+    console.error("Failed to create UploadHistory:", err);
   }
 
-  // 7. Return result
+  // 7. Bulk insert change logs (after upserts complete)
+  if (allDetectedChanges.length > 0 && uploadHistoryId) {
+    try {
+      // Insert in chunks of 1000 to avoid query size limits
+      const CHUNK_SIZE = 1000;
+      for (let i = 0; i < allDetectedChanges.length; i += CHUNK_SIZE) {
+        const chunk = allDetectedChanges.slice(i, i + CHUNK_SIZE);
+        await prisma.orderChangeLog.createMany({
+          data: chunk.map((c) => ({
+            requestCode: c.requestCode,
+            uploadHistoryId: uploadHistoryId!,
+            changeType: c.changeType,
+            previousValue: c.previousValue,
+            newValue: c.newValue,
+            changeDetail: c.changeDetail,
+            changeTimestamp: c.changeTimestamp,
+          })),
+        });
+      }
+    } catch (err) {
+      console.error("Failed to insert change logs:", err);
+    }
+  }
+
+  // 8. Return result
   return NextResponse.json({
     success: true,
     summary: {
@@ -157,6 +222,7 @@ export async function POST(req: NextRequest) {
       failedRows: failedCount,
       parseErrors: parseResult.summary.errorRows,
       processingTime,
+      totalChanges,
     },
     errors: [
       ...parseResult.errors.slice(0, 25),

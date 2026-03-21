@@ -231,6 +231,7 @@ model Order {
   claimOrder          ClaimOrder?
   returnTracking      ReturnTracking?
   todoItems           TodoItem[]
+  changeLogs          OrderChangeLog[]
 
   @@index([status])
   @@index([carrierName])
@@ -272,6 +273,8 @@ model UploadHistory {
   uploadedById    String
   uploadedAt      DateTime  @default(now())
   processingTime  Int?
+  totalChanges    Int       @default(0)
+  changeLogs      OrderChangeLog[]
 }
 
 model ReturnTracking {
@@ -888,4 +891,47 @@ model ProspectContactLog {
   createdAt     DateTime      @default(now())
 
   @@index([prospectId, createdAt])
+}
+
+// ============================================================
+// ORDER CHANGE TRACKING — Biến động đơn hàng
+// ============================================================
+
+enum OrderChangeType {
+  STATUS_CHANGE           // 1.  Cột Trạng thái thay đổi (deliveryStatus enum)
+  WEIGHT_CHANGE           // 2.  Đổi khối lượng (NVC hoặc KH)
+  CARRIER_FEE_CONFIRMED   // 3.  Xác nhận phí NVC thu
+  RECIPIENT_CHANGE        // 4.  Đổi thông tin người nhận
+  SURCHARGE_CHANGE        // 5.  Đổi nội bộ phụ phí
+  SERVICE_FEE_CHANGE      // 6.  Đổi tổng phí dịch vụ
+  COD_CONFIRMED           // 7.  Xác nhận đã thanh toán COD
+  RETURN_COMPLETED        // 8.  Đã thực hiện trả hàng
+  CARRIER_SWITCH          // 9.  Đổi đơn vị vận chuyển
+  REDELIVER               // 10. Kéo giao lại đơn hàng
+  INTERNAL_STATUS_NOTE    // 11. NV ghi chú đổi trạng thái nội bộ
+  RETURN_APPROVED         // 12. Duyệt hoàn / xác nhận duyệt hoàn
+  STAFF_NOTE              // 13. Ghi chú ngắn NV (format "TênNV: nội dung")
+  COD_AMOUNT_CHANGE       // 14. Đổi tiền hàng / thu hộ
+  CLAIM_RELATED           // 15. Khiếu nại / đền bù
+  OTHER                   // 16. Khác (fallback)
+}
+
+model OrderChangeLog {
+  id               String          @id @default(cuid())
+  requestCode      String
+  order            Order           @relation(fields: [requestCode], references: [requestCode])
+  uploadHistoryId  String
+  uploadHistory    UploadHistory   @relation(fields: [uploadHistoryId], references: [id])
+  changeType       OrderChangeType
+  previousValue    String?         @db.Text
+  newValue         String?         @db.Text
+  changeDetail     String?         @db.Text
+  changeTimestamp  DateTime?
+  detectedAt       DateTime        @default(now())
+
+  @@index([requestCode])
+  @@index([uploadHistoryId])
+  @@index([changeType])
+  @@index([detectedAt])
+  @@index([changeTimestamp])
 }
