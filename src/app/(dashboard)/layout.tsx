@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import HeartbeatProvider from "@/components/providers/HeartbeatProvider";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 
@@ -24,6 +25,7 @@ export default async function DashboardLayout({
       userRole={role as Role}
       permissions={permissions as PermissionSet}
     >
+      <HeartbeatProvider />
       {children}
     </DashboardShell>
   );

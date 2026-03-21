@@ -84,13 +84,23 @@ export async function GET(req: Request) {
 
     const offset = (page - 1) * pageSize;
 
+    // Build orderBy - when sorting by changeTimestamp, add secondary sort
+    // to handle null values consistently
+    const orderByClause =
+      orderByField === "changeTimestamp"
+        ? [
+            { changeTimestamp: { sort: orderByDirection as "asc" | "desc", nulls: "last" as const } },
+            { detectedAt: orderByDirection as "asc" | "desc" },
+          ]
+        : { [orderByField]: orderByDirection };
+
     const [total, changeLogs] = await Promise.all([
       prisma.orderChangeLog.count({ where }),
       prisma.orderChangeLog.findMany({
         where,
         skip: offset,
         take: pageSize,
-        orderBy: { [orderByField]: orderByDirection },
+        orderBy: orderByClause,
         include: {
           order: {
             select: {

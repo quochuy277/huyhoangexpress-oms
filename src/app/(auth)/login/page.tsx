@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { loginAction } from "@/lib/actions/auth-actions";
-import { Package, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -23,12 +24,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 flex items-center justify-center">
-      {/* Animated gradient background */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f0f4f8 0%, #e8eef5 50%, #dfe7f0 100%)" }}>
+      {/* Subtle decorative shapes */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#1a3a4a]/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#1a3a4a]/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#1a3a4a]/[0.02] rounded-full blur-3xl" />
       </div>
 
       {/* Grid overlay */}
@@ -36,7 +37,7 @@ export default function LoginPage() {
         className="absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
+            "linear-gradient(rgba(26,58,74,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(26,58,74,.3) 1px, transparent 1px)",
           backgroundSize: "40px 40px",
         }}
       />
@@ -44,28 +45,35 @@ export default function LoginPage() {
       {/* Login card */}
       <div className="relative z-10 w-full max-w-md px-6">
         {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-2xl shadow-blue-500/30 mb-4">
-            <Package className="w-8 h-8 text-white" />
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative w-32 h-32 mb-3">
+            <Image
+              src="/images/LOGO.png"
+              alt="Huy Hoàng Express"
+              width={128}
+              height={128}
+              className="object-contain"
+              priority
+            />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-3xl font-bold text-[#1a3a4a] tracking-tight">
             HuyHoang Express
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-[#1a3a4a]/50 text-sm mt-1">
             Hệ thống quản lý đơn hàng
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-white mb-6">Đăng nhập</h2>
+        <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-2xl p-8 shadow-xl shadow-[#1a3a4a]/5">
+          <h2 className="text-xl font-semibold text-[#1a3a4a] mb-6">Đăng nhập</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div className="space-y-2">
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-300"
+                className="block text-sm font-medium text-[#1a3a4a]/70"
               >
                 Email
               </label>
@@ -76,7 +84,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 required
                 placeholder="email@company.com"
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                className="w-full px-4 py-3 rounded-xl bg-[#f0f4f8] border border-[#1a3a4a]/10 text-[#1a3a4a] placeholder-[#1a3a4a]/30 focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]/30 focus:border-transparent transition-all text-sm"
               />
             </div>
 
@@ -84,7 +92,7 @@ export default function LoginPage() {
             <div className="space-y-2">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-300"
+                className="block text-sm font-medium text-[#1a3a4a]/70"
               >
                 Mật khẩu
               </label>
@@ -96,12 +104,12 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-12 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                  className="w-full px-4 py-3 pr-12 rounded-xl bg-[#f0f4f8] border border-[#1a3a4a]/10 text-[#1a3a4a] placeholder-[#1a3a4a]/30 focus:outline-none focus:ring-2 focus:ring-[#1a3a4a]/30 focus:border-transparent transition-all text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a3a4a]/40 hover:text-[#1a3a4a] transition-colors"
                   aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                 >
                   {showPassword ? (
@@ -115,8 +123,8 @@ export default function LoginPage() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                 {error}
               </div>
             )}
@@ -125,7 +133,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-sm hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#1a3a4a] text-white font-semibold text-sm hover:bg-[#1e4d5e] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#1a3a4a]/20 hover:shadow-[#1a3a4a]/30 hover:-translate-y-0.5 active:translate-y-0"
             >
               {isPending ? (
                 <>
@@ -140,7 +148,7 @@ export default function LoginPage() {
         </div>
 
         {/* Footer note */}
-        <p className="text-center text-slate-600 text-xs mt-6">
+        <p className="text-center text-[#1a3a4a]/30 text-xs mt-6">
           © 2026 HuyHoang Express. Tất cả quyền được bảo lưu.
         </p>
       </div>

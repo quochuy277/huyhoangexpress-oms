@@ -106,21 +106,34 @@ export async function recalculateAttendance(userId: string, date: Date) {
   const dayStart = startOfDayVN(date);
   const dayEnd = endOfDayVN(date);
 
+  // Find sessions that overlap with this day:
+  // - Sessions that started on this day  
+  // - Sessions that started before but have no logout (still active) or logout after dayStart
   const sessions = await prisma.loginHistory.findMany({
     where: {
       userId,
-      loginTime: { gte: dayStart, lte: dayEnd },
+      loginTime: { lte: dayEnd },
+      OR: [
+        { loginTime: { gte: dayStart } },
+        { logoutTime: { gte: dayStart } },
+        { logoutTime: null },
+      ],
     },
     orderBy: { loginTime: "asc" },
   });
 
+  const now = new Date();
   const totalMinutes = sessions.reduce((sum, s) => {
-    if (s.logoutTime) {
-      const dur = Math.floor((s.logoutTime.getTime() - s.loginTime.getTime()) / 60000);
-      return sum + Math.max(0, dur);
-    }
-    // Still active — count up to now
-    const dur = Math.floor((Date.now() - s.loginTime.getTime()) / 60000);
+    // Clamp session boundaries to the day
+    const sessionStart = new Date(Math.max(s.loginTime.getTime(), dayStart.getTime()));
+    const sessionEnd = s.logoutTime
+      ? new Date(Math.min(s.logoutTime.getTime(), dayEnd.getTime()))
+      : new Date(Math.min(now.getTime(), dayEnd.getTime())); // Cap active sessions to end of day
+
+    // Only count if session end is after session start
+    if (sessionEnd <= sessionStart) return sum;
+
+    const dur = Math.floor((sessionEnd.getTime() - sessionStart.getTime()) / 60000);
     return sum + Math.max(0, dur);
   }, 0);
 
@@ -147,8 +160,10 @@ export async function recalculateAttendance(userId: string, date: Date) {
     status = "ABSENT";
   }
 
-  const firstLogin = sessions[0]?.loginTime || null;
-  const lastSession = sessions[sessions.length - 1];
+  // Find first login OF THIS DAY (not from previous day)
+  const todaySessions = sessions.filter(s => s.loginTime >= dayStart && s.loginTime <= dayEnd);
+  const firstLogin = todaySessions[0]?.loginTime || null;
+  const lastSession = todaySessions[todaySessions.length - 1];
   const lastLogout = lastSession?.logoutTime || null;
 
   await prisma.attendance.upsert({
@@ -192,3 +207,44 @@ export async function handleLogout(userId: string, reason: string, effectiveLogo
 
   await recalculateAttendance(userId, getVietnamToday());
 }
+
+// ============================================================
+// CLOSE ORPHANED SESSIONS (browser closed without logout)
+// ============================================================
+export async function closeOrphanedSessions(userId: string) {
+  const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+  const now = new Date();
+
+  // Find active sessions with stale heartbeat (or no heartbeat)
+  const staleSessions = await prisma.loginHistory.findMany({
+    where: {
+      userId,
+      logoutTime: null,
+      OR: [
+        { lastHeartbeat: { lt: new Date(now.getTime() - STALE_THRESHOLD_MS) } },
+        { lastHeartbeat: null, loginTime: { lt: new Date(now.getTime() - STALE_THRESHOLD_MS) } },
+      ],
+    },
+  });
+
+  for (const session of staleSessions) {
+    const logoutTime = session.lastHeartbeat || new Date(session.loginTime.getTime() + 60000);
+    const duration = Math.floor((logoutTime.getTime() - session.loginTime.getTime()) / 60000);
+    await prisma.loginHistory.update({
+      where: { id: session.id },
+      data: {
+        logoutTime,
+        duration: Math.max(0, duration),
+        logoutReason: "browser_closed",
+      },
+    });
+
+    // Recalculate attendance for the day of this session
+    const sessionDay = new Date(session.loginTime.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+    sessionDay.setHours(0, 0, 0, 0);
+    await recalculateAttendance(userId, sessionDay);
+  }
+
+  return staleSessions.length;
+}
+

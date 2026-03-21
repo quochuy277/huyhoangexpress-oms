@@ -103,12 +103,29 @@ export async function GET() {
       }
     });
 
+    // Claims data for claimDiff
+    const claims = await prisma.claimOrder.findMany({
+      where: { detectedDate: { gte: startOfMonth, lte: new Date() } },
+      select: { customerCompensation: true, carrierCompensation: true },
+    });
+    const customerComp = claims.reduce((s: number, c: any) => s + Number(c.customerCompensation ?? 0), 0);
+    const carrierComp = claims.reduce((s: number, c: any) => s + Number(c.carrierCompensation ?? 0), 0);
+    const claimDiff = carrierComp - customerComp;
+
+    // Operating expenses
+    const expenses = await prisma.expense.findMany({
+      where: { date: { gte: startOfMonth, lte: new Date() } },
+    });
+    const totalOperatingExpenses = expenses.reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
+
     responseData.revenue = {
       current: (financeCurrent as any)._sum?.revenue ?? 0,
       previousMonth: (financePrevious as any)._sum?.revenue ?? 0,
     };
     responseData.cost = {
-      current: (financeCurrent as any)._sum?.carrierFee ?? 0,
+      current: Math.abs(claimDiff) + totalOperatingExpenses,
+      claimDiff,
+      totalOperatingExpenses,
     };
     responseData.monthOrderCount = {
       current: monthOrderCountCurrent,

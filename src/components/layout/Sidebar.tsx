@@ -113,17 +113,7 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
         )}
       </div>
 
-      {!isMobile && collapsed && (
-        <div className="flex justify-center mt-4">
-          <button
-            onClick={toggleCollapse}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Mở rộng"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      )}
+
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
@@ -157,16 +147,22 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
         })}
       </nav>
 
-      {/* Collapse button - desktop only */}
-      {!isMobile && !collapsed && (
+      {/* Collapse/Expand button - desktop only */}
+      {!isMobile && (
         <div className="px-2 pb-4 shrink-0">
           <button
             onClick={toggleCollapse}
             className="flex items-center justify-center w-full gap-2 py-2.5 px-3 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all text-sm"
-            title="Thu gọn"
+            title={collapsed ? "Mở rộng" : "Thu gọn"}
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Thu gọn</span>
+            {collapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <>
+                <ChevronLeft className="w-4 h-4" />
+                <span>Thu gọn</span>
+              </>
+            )}
           </button>
         </div>
       )}

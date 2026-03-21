@@ -506,6 +506,7 @@ model LoginHistory {
   userAgent     String?
   deviceType    String?
   logoutReason  String?
+  lastHeartbeat DateTime?
 
   @@index([userId, loginTime])
 }
@@ -586,7 +587,7 @@ model ImportantLink {
 model CashbookEntry {
   id              String        @id @default(cuid())
   transactionTime DateTime
-  receiptCode     String        @unique
+  receiptCode     String
   groupType       CashbookGroup
   content         String
   amount          Decimal 

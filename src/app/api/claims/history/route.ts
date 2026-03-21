@@ -2,202 +2,186 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// Helper: map ClaimChangeLog fieldName → action label
+function getActionFromField(fieldName: string, newValue: string | null): { action: string; dotColor: string } {
+  switch (fieldName) {
+    case "claimStatus":
+      return { action: "Chuyển trạng thái", dotColor: "yellow" };
+    case "issueType":
+      return { action: "Cập nhật loại vấn đề", dotColor: "blue" };
+    case "issueDescription":
+      return { action: "Cập nhật nội dung VĐ", dotColor: "blue" };
+    case "processingContent":
+      return { action: "Cập nhật nội dung xử lý", dotColor: "yellow" };
+    case "carrierCompensation":
+      return { action: "Nhập tiền NVC đền bù", dotColor: "green" };
+    case "customerCompensation":
+      return { action: "Nhập tiền đền bù KH", dotColor: "green" };
+    case "deadline":
+      return { action: "Cập nhật thời hạn", dotColor: "blue" };
+    case "isCompleted":
+      return newValue === "true"
+        ? { action: "Đánh dấu hoàn tất", dotColor: "green" }
+        : { action: "Hủy hoàn tất", dotColor: "red" };
+    default:
+      return { action: "Cập nhật", dotColor: "yellow" };
+  }
+}
+
 // GET — Claims activity history (all actions across all claims)
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const url = new URL(req.url);
-  const page = parseInt(url.searchParams.get("page") || "1");
-  const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
-  const action = url.searchParams.get("action") || "";
-  const staff = url.searchParams.get("staff") || "";
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+  const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20")));
+  const actionFilter = url.searchParams.get("action") || "";
+  const staffFilter = url.searchParams.get("staff") || "";
   const search = url.searchParams.get("search") || "";
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
 
-  // Build conditions for WHERE clause
-  const conditions: string[] = [];
-  const params: any[] = [];
-  let paramIndex = 1;
-
-  if (search) {
-    conditions.push(`(o."requestCode" ILIKE $${paramIndex} OR h."changedBy" ILIKE $${paramIndex})`);
-    params.push(`%${search}%`);
-    paramIndex++;
-  }
-  if (staff) {
-    conditions.push(`h."changedBy" = $${paramIndex}`);
-    params.push(staff);
-    paramIndex++;
-  }
-  if (dateFrom) {
-    conditions.push(`h."changedAt" >= $${paramIndex}::timestamp`);
-    params.push(dateFrom);
-    paramIndex++;
-  }
-  if (dateTo) {
-    conditions.push(`h."changedAt" <= ($${paramIndex}::timestamp + interval '1 day')`);
-    params.push(dateTo);
-    paramIndex++;
-  }
-
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  // Action type filter mapping
-  let actionFilter = "";
-  if (action === "new") actionFilter = `AND h."actionType" IN ('Thêm đơn có vấn đề', 'Tự động phát hiện')`;
-  else if (action === "status") actionFilter = `AND h."actionType" = 'Chuyển trạng thái'`;
-  else if (action === "update") actionFilter = `AND h."actionType" IN ('Cập nhật nội dung xử lý', 'Cập nhật loại vấn đề', 'Cập nhật nội dung VĐ', 'Cập nhật thời hạn', 'Cập nhật')`;
-  else if (action === "compensation") actionFilter = `AND h."actionType" IN ('Nhập tiền NVC đền bù', 'Nhập tiền đền bù KH')`;
-  else if (action === "complete") actionFilter = `AND h."actionType" IN ('Đánh dấu hoàn tất', 'Hủy hoàn tất')`;
-  else if (action === "auto") actionFilter = `AND h."actionType" = 'Tự động phát hiện'`;
-
   try {
-    const countQuery = `
-      SELECT COUNT(*) as total FROM (
-        SELECT sh."id"
-        FROM "ClaimStatusHistory" sh
-        JOIN "ClaimOrder" co ON co."id" = sh."claimOrderId"
-        JOIN "Order" o ON o."id" = co."orderId"
-        CROSS JOIN LATERAL (
-          SELECT sh."changedBy", sh."changedAt",
-          CASE
-            WHEN sh."fromStatus" IS NULL THEN 'Thêm đơn có vấn đề'
-            ELSE 'Chuyển trạng thái'
-          END as "actionType"
-        ) h
-        ${whereClause} ${actionFilter}
+    // Fetch ALL status history entries with their related order info
+    const statusHistories = await prisma.claimStatusHistory.findMany({
+      include: {
+        claimOrder: {
+          include: {
+            order: { select: { requestCode: true } },
+          },
+        },
+      },
+      orderBy: { changedAt: "desc" },
+    });
 
-        UNION ALL
+    // Fetch ALL change log entries (excluding claimStatus since it's in statusHistory)
+    const changeLogs = await prisma.claimChangeLog.findMany({
+      where: { fieldName: { not: "claimStatus" } },
+      include: {
+        claimOrder: {
+          include: {
+            order: { select: { requestCode: true } },
+          },
+        },
+      },
+      orderBy: { changedAt: "desc" },
+    });
 
-        SELECT cl."id"
-        FROM "ClaimChangeLog" cl
-        JOIN "ClaimOrder" co ON co."id" = cl."claimOrderId"
-        JOIN "Order" o ON o."id" = co."orderId"
-        CROSS JOIN LATERAL (
-          SELECT cl."changedBy", cl."changedAt",
-          CASE
-            WHEN cl."fieldName" = 'claimStatus' THEN 'Chuyển trạng thái'
-            WHEN cl."fieldName" = 'issueType' THEN 'Cập nhật loại vấn đề'
-            WHEN cl."fieldName" = 'issueDescription' THEN 'Cập nhật nội dung VĐ'
-            WHEN cl."fieldName" = 'processingContent' THEN 'Cập nhật nội dung xử lý'
-            WHEN cl."fieldName" = 'carrierCompensation' THEN 'Nhập tiền NVC đền bù'
-            WHEN cl."fieldName" = 'customerCompensation' THEN 'Nhập tiền đền bù KH'
-            WHEN cl."fieldName" = 'deadline' THEN 'Cập nhật thời hạn'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'Đánh dấu hoàn tất'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'Hủy hoàn tất'
-            ELSE 'Cập nhật'
-          END as "actionType"
-        ) h
-        WHERE cl."fieldName" != 'claimStatus'
-        ${conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : ""}
-        ${actionFilter}
-      ) combined
-    `;
+    // Transform into unified activities
+    type Activity = {
+      id: string;
+      timestamp: Date;
+      staff: string;
+      requestCode: string;
+      action: string;
+      detail: string;
+      dotColor: string;
+      actionType: string;
+    };
 
-    const dataQuery = `
-      SELECT * FROM (
-        SELECT sh."id", sh."changedAt" as "timestamp", sh."changedBy" as "staff",
-          o."requestCode",
-          CASE
-            WHEN sh."fromStatus" IS NULL THEN 'Thêm đơn có vấn đề'
-            ELSE 'Chuyển trạng thái'
-          END as "action",
-          CASE
-            WHEN sh."fromStatus" IS NULL THEN 'Tạo đơn mới - ' || co."issueType"
-            ELSE COALESCE(sh."fromStatus", '') || ' → ' || sh."toStatus"
-          END as "detail",
-          CASE
-            WHEN sh."fromStatus" IS NULL THEN 'blue'
-            ELSE 'yellow'
-          END as "dotColor"
-        FROM "ClaimStatusHistory" sh
-        JOIN "ClaimOrder" co ON co."id" = sh."claimOrderId"
-        JOIN "Order" o ON o."id" = co."orderId"
-        CROSS JOIN LATERAL (
-          SELECT sh."changedBy", sh."changedAt",
-          CASE
-            WHEN sh."fromStatus" IS NULL THEN 'Thêm đơn có vấn đề'
-            ELSE 'Chuyển trạng thái'
-          END as "actionType"
-        ) h
-        ${whereClause} ${actionFilter}
+    const activities: Activity[] = [];
 
-        UNION ALL
+    // Add status history entries
+    for (const sh of statusHistories) {
+      const requestCode = sh.claimOrder?.order?.requestCode || "—";
+      const isNew = sh.fromStatus === null;
+      activities.push({
+        id: sh.id,
+        timestamp: sh.changedAt,
+        staff: sh.changedBy,
+        requestCode,
+        action: isNew ? "Thêm đơn có vấn đề" : "Chuyển trạng thái",
+        detail: isNew
+          ? `Tạo đơn mới - ${sh.claimOrder?.issueType || ""}`
+          : `${sh.fromStatus || ""} → ${sh.toStatus}`,
+        dotColor: isNew ? "blue" : "yellow",
+        actionType: isNew ? "Thêm đơn có vấn đề" : "Chuyển trạng thái",
+      });
+    }
 
-        SELECT cl."id", cl."changedAt" as "timestamp", cl."changedBy" as "staff",
-          o."requestCode",
-          CASE
-            WHEN cl."fieldName" = 'claimStatus' THEN 'Chuyển trạng thái'
-            WHEN cl."fieldName" = 'issueType' THEN 'Cập nhật loại vấn đề'
-            WHEN cl."fieldName" = 'issueDescription' THEN 'Cập nhật nội dung VĐ'
-            WHEN cl."fieldName" = 'processingContent' THEN 'Cập nhật nội dung xử lý'
-            WHEN cl."fieldName" = 'carrierCompensation' THEN 'Nhập tiền NVC đền bù'
-            WHEN cl."fieldName" = 'customerCompensation' THEN 'Nhập tiền đền bù KH'
-            WHEN cl."fieldName" = 'deadline' THEN 'Cập nhật thời hạn'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'Đánh dấu hoàn tất'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'Hủy hoàn tất'
-            ELSE 'Cập nhật'
-          END as "action",
-          COALESCE(cl."oldValue", '—') || ' → ' || COALESCE(cl."newValue", '—') as "detail",
-          CASE
-            WHEN cl."fieldName" IN ('carrierCompensation', 'customerCompensation') THEN 'green'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'green'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'red'
-            WHEN cl."fieldName" = 'issueType' THEN 'blue'
-            WHEN cl."fieldName" = 'issueDescription' THEN 'blue'
-            WHEN cl."fieldName" = 'deadline' THEN 'blue'
-            ELSE 'yellow'
-          END as "dotColor"
-        FROM "ClaimChangeLog" cl
-        JOIN "ClaimOrder" co ON co."id" = cl."claimOrderId"
-        JOIN "Order" o ON o."id" = co."orderId"
-        CROSS JOIN LATERAL (
-          SELECT cl."changedBy", cl."changedAt",
-          CASE
-            WHEN cl."fieldName" = 'claimStatus' THEN 'Chuyển trạng thái'
-            WHEN cl."fieldName" = 'issueType' THEN 'Cập nhật loại vấn đề'
-            WHEN cl."fieldName" = 'issueDescription' THEN 'Cập nhật nội dung VĐ'
-            WHEN cl."fieldName" = 'processingContent' THEN 'Cập nhật nội dung xử lý'
-            WHEN cl."fieldName" = 'carrierCompensation' THEN 'Nhập tiền NVC đền bù'
-            WHEN cl."fieldName" = 'customerCompensation' THEN 'Nhập tiền đền bù KH'
-            WHEN cl."fieldName" = 'deadline' THEN 'Cập nhật thời hạn'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'true' THEN 'Đánh dấu hoàn tất'
-            WHEN cl."fieldName" = 'isCompleted' AND cl."newValue" = 'false' THEN 'Hủy hoàn tất'
-            ELSE 'Cập nhật'
-          END as "actionType"
-        ) h
-        WHERE cl."fieldName" != 'claimStatus'
-        ${conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : ""}
-        ${actionFilter}
-      ) combined
-      ORDER BY "timestamp" DESC
-      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
-    `;
+    // Add change log entries
+    for (const cl of changeLogs) {
+      const requestCode = cl.claimOrder?.order?.requestCode || "—";
+      const { action, dotColor } = getActionFromField(cl.fieldName, cl.newValue);
+      activities.push({
+        id: cl.id,
+        timestamp: cl.changedAt,
+        staff: cl.changedBy,
+        requestCode,
+        action,
+        detail: `${cl.oldValue || "—"} → ${cl.newValue || "—"}`,
+        dotColor,
+        actionType: action,
+      });
+    }
 
-    const [countResult, activities]: [any, any] = await Promise.all([
-      prisma.$queryRawUnsafe(countQuery, ...params),
-      prisma.$queryRawUnsafe(dataQuery, ...params),
-    ]);
+    // Sort by timestamp descending
+    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    const total = Number(countResult[0]?.total || 0);
+    // Apply filters
+    let filtered = activities;
 
-    // Get unique staff names for filter dropdown
-    const staffNames = await prisma.$queryRaw`
-      SELECT DISTINCT "changedBy" as name FROM "ClaimStatusHistory"
-      UNION
-      SELECT DISTINCT "changedBy" as name FROM "ClaimChangeLog"
-      ORDER BY name
-    `;
+    // Search filter (requestCode or staff)
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(
+        (a) => a.requestCode.toLowerCase().includes(q) || a.staff.toLowerCase().includes(q)
+      );
+    }
+
+    // Staff filter
+    if (staffFilter) {
+      filtered = filtered.filter((a) => a.staff === staffFilter);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      filtered = filtered.filter((a) => a.timestamp >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((a) => a.timestamp <= to);
+    }
+
+    // Action type filter
+    if (actionFilter) {
+      const actionMap: Record<string, string[]> = {
+        new: ["Thêm đơn có vấn đề", "Tự động phát hiện"],
+        status: ["Chuyển trạng thái"],
+        update: ["Cập nhật nội dung xử lý", "Cập nhật loại vấn đề", "Cập nhật nội dung VĐ", "Cập nhật thời hạn", "Cập nhật"],
+        compensation: ["Nhập tiền NVC đền bù", "Nhập tiền đền bù KH"],
+        complete: ["Đánh dấu hoàn tất", "Hủy hoàn tất"],
+        auto: ["Tự động phát hiện"],
+      };
+      const allowedActions = actionMap[actionFilter] || [];
+      if (allowedActions.length > 0) {
+        filtered = filtered.filter((a) => allowedActions.includes(a.actionType));
+      }
+    }
+
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / pageSize);
+    const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    // Get unique staff names
+    const staffSet = new Set<string>();
+    activities.forEach((a) => { if (a.staff) staffSet.add(a.staff); });
+    const staffNames = Array.from(staffSet).sort().map((name) => ({ name }));
 
     return NextResponse.json({
-      activities,
+      activities: paged,
       staffNames,
-      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      pagination: { page, pageSize, total, totalPages },
     });
   } catch (e) {
     console.error("History error:", e);
-    return NextResponse.json({ activities: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 }, staffNames: [] });
+    return NextResponse.json({
+      activities: [],
+      pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+      staffNames: [],
+    });
   }
 }

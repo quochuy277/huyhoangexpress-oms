@@ -60,12 +60,12 @@ export function FinanceCardsRow() {
       onClick: () => router.push("/finance"),
     },
     {
-      label: "Chi phí tháng này (Tạm)",
+      label: "Chi phí tháng này",
       value: formatVND(data.cost?.current || 0),
       valueColor: "text-red-600",
       borderColor: "border-l-red-500",
       icon: <TrendingDown className="w-5 h-5 text-red-500 opacity-60" />,
-      subtitle: <span className="text-slate-500">Phí đối tác vận chuyển</span>, // Placeholder before full finance module
+      subtitle: <span className="text-slate-500">Đền bù + Chi phí vận hành</span>,
       onClick: () => router.push("/finance"),
     },
     {

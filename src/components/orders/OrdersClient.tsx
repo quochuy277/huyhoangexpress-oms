@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { ExcelUpload } from "@/components/orders/ExcelUpload";
 import { OrderFilters } from "@/components/orders/OrderFilters";
 import { OrderTable } from "@/components/orders/OrderTable";
@@ -26,7 +27,22 @@ type TabType = "orders" | "changes";
 
 export function OrdersClient({ userRole }: OrdersClientProps) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabType>("orders");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab") as TabType | null;
+  const [activeTab, setActiveTabState] = useState<TabType>(tabFromUrl === "changes" ? "changes" : "orders");
+
+  const setActiveTab = useCallback((tab: TabType) => {
+    setActiveTabState(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "changes") {
+      params.set("tab", "changes");
+    } else {
+      params.delete("tab");
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [searchParams, pathname, router]);
   const [showUpload, setShowUpload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);

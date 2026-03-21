@@ -30,6 +30,7 @@ const LOGOUT_REASONS: Record<string, string> = {
   auto_midnight: "Auto (0h)",
   idle_timeout: "Không hoạt động",
   session_expired: "Hết phiên",
+  browser_closed: "Tắt trình duyệt",
 };
 
 interface Props {

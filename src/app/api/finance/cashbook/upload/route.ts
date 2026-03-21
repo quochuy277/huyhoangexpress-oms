@@ -91,10 +91,6 @@ export async function POST(req: NextRequest) {
         if (parts.length > 1) shopName = parts.slice(1).join(",").trim();
       }
 
-      // Check duplicate
-      const existing = await prisma.cashbookEntry.findUnique({ where: { receiptCode } });
-      if (existing) { duplicateRows++; continue; }
-
       await prisma.cashbookEntry.create({
         data: {
           transactionTime,

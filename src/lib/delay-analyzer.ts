@@ -47,7 +47,8 @@ export type ProcessedDelayedOrder = {
 
 export function parseDelays(note: string): { time: string; date: string; reason: string }[] {
   const delays: { time: string; date: string; reason: string }[] = [];
-  const regex = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*Hoãn giao hàng vì:\s*([^\n]+)/g;
+  // Match all delay-related events: "Hoãn giao hàng vì:", "Xác nhận hoàn vì:"
+  const regex = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*(?:Hoãn giao hàng vì:|Xác nhận hoàn vì:)\s*([^\n]+)/g;
   let m;
   while ((m = regex.exec(note)) !== null) {
     delays.push({ time: m[1], date: m[2], reason: m[3].trim() });
@@ -139,14 +140,9 @@ export function getMostRecentTimestampFromNotes(publicNotes: string | null): Dat
 }
 
 export function countDelaysInNote(note: string): number {
-  const matches = note.match(/Hoãn giao hàng vì:/g);
-  if (!matches) return 0;
-  let count = matches.length;
-  const lanMatches = note.match(/Giao hàng lần (\d+):/g);
-  if (lanMatches) {
-    const maxLan = Math.max(...lanMatches.map(s => parseInt(s.match(/\d+/)![0])));
-    if (maxLan > count) count = maxLan;
-  }
+  const hoanMatches = note.match(/Hoãn giao hàng vì:/g);
+  const xacNhanMatches = note.match(/Xác nhận hoàn vì:/g);
+  const count = (hoanMatches?.length || 0) + (xacNhanMatches?.length || 0);
   return count;
 }
 
