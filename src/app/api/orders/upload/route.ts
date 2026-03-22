@@ -5,8 +5,102 @@ import { parseExcelBuffer, buildOrderData } from "@/lib/excel-parser";
 import { uploadLimiter } from "@/lib/rate-limiter";
 import { detectOrderChanges } from "@/lib/change-detector";
 import type { DetectedChange } from "@/lib/change-detector";
+import type { ParsedOrder } from "@/lib/excel-parser";
+import { Prisma } from "@prisma/client";
 
 const BATCH_SIZE = 500;
+
+// Vercel serverless max duration (seconds) — Hobby: 60, Pro: 300
+export const maxDuration = 60;
+
+/**
+ * Build raw SQL for bulk upsert using INSERT ... ON CONFLICT DO UPDATE.
+ * This replaces 500 individual Prisma upserts with 1 single SQL query per batch.
+ */
+function buildBulkUpsertSQL(orders: ParsedOrder[]): { query: string; values: unknown[] } {
+  const columns = [
+    "id", "requestCode", "status", "deliveryStatus",
+    "reconciliationCode", "reconciliationDate", "shopName", "customerOrderCode",
+    "createdTime", "pickupTime",
+    "codAmount", "codOriginal", "declaredValue", "shippingFee",
+    "surcharge", "overweightFee", "insuranceFee", "codServiceFee",
+    "returnFee", "totalFee", "carrierFee", "ghsvInsuranceFee", "revenue",
+    "creatorShopName", "creatorPhone", "creatorStaff", "creatorAddress",
+    "creatorWard", "creatorDistrict", "creatorProvince",
+    "senderShopName", "senderPhone", "senderAddress",
+    "senderWard", "senderDistrict", "senderProvince",
+    "receiverName", "receiverPhone", "receiverAddress",
+    "receiverWard", "receiverDistrict", "receiverProvince",
+    "deliveryNotes", "productDescription", "paymentConfirmDate",
+    "internalNotes", "publicNotes", "lastUpdated",
+    "carrierName", "carrierAccount", "carrierOrderCode", "regionGroup",
+    "customerWeight", "carrierWeight", "deliveredDate",
+    "pickupShipper", "deliveryShipper", "orderSource",
+    "partialOrderType", "partialOrderCode", "salesStaff",
+  ];
+
+  // Columns to UPDATE on conflict (exclude id, requestCode, importedAt, staffNotes)
+  const updateColumns = columns.filter(c => c !== "id" && c !== "requestCode");
+
+  const values: unknown[] = [];
+  const rowPlaceholders: string[] = [];
+  let paramIndex = 1;
+
+  for (const order of orders) {
+    const data = buildOrderData(order);
+    const id = generateCuid();
+    const rowValues: unknown[] = [
+      id, order.requestCode, data.status, data.deliveryStatus,
+      data.reconciliationCode, data.reconciliationDate, data.shopName, data.customerOrderCode,
+      data.createdTime, data.pickupTime,
+      data.codAmount, data.codOriginal, data.declaredValue, data.shippingFee,
+      data.surcharge, data.overweightFee, data.insuranceFee, data.codServiceFee,
+      data.returnFee, data.totalFee, data.carrierFee, data.ghsvInsuranceFee, data.revenue,
+      data.creatorShopName, data.creatorPhone, data.creatorStaff, data.creatorAddress,
+      data.creatorWard, data.creatorDistrict, data.creatorProvince,
+      data.senderShopName, data.senderPhone, data.senderAddress,
+      data.senderWard, data.senderDistrict, data.senderProvince,
+      data.receiverName, data.receiverPhone, data.receiverAddress,
+      data.receiverWard, data.receiverDistrict, data.receiverProvince,
+      data.deliveryNotes, data.productDescription, data.paymentConfirmDate,
+      data.internalNotes, data.publicNotes, data.lastUpdated,
+      data.carrierName, data.carrierAccount, data.carrierOrderCode, data.regionGroup,
+      data.customerWeight, data.carrierWeight, data.deliveredDate,
+      data.pickupShipper, data.deliveryShipper, data.orderSource,
+      data.partialOrderType, data.partialOrderCode, data.salesStaff,
+    ];
+
+    const placeholders = rowValues.map(() => `$${paramIndex++}`);
+    rowPlaceholders.push(`(${placeholders.join(", ")})`);
+    values.push(...rowValues);
+  }
+
+  // Cast enums properly for PostgreSQL
+  const columnsList = columns.map(c => `"${c}"`).join(", ");
+  const updateSet = updateColumns
+    .map(c => `"${c}" = EXCLUDED."${c}"`)
+    .join(", ");
+
+  const query = `
+    INSERT INTO "Order" (${columnsList})
+    VALUES ${rowPlaceholders.join(",\n")}
+    ON CONFLICT ("requestCode") DO UPDATE SET
+      ${updateSet},
+      "updatedInDb" = NOW()
+  `;
+
+  return { query, values };
+}
+
+/**
+ * Simple CUID-like ID generator for new rows.
+ */
+function generateCuid(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 10);
+  const counter = Math.floor(Math.random() * 1000).toString(36);
+  return `c${timestamp}${random}${counter}`;
+}
 
 export async function POST(req: NextRequest) {
   // 1. Auth check
@@ -69,9 +163,6 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Batch upsert with change detection
-  // Strategy: query existing BEFORE upsert (outside transaction),
-  // detect changes in memory, then upsert in parallel (original pattern),
-  // then bulk insert change logs.
   let newCount = 0;
   let updatedCount = 0;
   let failedCount = 0;
@@ -120,18 +211,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // c. Upsert orders in a transaction to prevent race conditions
+    // c. Bulk upsert using raw SQL — 1 query instead of N individual upserts
     try {
-      await prisma.$transaction(
-        batch.map((order) => {
-          const data = buildOrderData(order);
-          return prisma.order.upsert({
-            where: { requestCode: order.requestCode },
-            create: { requestCode: order.requestCode, ...data },
-            update: data,
-          });
-        })
-      );
+      const { query, values } = buildBulkUpsertSQL(batch);
+      await prisma.$executeRawUnsafe(query, ...values);
 
       // Count new vs updated based on pre-query
       for (const order of batch) {
@@ -142,12 +225,11 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (err) {
-      // If the whole batch transaction fails, mark all as failed
       failedCount += batch.length;
       upsertErrors.push({
         row: batchStart + 2,
         requestCode: batch[0]?.requestCode ?? "unknown",
-        message: `Batch transaction failed: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Batch failed: ${err instanceof Error ? err.message : String(err)}`,
       });
     }
   }
@@ -188,7 +270,6 @@ export async function POST(req: NextRequest) {
   // 7. Bulk insert change logs (after upserts complete)
   if (allDetectedChanges.length > 0 && uploadHistoryId) {
     try {
-      // Insert in chunks of 1000 to avoid query size limits
       const CHUNK_SIZE = 1000;
       for (let i = 0; i < allDetectedChanges.length; i += CHUNK_SIZE) {
         const chunk = allDetectedChanges.slice(i, i + CHUNK_SIZE);
