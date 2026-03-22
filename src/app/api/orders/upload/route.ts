@@ -9,96 +9,133 @@ import type { ParsedOrder } from "@/lib/excel-parser";
 import { Prisma } from "@prisma/client";
 
 const BATCH_SIZE = 500;
+const SQL_SUB_BATCH = 50; // Rows per raw SQL INSERT (keeps params manageable)
 
-// Vercel serverless max duration (seconds) — Hobby: 60, Pro: 300
+// Vercel serverless max duration (seconds)
 export const maxDuration = 60;
 
 /**
- * Build raw SQL for bulk upsert using INSERT ... ON CONFLICT DO UPDATE.
- * This replaces 500 individual Prisma upserts with 1 single SQL query per batch.
+ * Bulk upsert a sub-batch of orders using Prisma.sql tagged template.
+ * Uses INSERT ... ON CONFLICT DO UPDATE for maximum performance.
+ * Prisma.sql handles parameter binding correctly (including enum casting).
  */
-function buildBulkUpsertSQL(orders: ParsedOrder[]): { query: string; values: unknown[] } {
-  const columns = [
-    "id", "requestCode", "status", "deliveryStatus",
-    "reconciliationCode", "reconciliationDate", "shopName", "customerOrderCode",
-    "createdTime", "pickupTime",
-    "codAmount", "codOriginal", "declaredValue", "shippingFee",
-    "surcharge", "overweightFee", "insuranceFee", "codServiceFee",
-    "returnFee", "totalFee", "carrierFee", "ghsvInsuranceFee", "revenue",
-    "creatorShopName", "creatorPhone", "creatorStaff", "creatorAddress",
-    "creatorWard", "creatorDistrict", "creatorProvince",
-    "senderShopName", "senderPhone", "senderAddress",
-    "senderWard", "senderDistrict", "senderProvince",
-    "receiverName", "receiverPhone", "receiverAddress",
-    "receiverWard", "receiverDistrict", "receiverProvince",
-    "deliveryNotes", "productDescription", "paymentConfirmDate",
-    "internalNotes", "publicNotes", "lastUpdated",
-    "carrierName", "carrierAccount", "carrierOrderCode", "regionGroup",
-    "customerWeight", "carrierWeight", "deliveredDate",
-    "pickupShipper", "deliveryShipper", "orderSource",
-    "partialOrderType", "partialOrderCode", "salesStaff",
-  ];
+async function bulkUpsertSubBatch(orders: ParsedOrder[]): Promise<void> {
+  if (orders.length === 0) return;
 
-  // Columns to UPDATE on conflict (exclude id, requestCode, importedAt, staffNotes)
-  const updateColumns = columns.filter(c => c !== "id" && c !== "requestCode");
-
-  const values: unknown[] = [];
-  const rowPlaceholders: string[] = [];
-  let paramIndex = 1;
-
-  for (const order of orders) {
+  const rowSqls = orders.map((order) => {
     const data = buildOrderData(order);
     const id = generateCuid();
-    const rowValues: unknown[] = [
-      id, order.requestCode, data.status, data.deliveryStatus,
-      data.reconciliationCode, data.reconciliationDate, data.shopName, data.customerOrderCode,
-      data.createdTime, data.pickupTime,
-      data.codAmount, data.codOriginal, data.declaredValue, data.shippingFee,
-      data.surcharge, data.overweightFee, data.insuranceFee, data.codServiceFee,
-      data.returnFee, data.totalFee, data.carrierFee, data.ghsvInsuranceFee, data.revenue,
-      data.creatorShopName, data.creatorPhone, data.creatorStaff, data.creatorAddress,
-      data.creatorWard, data.creatorDistrict, data.creatorProvince,
-      data.senderShopName, data.senderPhone, data.senderAddress,
-      data.senderWard, data.senderDistrict, data.senderProvince,
-      data.receiverName, data.receiverPhone, data.receiverAddress,
-      data.receiverWard, data.receiverDistrict, data.receiverProvince,
-      data.deliveryNotes, data.productDescription, data.paymentConfirmDate,
-      data.internalNotes, data.publicNotes, data.lastUpdated,
-      data.carrierName, data.carrierAccount, data.carrierOrderCode, data.regionGroup,
-      data.customerWeight, data.carrierWeight, data.deliveredDate,
-      data.pickupShipper, data.deliveryShipper, data.orderSource,
-      data.partialOrderType, data.partialOrderCode, data.salesStaff,
-    ];
 
-    // deliveryStatus is at index 3 — needs PostgreSQL enum cast
-    const placeholders = rowValues.map((_, idx) => {
-      const p = `$${paramIndex++}`;
-      return idx === 3 ? `${p}::"DeliveryStatus"` : p;
-    });
-    rowPlaceholders.push(`(${placeholders.join(", ")})`);
-    values.push(...rowValues);
-  }
+    return Prisma.sql`(
+      ${id}, ${order.requestCode}, ${data.status},
+      ${data.deliveryStatus}::"DeliveryStatus",
+      ${data.reconciliationCode}, ${data.reconciliationDate},
+      ${data.shopName}, ${data.customerOrderCode},
+      ${data.createdTime}, ${data.pickupTime},
+      ${data.codAmount}, ${data.codOriginal}, ${data.declaredValue}, ${data.shippingFee},
+      ${data.surcharge}, ${data.overweightFee}, ${data.insuranceFee}, ${data.codServiceFee},
+      ${data.returnFee}, ${data.totalFee}, ${data.carrierFee}, ${data.ghsvInsuranceFee}, ${data.revenue},
+      ${data.creatorShopName}, ${data.creatorPhone}, ${data.creatorStaff}, ${data.creatorAddress},
+      ${data.creatorWard}, ${data.creatorDistrict}, ${data.creatorProvince},
+      ${data.senderShopName}, ${data.senderPhone}, ${data.senderAddress},
+      ${data.senderWard}, ${data.senderDistrict}, ${data.senderProvince},
+      ${data.receiverName}, ${data.receiverPhone}, ${data.receiverAddress},
+      ${data.receiverWard}, ${data.receiverDistrict}, ${data.receiverProvince},
+      ${data.deliveryNotes}, ${data.productDescription}, ${data.paymentConfirmDate},
+      ${data.internalNotes}, ${data.publicNotes}, ${data.lastUpdated},
+      ${data.carrierName}, ${data.carrierAccount}, ${data.carrierOrderCode}, ${data.regionGroup},
+      ${data.customerWeight ?? null}, ${data.carrierWeight ?? null}, ${data.deliveredDate},
+      ${data.pickupShipper}, ${data.deliveryShipper}, ${data.orderSource},
+      ${data.partialOrderType}, ${data.partialOrderCode}, ${data.salesStaff}
+    )`;
+  });
 
-  // Cast enums properly for PostgreSQL
-  const columnsList = columns.map(c => `"${c}"`).join(", ");
-  const updateSet = updateColumns
-    .map(c => `"${c}" = EXCLUDED."${c}"`)
-    .join(", ");
-
-  const query = `
-    INSERT INTO "Order" (${columnsList})
-    VALUES ${rowPlaceholders.join(",\n")}
+  await prisma.$executeRaw`
+    INSERT INTO "Order" (
+      "id", "requestCode", "status", "deliveryStatus",
+      "reconciliationCode", "reconciliationDate", "shopName", "customerOrderCode",
+      "createdTime", "pickupTime",
+      "codAmount", "codOriginal", "declaredValue", "shippingFee",
+      "surcharge", "overweightFee", "insuranceFee", "codServiceFee",
+      "returnFee", "totalFee", "carrierFee", "ghsvInsuranceFee", "revenue",
+      "creatorShopName", "creatorPhone", "creatorStaff", "creatorAddress",
+      "creatorWard", "creatorDistrict", "creatorProvince",
+      "senderShopName", "senderPhone", "senderAddress",
+      "senderWard", "senderDistrict", "senderProvince",
+      "receiverName", "receiverPhone", "receiverAddress",
+      "receiverWard", "receiverDistrict", "receiverProvince",
+      "deliveryNotes", "productDescription", "paymentConfirmDate",
+      "internalNotes", "publicNotes", "lastUpdated",
+      "carrierName", "carrierAccount", "carrierOrderCode", "regionGroup",
+      "customerWeight", "carrierWeight", "deliveredDate",
+      "pickupShipper", "deliveryShipper", "orderSource",
+      "partialOrderType", "partialOrderCode", "salesStaff"
+    )
+    VALUES ${Prisma.join(rowSqls)}
     ON CONFLICT ("requestCode") DO UPDATE SET
-      ${updateSet},
+      "status" = EXCLUDED."status",
+      "deliveryStatus" = EXCLUDED."deliveryStatus",
+      "reconciliationCode" = EXCLUDED."reconciliationCode",
+      "reconciliationDate" = EXCLUDED."reconciliationDate",
+      "shopName" = EXCLUDED."shopName",
+      "customerOrderCode" = EXCLUDED."customerOrderCode",
+      "createdTime" = EXCLUDED."createdTime",
+      "pickupTime" = EXCLUDED."pickupTime",
+      "codAmount" = EXCLUDED."codAmount",
+      "codOriginal" = EXCLUDED."codOriginal",
+      "declaredValue" = EXCLUDED."declaredValue",
+      "shippingFee" = EXCLUDED."shippingFee",
+      "surcharge" = EXCLUDED."surcharge",
+      "overweightFee" = EXCLUDED."overweightFee",
+      "insuranceFee" = EXCLUDED."insuranceFee",
+      "codServiceFee" = EXCLUDED."codServiceFee",
+      "returnFee" = EXCLUDED."returnFee",
+      "totalFee" = EXCLUDED."totalFee",
+      "carrierFee" = EXCLUDED."carrierFee",
+      "ghsvInsuranceFee" = EXCLUDED."ghsvInsuranceFee",
+      "revenue" = EXCLUDED."revenue",
+      "creatorShopName" = EXCLUDED."creatorShopName",
+      "creatorPhone" = EXCLUDED."creatorPhone",
+      "creatorStaff" = EXCLUDED."creatorStaff",
+      "creatorAddress" = EXCLUDED."creatorAddress",
+      "creatorWard" = EXCLUDED."creatorWard",
+      "creatorDistrict" = EXCLUDED."creatorDistrict",
+      "creatorProvince" = EXCLUDED."creatorProvince",
+      "senderShopName" = EXCLUDED."senderShopName",
+      "senderPhone" = EXCLUDED."senderPhone",
+      "senderAddress" = EXCLUDED."senderAddress",
+      "senderWard" = EXCLUDED."senderWard",
+      "senderDistrict" = EXCLUDED."senderDistrict",
+      "senderProvince" = EXCLUDED."senderProvince",
+      "receiverName" = EXCLUDED."receiverName",
+      "receiverPhone" = EXCLUDED."receiverPhone",
+      "receiverAddress" = EXCLUDED."receiverAddress",
+      "receiverWard" = EXCLUDED."receiverWard",
+      "receiverDistrict" = EXCLUDED."receiverDistrict",
+      "receiverProvince" = EXCLUDED."receiverProvince",
+      "deliveryNotes" = EXCLUDED."deliveryNotes",
+      "productDescription" = EXCLUDED."productDescription",
+      "paymentConfirmDate" = EXCLUDED."paymentConfirmDate",
+      "internalNotes" = EXCLUDED."internalNotes",
+      "publicNotes" = EXCLUDED."publicNotes",
+      "lastUpdated" = EXCLUDED."lastUpdated",
+      "carrierName" = EXCLUDED."carrierName",
+      "carrierAccount" = EXCLUDED."carrierAccount",
+      "carrierOrderCode" = EXCLUDED."carrierOrderCode",
+      "regionGroup" = EXCLUDED."regionGroup",
+      "customerWeight" = EXCLUDED."customerWeight",
+      "carrierWeight" = EXCLUDED."carrierWeight",
+      "deliveredDate" = EXCLUDED."deliveredDate",
+      "pickupShipper" = EXCLUDED."pickupShipper",
+      "deliveryShipper" = EXCLUDED."deliveryShipper",
+      "orderSource" = EXCLUDED."orderSource",
+      "partialOrderType" = EXCLUDED."partialOrderType",
+      "partialOrderCode" = EXCLUDED."partialOrderCode",
+      "salesStaff" = EXCLUDED."salesStaff",
       "updatedInDb" = NOW()
   `;
-
-  return { query, values };
 }
 
-/**
- * Simple CUID-like ID generator for new rows.
- */
 function generateCuid(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 10);
@@ -189,7 +226,7 @@ export async function POST(req: NextRequest) {
     );
     const requestCodes = batch.map((o) => o.requestCode);
 
-    // a. Query existing orders BEFORE upsert — get old data for comparison
+    // a. Query existing orders BEFORE upsert
     const existingOrders = await prisma.order.findMany({
       where: { requestCode: { in: requestCodes } },
       select: {
@@ -202,7 +239,7 @@ export async function POST(req: NextRequest) {
       existingOrders.map((o) => [o.requestCode, o])
     );
 
-    // b. Detect changes in memory (BEFORE any upserts)
+    // b. Detect changes in memory
     for (const order of batch) {
       const existing = existingMap.get(order.requestCode);
       if (existing) {
@@ -215,12 +252,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // c. Bulk upsert using raw SQL — 1 query instead of N individual upserts
+    // c. Bulk upsert using sub-batches of raw SQL
     try {
-      const { query, values } = buildBulkUpsertSQL(batch);
-      await prisma.$executeRawUnsafe(query, ...values);
+      for (let i = 0; i < batch.length; i += SQL_SUB_BATCH) {
+        const subBatch = batch.slice(i, i + SQL_SUB_BATCH);
+        await bulkUpsertSubBatch(subBatch);
+      }
 
-      // Count new vs updated based on pre-query
+      // Count new vs updated
       for (const order of batch) {
         if (existingMap.has(order.requestCode)) {
           updatedCount++;
@@ -271,7 +310,7 @@ export async function POST(req: NextRequest) {
     console.error("Failed to create UploadHistory:", err);
   }
 
-  // 7. Bulk insert change logs (after upserts complete)
+  // 7. Bulk insert change logs
   if (allDetectedChanges.length > 0 && uploadHistoryId) {
     try {
       const CHUNK_SIZE = 1000;
