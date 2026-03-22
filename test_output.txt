@@ -1,0 +1,18 @@
+﻿
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90mD:/OneDrive/Documents/CODE/DU AN PHAN MEM CARE DON/Order_manager[39m
+
+ [32mΓ£ô[39m src/__tests__/lib/permissions.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/utils.test.ts [2m([22m[2m41 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/rate-limiter.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/change-detector.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/status-mapper.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/validations.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/excel-parser.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/claim-detector.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32mΓ£ô[39m src/__tests__/lib/attendance.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m212 passed[39m[22m[90m (212)[39m
+[2m   Start at [22m 10:40:01
+[2m   Duration [22m 1.07s[2m (transform 699ms, setup 0ms, import 1.71s, tests 262ms, environment 2ms)[22m
+

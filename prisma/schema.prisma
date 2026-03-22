@@ -509,6 +509,7 @@ model LoginHistory {
   lastHeartbeat DateTime?
 
   @@index([userId, loginTime])
+  @@index([logoutTime])
 }
 
 model SystemSetting {
@@ -601,6 +602,7 @@ model CashbookEntry {
   @@index([transactionTime])
   @@index([groupType])
   @@index([receiptCode])
+  @@index([shopName])
 }
 
 enum CashbookGroup {
@@ -764,7 +766,7 @@ model ShopProfile {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  @@index([shopName])
+
 }
 
 enum ShopClass {

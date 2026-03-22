@@ -32,8 +32,9 @@ describe("getDefaultPermissions", () => {
 
     it("has all other permissions as true", () => {
       const perms = getDefaultPermissions("MANAGER");
+      const restrictedKeys = ["canManageUsers", "canManagePermissions", "canManageCRM"];
       const otherKeys = PERMISSION_KEYS.filter(
-        (k) => k !== "canManageUsers" && k !== "canManagePermissions"
+        (k) => !restrictedKeys.includes(k)
       );
       for (const key of otherKeys) {
         expect(perms[key], `MANAGER should have ${key} = true`).toBe(true);
@@ -127,10 +128,10 @@ describe("getDefaultPermissions", () => {
       expect(getDefaultPermissions("VIEWER").canViewRevenue).toBe(false);
     });
 
-    it("has exactly 4 true permissions", () => {
+    it("has exactly 5 true permissions", () => {
       const perms = getDefaultPermissions("VIEWER");
       const trueCount = PERMISSION_KEYS.filter((k) => perms[k]).length;
-      expect(trueCount).toBe(4);
+      expect(trueCount).toBe(5);
     });
   });
 });

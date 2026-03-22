@@ -120,37 +120,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // c. Upsert orders in parallel (original pattern — no transaction wrapper)
-    const promises = batch.map(async (order, idx) => {
-      try {
-        const data = buildOrderData(order);
-        const isExisting = existingMap.has(order.requestCode);
+    // c. Upsert orders in a transaction to prevent race conditions
+    try {
+      await prisma.$transaction(
+        batch.map((order) => {
+          const data = buildOrderData(order);
+          return prisma.order.upsert({
+            where: { requestCode: order.requestCode },
+            create: { requestCode: order.requestCode, ...data },
+            update: data,
+          });
+        })
+      );
 
-        await prisma.order.upsert({
-          where: { requestCode: order.requestCode },
-          create: {
-            requestCode: order.requestCode,
-            ...data,
-          },
-          update: data,
-        });
-
-        if (isExisting) {
+      // Count new vs updated based on pre-query
+      for (const order of batch) {
+        if (existingMap.has(order.requestCode)) {
           updatedCount++;
         } else {
           newCount++;
         }
-      } catch (err) {
-        failedCount++;
-        upsertErrors.push({
-          row: batchStart + idx + 2,
-          requestCode: order.requestCode,
-          message: err instanceof Error ? err.message : String(err),
-        });
       }
-    });
-
-    await Promise.all(promises);
+    } catch (err) {
+      // If the whole batch transaction fails, mark all as failed
+      failedCount += batch.length;
+      upsertErrors.push({
+        row: batchStart + 2,
+        requestCode: batch[0]?.requestCode ?? "unknown",
+        message: `Batch transaction failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
   }
 
   const processingTime = Date.now() - startTime;
@@ -171,9 +170,9 @@ export async function POST(req: NextRequest) {
         errorLog:
           upsertErrors.length > 0 || parseResult.errors.length > 0
             ? JSON.stringify({
-                parseErrors: parseResult.errors.slice(0, 20),
-                upsertErrors: upsertErrors.slice(0, 20),
-              })
+              parseErrors: parseResult.errors.slice(0, 20),
+              upsertErrors: upsertErrors.slice(0, 20),
+            })
             : null,
         carrierName: parseResult.orders[0]?.carrierName || null,
         uploadedById: session.user.id,

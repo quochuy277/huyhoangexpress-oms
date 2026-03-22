@@ -28,17 +28,7 @@ interface HitRecord {
 export function createRateLimiter(opts: RateLimiterOptions) {
   const { windowMs, max, message = "Quá nhiều yêu cầu, vui lòng thử lại sau." } = opts;
   const hits = new Map<string, HitRecord>();
-
-  // Cleanup stale entries every 60s
-  const cleanup = () => {
-    const now = Date.now();
-    for (const [key, record] of hits) {
-      if (now > record.resetAt) hits.delete(key);
-    }
-  };
-  if (typeof setInterval !== "undefined") {
-    setInterval(cleanup, 60_000);
-  }
+  let lastCleanup = Date.now();
 
   return {
     /**
@@ -47,6 +37,15 @@ export function createRateLimiter(opts: RateLimiterOptions) {
      */
     check(identifier: string): NextResponse | null {
       const now = Date.now();
+
+      // Lazy cleanup: remove stale entries every 60s (no setInterval leak)
+      if (now - lastCleanup > 60_000) {
+        for (const [key, record] of hits) {
+          if (now > record.resetAt) hits.delete(key);
+        }
+        lastCleanup = now;
+      }
+
       const record = hits.get(identifier);
 
       if (!record || now > record.resetAt) {

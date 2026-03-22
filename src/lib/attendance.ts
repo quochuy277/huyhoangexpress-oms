@@ -58,48 +58,52 @@ export function parseDeviceType(ua: string): string {
 }
 
 // ============================================================
-// DATE HELPERS (Vietnam timezone)
+// DATE HELPERS (Vietnam timezone — UTC+7, no DST)
 // ============================================================
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7
+
+/** Get current time as if we're in Vietnam timezone (UTC+7) */
 export function getVietnamNow(): Date {
-  const now = new Date();
-  const vnStr = now.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
-  return new Date(vnStr);
+  const utcMs = Date.now();
+  return new Date(utcMs + VN_OFFSET_MS);
 }
 
+/** Get today's date at midnight UTC representing the Vietnam calendar date */
 export function getVietnamToday(): Date {
   const vn = getVietnamNow();
-  vn.setHours(0, 0, 0, 0);
-  return vn;
+  return new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate()));
 }
 
+/** Check if a given date/time is after the specified time in Vietnam timezone */
 export function isAfterTime(date: Date, timeStr: string): boolean {
   const [h, m] = timeStr.split(":").map(Number);
-  const vn = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-  return vn.getHours() > h || (vn.getHours() === h && vn.getMinutes() > m);
+  const vnMs = date.getTime() + VN_OFFSET_MS;
+  const vn = new Date(vnMs);
+  return vn.getUTCHours() > h || (vn.getUTCHours() === h && vn.getUTCMinutes() > m);
 }
 
+/** Calculate how many minutes late compared to the threshold in Vietnam timezone */
 export function calculateLateMinutes(date: Date, timeStr: string): number {
   const [h, m] = timeStr.split(":").map(Number);
-  const vn = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const vnMs = date.getTime() + VN_OFFSET_MS;
+  const vn = new Date(vnMs);
   const lateThreshold = h * 60 + m;
-  const actual = vn.getHours() * 60 + vn.getMinutes();
+  const actual = vn.getUTCHours() * 60 + vn.getUTCMinutes();
   return Math.max(0, actual - lateThreshold);
 }
 
 // NOTE: Attendance.date uses @db.Date which stores date-only in UTC.
 // These helpers create UTC midnight dates matching the Vietnam calendar date.
 export function startOfDayVN(date: Date): Date {
-  // Get Vietnam date components
-  const vnStr = date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
-  const vn = new Date(vnStr);
-  // Create UTC midnight for the Vietnam calendar date
-  return new Date(Date.UTC(vn.getFullYear(), vn.getMonth(), vn.getDate(), 0, 0, 0, 0));
+  const vnMs = date.getTime() + VN_OFFSET_MS;
+  const vn = new Date(vnMs);
+  return new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate(), 0, 0, 0, 0));
 }
 
 export function endOfDayVN(date: Date): Date {
-  const vnStr = date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
-  const vn = new Date(vnStr);
-  return new Date(Date.UTC(vn.getFullYear(), vn.getMonth(), vn.getDate(), 23, 59, 59, 999));
+  const vnMs = date.getTime() + VN_OFFSET_MS;
+  const vn = new Date(vnMs);
+  return new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate(), 23, 59, 59, 999));
 }
 
 // ============================================================
@@ -244,8 +248,9 @@ export async function closeOrphanedSessions(userId: string) {
     });
 
     // Recalculate attendance for the day of this session
-    const sessionDay = new Date(session.loginTime.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-    sessionDay.setHours(0, 0, 0, 0);
+    const vnMs = session.loginTime.getTime() + VN_OFFSET_MS;
+    const vnDate = new Date(vnMs);
+    const sessionDay = new Date(Date.UTC(vnDate.getUTCFullYear(), vnDate.getUTCMonth(), vnDate.getUTCDate()));
     await recalculateAttendance(userId, sessionDay);
   }
 

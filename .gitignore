@@ -37,6 +37,7 @@ yarn-error.log*
 errors.txt
 ts_errors.txt
 clear-db.ts
+repomix-output.xml
 
 # vercel
 .vercel

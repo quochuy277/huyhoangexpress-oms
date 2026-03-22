@@ -96,7 +96,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               userAgent,
               deviceType,
             },
-          }).catch(() => {});
+          }).catch((err) => console.warn("[Auth:LoginHistory]", err?.message ?? err));
 
           // Auto check-in attendance with late detection (non-blocking)
           const today = getVietnamToday();
@@ -115,8 +115,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 status: "ABSENT",
               },
               update: {},
-            }).catch(() => {});
-          }).catch(() => {});
+            }).catch((err) => console.warn("[Auth:Attendance]", err?.message ?? err));
+          }).catch((err) => console.warn("[Auth:AttendanceSettings]", err?.message ?? err));
 
           // Build permissions from permissionGroup or fallback to role
           const permissions = user.permissionGroup

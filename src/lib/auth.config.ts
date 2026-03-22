@@ -23,17 +23,7 @@ export const authConfig: NextAuthConfig = {
       if (!isLoggedIn) return false;
       return true;
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as { role: Role }).role;
-        token.name = user.name;
-        token.permissions = (user as { permissions: PermissionSet }).permissions;
-        token.permissionsUpdatedAt = Date.now();
-      }
-
-      return token;
-    },
+    // NOTE: jwt callback is defined in auth.ts (with DB permission refresh)
     session({ session, token }) {
       if (token) {
         session.user.id = token.id as string;
