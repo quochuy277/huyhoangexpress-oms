@@ -15,8 +15,9 @@ export async function GET(
     const url = new URL(req.url);
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
     const [year, mon] = month.split("-").map(Number);
-    const from = new Date(year, mon - 1, 1);
-    const to = new Date(year, mon, 0, 23, 59, 59);
+    // @db.Date stores UTC dates, use UTC ranges
+    const from = new Date(Date.UTC(year, mon - 1, 1));
+    const to = new Date(Date.UTC(year, mon, 0, 23, 59, 59));
 
     const [user, attendance, loginHistory] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, role: true } }),

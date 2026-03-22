@@ -86,16 +86,20 @@ export function calculateLateMinutes(date: Date, timeStr: string): number {
   return Math.max(0, actual - lateThreshold);
 }
 
+// NOTE: Attendance.date uses @db.Date which stores date-only in UTC.
+// These helpers create UTC midnight dates matching the Vietnam calendar date.
 export function startOfDayVN(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  // Get Vietnam date components
+  const vnStr = date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
+  const vn = new Date(vnStr);
+  // Create UTC midnight for the Vietnam calendar date
+  return new Date(Date.UTC(vn.getFullYear(), vn.getMonth(), vn.getDate(), 0, 0, 0, 0));
 }
 
 export function endOfDayVN(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
+  const vnStr = date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
+  const vn = new Date(vnStr);
+  return new Date(Date.UTC(vn.getFullYear(), vn.getMonth(), vn.getDate(), 23, 59, 59, 999));
 }
 
 // ============================================================

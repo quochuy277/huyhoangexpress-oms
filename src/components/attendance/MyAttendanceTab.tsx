@@ -97,7 +97,8 @@ export default function MyAttendanceTab({ userId, userName }: Props) {
   const todayAttendance = attendance.find(a => {
     const d = new Date(a.date);
     const today = new Date();
-    return d.toDateString() === today.toDateString();
+    // @db.Date stores date-only in UTC, use UTC methods to avoid timezone offset
+    return d.getUTCFullYear() === today.getFullYear() && d.getUTCMonth() === today.getMonth() && d.getUTCDate() === today.getDate();
   });
 
   const todayTotalMinutes = (todayAttendance?.totalMinutes || 0) + (currentSession && !currentSession.logoutTime ? liveMinutes : 0);
@@ -133,7 +134,8 @@ export default function MyAttendanceTab({ userId, userName }: Props) {
   while (calDays.length % 7 !== 0) calDays.push(null);
 
   const getAttendanceForDay = (day: number) => {
-    return attendance.find(a => new Date(a.date).getDate() === day);
+    // @db.Date stores date-only in UTC, use getUTCDate to avoid timezone shift
+    return attendance.find(a => new Date(a.date).getUTCDate() === day);
   };
 
   const prevMonth = () => {

@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
     const [year, mon] = month.split("-").map(Number);
-    const from = new Date(year, mon - 1, 1);
-    const to = new Date(year, mon, 0, 23, 59, 59);
+    const from = new Date(Date.UTC(year, mon - 1, 1));
+    const to = new Date(Date.UTC(year, mon, 0, 23, 59, 59));
 
     const users = await prisma.user.findMany({
       where: { isActive: true },

@@ -230,7 +230,7 @@ export default function ManagementTab({ canEdit }: Props) {
                   const cfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.ABSENT;
                   return (
                     <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "7px 8px", fontWeight: 500 }}>{format(new Date(a.date), "dd/MM")}</td>
+                      <td style={{ padding: "7px 8px", fontWeight: 500 }}>{String(new Date(a.date).getUTCDate()).padStart(2, '0')}/{String(new Date(a.date).getUTCMonth() + 1).padStart(2, '0')}</td>
                       <td style={{ padding: "7px 8px" }}>{a.firstLogin ? format(new Date(a.firstLogin), "HH:mm") : "—"}{a.isLate && <span style={{ color: "#d97706", marginLeft: "3px" }}>⚠</span>}</td>
                       <td style={{ padding: "7px 8px" }}>{a.lastLogout ? format(new Date(a.lastLogout), "HH:mm") : "—"}</td>
                       <td style={{ padding: "7px 8px", fontWeight: 500 }}>{formatDuration(a.totalMinutes)}</td>
