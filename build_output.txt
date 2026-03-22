@@ -1,0 +1,156 @@
+﻿
+> order-manager@1.0.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+node.exe : ΓÜá The "middleware" file convention is deprecated. 
+Please use "proxy" instead. Learn more: 
+https://nextjs.org/docs/messages/middleware-to-proxy
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ΓÜá The "middle.. 
+   .leware-to-proxy:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 14.0s
+  Running TypeScript ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/85) ...
+  Generating static pages using 7 workers (21/85) 
+  Generating static pages using 7 workers (42/85) 
+  Generating static pages using 7 workers (63/85) 
+Γ£ô Generating static pages using 7 workers (85/85) in 3.9s
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ ╞Æ /admin/users
+Γö£ ╞Æ /api/admin/permission-groups
+Γö£ ╞Æ /api/admin/permission-groups/[id]
+Γö£ ╞Æ /api/admin/users
+Γö£ ╞Æ /api/admin/users/[id]
+Γö£ ╞Æ /api/admin/users/[id]/password
+Γö£ ╞Æ /api/announcements
+Γö£ ╞Æ /api/announcements/[id]
+Γö£ ╞Æ /api/announcements/[id]/read
+Γö£ ╞Æ /api/announcements/unread-count
+Γö£ ╞Æ /api/attendance/[id]
+Γö£ ╞Æ /api/attendance/export
+Γö£ ╞Æ /api/attendance/heartbeat
+Γö£ ╞Æ /api/attendance/me
+Γö£ ╞Æ /api/attendance/team
+Γö£ ╞Æ /api/attendance/user/[userId]
+Γö£ ╞Æ /api/auth/[...nextauth]
+Γö£ ╞Æ /api/auth/signout-beacon
+Γö£ ╞Æ /api/auth/track-logout
+Γö£ ╞Æ /api/claims
+Γö£ ╞Æ /api/claims/[id]
+Γö£ ╞Æ /api/claims/auto-detect
+Γö£ ╞Æ /api/claims/bulk
+Γö£ ╞Æ /api/claims/compensation
+Γö£ ╞Æ /api/claims/history
+Γö£ ╞Æ /api/claims/search-orders
+Γö£ ╞Æ /api/crm/assignments
+Γö£ ╞Æ /api/crm/dashboard
+Γö£ ╞Æ /api/crm/prospects
+Γö£ ╞Æ /api/crm/prospects/[id]
+Γö£ ╞Æ /api/crm/prospects/[id]/contact
+Γö£ ╞Æ /api/crm/prospects/[id]/lost
+Γö£ ╞Æ /api/crm/prospects/[id]/reopen
+Γö£ ╞Æ /api/crm/prospects/[id]/stage
+Γö£ ╞Æ /api/crm/prospects/reorder
+Γö£ ╞Æ /api/crm/prospects/stats
+Γö£ ╞Æ /api/crm/shops
+Γö£ ╞Æ /api/crm/shops/[shopName]
+Γö£ ╞Æ /api/crm/shops/[shopName]/care
+Γö£ ╞Æ /api/dashboard/activities
+Γö£ ╞Æ /api/dashboard/carriers
+Γö£ ╞Æ /api/dashboard/summary
+Γö£ ╞Æ /api/dashboard/top-shops
+Γö£ ╞Æ /api/dashboard/trend
+Γö£ ╞Æ /api/documents
+Γö£ ╞Æ /api/documents/[id]
+Γö£ ╞Æ /api/documents/[id]/download
+Γö£ ╞Æ /api/finance/budgets
+Γö£ ╞Æ /api/finance/carriers
+Γö£ ╞Æ /api/finance/cashbook
+Γö£ ╞Æ /api/finance/cashbook/summary
+Γö£ ╞Æ /api/finance/cashbook/upload
+Γö£ ╞Æ /api/finance/cashbook/uploads
+Γö£ ╞Æ /api/finance/categories
+Γö£ ╞Æ /api/finance/categories/[id]
+Γö£ ╞Æ /api/finance/expenses
+Γö£ ╞Æ /api/finance/expenses/[id]
+Γö£ ╞Æ /api/finance/negative-revenue
+Γö£ ╞Æ /api/finance/overview
+Γö£ ╞Æ /api/finance/pnl
+Γö£ ╞Æ /api/finance/shop-chart
+Γö£ ╞Æ /api/finance/shop-trends
+Γö£ ╞Æ /api/finance/shops
+Γö£ ╞Æ /api/health
+Γö£ ╞Æ /api/landing/register
+Γö£ ╞Æ /api/landing/stats
+Γö£ ╞Æ /api/leave-requests
+Γö£ ╞Æ /api/leave-requests/[id]/approve
+Γö£ ╞Æ /api/leave-requests/[id]/reject
+Γö£ ╞Æ /api/leave-requests/all
+Γö£ ╞Æ /api/links
+Γö£ ╞Æ /api/links/[id]
+Γö£ ╞Æ /api/login-history/me
+Γö£ ╞Æ /api/orders
+Γö£ ╞Æ /api/orders/[requestCode]/confirm-asked
+Γö£ ╞Æ /api/orders/[requestCode]/customer-confirmed
+Γö£ ╞Æ /api/orders/[requestCode]/tracking
+Γö£ ╞Æ /api/orders/[requestCode]/warehouse
+Γö£ ╞Æ /api/orders/changes
+Γö£ ╞Æ /api/orders/changes/stats
+Γö£ ╞Æ /api/orders/delayed
+Γö£ ╞Æ /api/orders/delete
+Γö£ ╞Æ /api/orders/export
+Γö£ ╞Æ /api/orders/notes
+Γö£ ╞Æ /api/orders/options
+Γö£ ╞Æ /api/orders/returns
+Γö£ ╞Æ /api/orders/upload
+Γö£ ╞Æ /api/orders/upload-history
+Γö£ ╞Æ /api/profile
+Γö£ ╞Æ /api/profile/change-requests
+Γö£ ╞Æ /api/profile/change-requests/[id]
+Γö£ ╞Æ /api/profile/feedback
+Γö£ ╞Æ /api/profile/password
+Γö£ ╞Æ /api/settings/attendance
+Γö£ ╞Æ /api/todos
+Γö£ ╞Æ /api/todos/[id]
+Γö£ ╞Æ /api/todos/[id]/comments
+Γö£ ╞Æ /api/todos/[id]/complete
+Γö£ ╞Æ /api/todos/[id]/status
+Γö£ ╞Æ /api/todos/overdue-count
+Γö£ ╞Æ /api/todos/reminders
+Γö£ ╞Æ /api/todos/reorder
+Γö£ ╞Æ /api/todos/stats
+Γö£ ╞Æ /api/todos/users
+Γö£ ╞Æ /attendance
+Γö£ ╞Æ /claims
+Γö£ ╞Æ /claims/new
+Γö£ ╞Æ /crm
+Γö£ ╞Æ /delayed
+Γö£ ╞Æ /finance
+Γö£ Γùï /login
+Γö£ ╞Æ /orders
+Γö£ ╞Æ /orders/[requestCode]
+Γö£ ╞Æ /overview
+Γö£ ╞Æ /returns
+Γöö ╞Æ /todos
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

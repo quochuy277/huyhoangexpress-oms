@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Health check — no auth required.
+ * Demonstrates the pattern but kept simple since it doesn't need apiHandler.
+ */
 export async function GET() {
     const start = Date.now();
 

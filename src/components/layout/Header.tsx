@@ -6,6 +6,7 @@ import { Bell, LogOut, User, ChevronDown, ExternalLink, Pin, Paperclip, Menu } f
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { UserProfileDialog } from "@/components/shared/UserProfileDialog";
+import { stripHtml } from "@/lib/sanitize";
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Quản trị viên",
@@ -53,8 +54,8 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
 
   useEffect(() => {
     const fetchCounts = () => {
-      fetch("/api/todos/overdue-count").then(r => r.json()).then(d => setOverdueCount(d.count || 0)).catch(() => {});
-      fetch("/api/announcements/unread-count").then(r => r.json()).then(d => setAnnouncementCount(d.count || 0)).catch(() => {});
+      fetch("/api/todos/overdue-count").then(r => r.json()).then(d => setOverdueCount(d.count || 0)).catch(() => { });
+      fetch("/api/announcements/unread-count").then(r => r.json()).then(d => setAnnouncementCount(d.count || 0)).catch(() => { });
     };
     fetchCounts();
     const interval = setInterval(fetchCounts, 60000);
@@ -65,15 +66,15 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
     if (bellOpen) {
       fetch("/api/todos/reminders").then(r => r.json()).then(d => {
         setOverdueItems(d.overdue?.items || []);
-      }).catch(() => {});
+      }).catch(() => { });
       fetch("/api/announcements?pageSize=10").then(r => r.json()).then(d => {
         setAnnouncements(d.announcements || []);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [bellOpen]);
 
   const handleMarkRead = async (id: string) => {
-    await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch(() => {});
+    await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch(() => { });
     setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, isRead: true } : a));
     setAnnouncementCount(prev => Math.max(0, prev - 1));
   };
@@ -183,7 +184,7 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
                             <span className="text-xs text-slate-800 font-semibold truncate">{a.title}</span>
                             {a.attachmentName && <Paperclip style={{ width: "10px", height: "10px", color: "#9ca3af" }} />}
                           </div>
-                          <div className="text-xs text-slate-500 mt-1 truncate" dangerouslySetInnerHTML={{ __html: a.content.replace(/<[^>]*>/g, " ").substring(0, 80) }} />
+                          <div className="text-xs text-slate-500 mt-1 truncate">{stripHtml(a.content).substring(0, 80)}</div>
                           <div className="text-xs text-slate-400 mt-1">{new Date(a.createdAt).toLocaleDateString("vi-VN")} • {a.createdByName}</div>
                         </button>
                       ))

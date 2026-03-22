@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, Loader2, X, Pin, Paperclip, Bold, Italic, Type, Palette, Eye } from "lucide-react";
+import { sanitizeHtml, stripHtml } from "@/lib/sanitize";
 
 /* ============================================================
    Shared styles
@@ -70,7 +71,7 @@ export function AnnouncementSection() {
         const data = await res.json();
         setItems(data.announcements || []);
       }
-    } catch {} finally { setLoading(false); }
+    } catch { } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
@@ -79,7 +80,7 @@ export function AnnouncementSection() {
     try {
       const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
       if (res.ok) { fetchItems(); setDeleteItem(null); }
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -123,8 +124,9 @@ export function AnnouncementSection() {
                 </div>
                 <div
                   style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5, maxHeight: "40px", overflow: "hidden" }}
-                  dangerouslySetInnerHTML={{ __html: item.content.replace(/<[^>]*>/g, " ").substring(0, 150) }}
-                />
+                >
+                  {stripHtml(item.content).substring(0, 150)}
+                </div>
                 <div style={{ display: "flex", gap: "12px", marginTop: "6px" }}>
                   <span style={{ fontSize: "11px", color: "#9ca3af" }}>
                     {new Date(item.createdAt).toLocaleDateString("vi-VN")} • {item.createdByName}
@@ -165,7 +167,7 @@ export function AnnouncementSection() {
               <button onClick={() => setPreviewItem(null)} style={closeBtnBase}><X style={{ width: "18px", height: "18px" }} /></button>
             </div>
             <div style={{ overflowY: "auto", flex: 1, maxHeight: "calc(80vh - 150px)" }}>
-              <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#374151" }} dangerouslySetInnerHTML={{ __html: previewItem.content }} />
+              <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#374151" }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewItem.content) }} />
               {previewItem.attachmentUrl && (
                 <div style={{ marginTop: "16px", padding: "10px 14px", background: "#f9fafb", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
                   <Paperclip style={{ width: "14px", height: "14px", color: "#6b7280" }} />
