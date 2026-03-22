@@ -1,10 +1,12 @@
-import DOMPurify from "isomorphic-dompurify";
+import DOMPurify from "dompurify";
 
 /**
  * Sanitize HTML to prevent XSS attacks.
  * Allows safe formatting tags (bold, italic, colors, links) but strips scripts/events.
+ * NOTE: This module is client-only. Only import from "use client" components.
  */
 export function sanitizeHtml(dirty: string): string {
+    if (typeof window === "undefined") return dirty;
     return DOMPurify.sanitize(dirty, {
         ALLOWED_TAGS: [
             "b", "i", "em", "strong", "u", "s", "br", "p", "div", "span",
@@ -25,5 +27,8 @@ export function sanitizeHtml(dirty: string): string {
  * Safer alternative when rich text rendering is not needed (e.g., previews).
  */
 export function stripHtml(dirty: string): string {
+    if (typeof window === "undefined") {
+        return dirty.replace(/<[^>]*>/g, "");
+    }
     return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
 }
