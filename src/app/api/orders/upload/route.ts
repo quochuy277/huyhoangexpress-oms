@@ -70,7 +70,11 @@ function buildBulkUpsertSQL(orders: ParsedOrder[]): { query: string; values: unk
       data.partialOrderType, data.partialOrderCode, data.salesStaff,
     ];
 
-    const placeholders = rowValues.map(() => `$${paramIndex++}`);
+    // deliveryStatus is at index 3 — needs PostgreSQL enum cast
+    const placeholders = rowValues.map((_, idx) => {
+      const p = `$${paramIndex++}`;
+      return idx === 3 ? `${p}::"DeliveryStatus"` : p;
+    });
     rowPlaceholders.push(`(${placeholders.join(", ")})`);
     values.push(...rowValues);
   }
