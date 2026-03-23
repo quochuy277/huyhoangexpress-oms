@@ -46,7 +46,8 @@ async function bulkUpsertSubBatch(orders: ParsedOrder[]): Promise<void> {
       ${data.carrierName}, ${data.carrierAccount}, ${data.carrierOrderCode}, ${data.regionGroup},
       ${data.customerWeight ?? null}, ${data.carrierWeight ?? null}, ${data.deliveredDate},
       ${data.pickupShipper}, ${data.deliveryShipper}, ${data.orderSource},
-      ${data.partialOrderType}, ${data.partialOrderCode}, ${data.salesStaff}
+      ${data.partialOrderType}, ${data.partialOrderCode}, ${data.salesStaff},
+      NOW()
     )`;
   });
 
@@ -69,7 +70,8 @@ async function bulkUpsertSubBatch(orders: ParsedOrder[]): Promise<void> {
       "carrierName", "carrierAccount", "carrierOrderCode", "regionGroup",
       "customerWeight", "carrierWeight", "deliveredDate",
       "pickupShipper", "deliveryShipper", "orderSource",
-      "partialOrderType", "partialOrderCode", "salesStaff"
+      "partialOrderType", "partialOrderCode", "salesStaff",
+      "updatedInDb"
     )
     VALUES ${Prisma.join(rowSqls)}
     ON CONFLICT ("requestCode") DO UPDATE SET
