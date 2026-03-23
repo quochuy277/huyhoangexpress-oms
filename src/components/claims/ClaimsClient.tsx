@@ -1042,6 +1042,13 @@ export default function ClaimsClient() {
 
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
 
+  // Re-fetch when user switches back to this tab (ensures order status is synced)
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState === "visible") fetchClaims(); };
+    document.addEventListener("visibilitychange", onFocus);
+    return () => document.removeEventListener("visibilitychange", onFocus);
+  }, [fetchClaims]);
+
   const runAutoDetect = async () => {
     setDetecting(true);
     try {
@@ -1355,281 +1362,281 @@ export default function ClaimsClient() {
       {/* Table */}
       <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed", minWidth: "1100px" }}>
-          {/* Checkbox | STT | Mã YC | Mã ĐT | Tên CH | TT Đơn | COD | Loại VĐ | ND VĐ | Ngày PH | Ngày TĐ | TT Xử Lý | ND XL | Thời Hạn | Thao Tác */}
-          <colgroup><col style={{ width: "32px" }} /><col style={{ width: "36px" }} /><col style={{ width: "105px" }} /><col style={{ width: "90px" }} /><col style={{ width: "90px" }} /><col style={{ width: "85px" }} /><col style={{ width: "80px" }} /><col style={{ width: "90px" }} /><col style={{ width: "120px" }} /><col style={{ width: "70px" }} /><col style={{ width: "55px" }} /><col style={{ width: "105px" }} /><col style={{ width: "55px" }} /><col style={{ width: "85px" }} /><col style={{ width: "120px" }} /></colgroup>
-          <thead>
-            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
-              <th style={{ padding: "8px 4px", textAlign: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={claims.length > 0 && selectedIds.size === claims.length}
-                  onChange={toggleSelectAll}
-                  style={{ accentColor: "#2563EB", cursor: "pointer" }}
-                />
-              </th>
-              {([
-                { label: "STT", sortField: null, align: "left" },
-                { label: "Mã YC", sortField: null, align: "left" },
-                { label: "Mã ĐT", sortField: null, align: "left" },
-                { label: "Cửa Hàng", sortField: "shopName", align: "left" },
-                { label: "TT Đơn", sortField: "status", align: "left" },
-                { label: "COD", sortField: "codAmount", align: "right" },
-                { label: "Loại VĐ", sortField: "issueType", align: "left" },
-                { label: "ND VĐ", sortField: null, align: "left" },
-                { label: "Ngày PH", sortField: "detectedDate", align: "left" },
-                { label: "Ngày TĐ", sortField: "detectedDate", align: "left" },
-                { label: "TT Xử Lý", sortField: "claimStatus", align: "left" },
-                { label: "ND XL", sortField: null, align: "left" },
-                { label: "Thời Hạn", sortField: "deadline", align: "left" },
-                { label: "Thao Tác", sortField: null, align: "left" },
-              ] as { label: string; sortField: string | null; align: string }[]).map((col, i) => (
-                <th
-                  key={i}
-                  onClick={col.sortField ? () => toggleSort(col.sortField!) : undefined}
-                  style={{
-                    padding: "8px 4px",
-                    textAlign: col.align as any,
-                    fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase",
-                    letterSpacing: "0.05em", whiteSpace: "nowrap", overflow: "hidden",
-                    cursor: col.sortField ? "pointer" : "default",
-                    userSelect: "none",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={e => { if (col.sortField) e.currentTarget.style.background = "#eef2f7"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  {col.label}
-                  {col.sortField && sortBy === col.sortField && (
-                    <span style={{ marginLeft: "3px", color: "#2563EB" }}>{sortDir === "asc" ? "↑" : "↓"}</span>
-                  )}
-                  {col.sortField && sortBy !== col.sortField && (
-                    <ChevronDown size={10} style={{ marginLeft: "2px", opacity: 0.3, display: "inline-block", verticalAlign: "middle" }} />
-                  )}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed", minWidth: "1100px" }}>
+            {/* Checkbox | STT | Mã YC | Mã ĐT | Tên CH | TT Đơn | COD | Loại VĐ | ND VĐ | Ngày PH | Ngày TĐ | TT Xử Lý | ND XL | Thời Hạn | Thao Tác */}
+            <colgroup><col style={{ width: "32px" }} /><col style={{ width: "36px" }} /><col style={{ width: "105px" }} /><col style={{ width: "90px" }} /><col style={{ width: "90px" }} /><col style={{ width: "85px" }} /><col style={{ width: "80px" }} /><col style={{ width: "90px" }} /><col style={{ width: "120px" }} /><col style={{ width: "70px" }} /><col style={{ width: "55px" }} /><col style={{ width: "105px" }} /><col style={{ width: "55px" }} /><col style={{ width: "85px" }} /><col style={{ width: "120px" }} /></colgroup>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
+                <th style={{ padding: "8px 4px", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={claims.length > 0 && selectedIds.size === claims.length}
+                    onChange={toggleSelectAll}
+                    style={{ accentColor: "#2563EB", cursor: "pointer" }}
+                  />
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Đang tải...</td></tr>
-            ) : claims.length === 0 ? (
-              <tr><td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>Không có đơn nào</td></tr>
-            ) : (
-              claims.map((c: any, idx: number) => {
-                const daysPending = daysBetween(c.detectedDate);
-                const daysLeft = c.deadline ? daysUntil(c.deadline) : Infinity;
-                const issCfg = ISSUE_TYPE_CONFIG[c.issueType] || ISSUE_TYPE_CONFIG.OTHER;
-
-                return (
-                  <tr
-                    key={c.id}
+                {([
+                  { label: "STT", sortField: null, align: "left" },
+                  { label: "Mã YC", sortField: null, align: "left" },
+                  { label: "Mã ĐT", sortField: null, align: "left" },
+                  { label: "Cửa Hàng", sortField: "shopName", align: "left" },
+                  { label: "TT Đơn", sortField: "status", align: "left" },
+                  { label: "COD", sortField: "codAmount", align: "right" },
+                  { label: "Loại VĐ", sortField: "issueType", align: "left" },
+                  { label: "ND VĐ", sortField: null, align: "left" },
+                  { label: "Ngày PH", sortField: "detectedDate", align: "left" },
+                  { label: "Ngày TĐ", sortField: "detectedDate", align: "left" },
+                  { label: "TT Xử Lý", sortField: "claimStatus", align: "left" },
+                  { label: "ND XL", sortField: null, align: "left" },
+                  { label: "Thời Hạn", sortField: "deadline", align: "left" },
+                  { label: "Thao Tác", sortField: null, align: "left" },
+                ] as { label: string; sortField: string | null; align: string }[]).map((col, i) => (
+                  <th
+                    key={i}
+                    onClick={col.sortField ? () => toggleSort(col.sortField!) : undefined}
                     style={{
-                      borderBottom: "1px solid #f1f5f9",
-                      background: c.isCompleted ? "#f9fafb" : idx % 2 === 0 ? "#fff" : "#fafbfc",
-                      opacity: c.isCompleted ? 0.6 : 1,
+                      padding: "8px 4px",
+                      textAlign: col.align as any,
+                      fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase",
+                      letterSpacing: "0.05em", whiteSpace: "nowrap", overflow: "hidden",
+                      cursor: col.sortField ? "pointer" : "default",
+                      userSelect: "none",
                       transition: "background 0.15s",
                     }}
-                    onMouseEnter={e => { if (!c.isCompleted) e.currentTarget.style.background = "#f0f7ff"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = c.isCompleted ? "#f9fafb" : idx % 2 === 0 ? "#fff" : "#fafbfc"; }}
+                    onMouseEnter={e => { if (col.sortField) e.currentTarget.style.background = "#eef2f7"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
                   >
-                    {/* 0. Checkbox */}
-                    <td style={{ padding: "4px", textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(c.id)}
-                        onChange={() => toggleSelect(c.id)}
-                        style={{ accentColor: "#2563EB", cursor: "pointer" }}
-                      />
-                    </td>
-                    {/* 1. STT */}
-                    <td style={{ padding: "6px", color: "#94a3b8", fontWeight: 500, fontSize: "12px" }}>
-                      {(pagination.page - 1) * pagination.pageSize + idx + 1}
-                    </td>
-                    {/* 2. Mã Yêu Cầu */}
-                    <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <button
-                        onClick={() => setDetailClaimId(c.id)}
-                        style={{ fontWeight: 700, color: "#2563EB", background: "none", border: "none", cursor: "pointer", fontSize: "12px", fontFamily: "monospace" }}
-                        title={c.order?.requestCode}
-                      >
-                        {c.order?.requestCode}
-                      </button>
-                    </td>
-                    {/* 3. Mã ĐT */}
-                    <td style={{ padding: "6px", color: "#475569", fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.order?.carrierOrderCode || ""}>{c.order?.carrierOrderCode || "—"}</td>
-                    {/* 4. Tên Cửa Hàng */}
-                    <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#374151", fontSize: "12px" }} title={c.order?.shopName || ""}>
-                      {c.order?.shopName || "—"}
-                    </td>
-                    {/* 5. Trạng Thái Đơn — wrap long text */}
-                    <td style={{ padding: "6px" }}>
-                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600" style={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: "1.4" }}>
-                        {c.order?.status || "—"}
-                      </span>
-                    </td>
-                    {/* 6. COD */}
-                    <td style={{ padding: "6px", textAlign: "right", fontWeight: 600, color: "#059669", fontSize: "12px", whiteSpace: "nowrap" }}>
-                      {formatVND(c.order?.codAmount || 0)}
-                    </td>
-                    {/* 7. Loại VĐ — INLINE EDITABLE */}
-                    <td style={{ padding: "6px" }}>
-                      <select
-                        value={c.issueType}
-                        onChange={e => handleInlineEditField(c.id, "issueType", e.target.value)}
-                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${issCfg.bg} ${issCfg.text} ${issCfg.border}`}
-                        style={{ outline: "none", appearance: "auto", maxWidth: "100%" }}
-                      >
-                        {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
-                          <option key={k} value={k}>{v.label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    {/* 8. Nội Dung VĐ — INLINE EDITABLE, full-text display */}
-                    <td style={{ padding: "6px", verticalAlign: "top" }}>
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        onBlur={e => {
-                          const newVal = (e.currentTarget.textContent || "").trim();
-                          if (newVal !== (c.issueDescription || "")) {
-                            handleInlineEditField(c.id, "issueDescription", newVal || null);
-                          }
-                        }}
-                        onKeyDown={e => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            (e.target as HTMLElement).blur();
-                          }
-                        }}
-                        style={{
-                          fontSize: "11px", lineHeight: "1.4",
-                          color: c.issueDescription ? "#374151" : "#9ca3af",
-                          fontStyle: c.issueDescription ? "normal" : "italic",
-                          background: c.issueDescription ? "#fffef5" : "transparent",
-                          border: c.issueDescription ? "1px solid #e5e7eb" : "1px dashed #d1d5db",
-                          borderRadius: "4px",
-                          padding: "3px 6px",
-                          outline: "none",
-                          minHeight: "20px",
-                          wordBreak: "break-word",
-                          whiteSpace: "pre-wrap",
-                          cursor: "text",
-                          transition: "all 0.15s",
-                        }}
-                        onFocus={e => {
-                          e.currentTarget.style.border = "1px solid #2563EB";
-                          e.currentTarget.style.boxShadow = "0 0 0 2px rgba(37,99,235,0.12)";
-                          e.currentTarget.style.background = "#fffff0";
-                        }}
-                        onBlurCapture={e => {
-                          e.currentTarget.style.border = c.issueDescription ? "1px solid #e5e7eb" : "1px dashed #d1d5db";
-                          e.currentTarget.style.boxShadow = "none";
-                          e.currentTarget.style.background = c.issueDescription ? "#fffef5" : "transparent";
-                        }}
-                      >
-                        {c.issueDescription || "Nhập nội dung..."}
-                      </div>
-                    </td>
-                    {/* 9. Ngày PH */}
-                    <td style={{ padding: "6px", color: "#475569", fontSize: "11px", whiteSpace: "nowrap" }}>
-                      {format(new Date(c.detectedDate), "dd/MM/yy")}
-                    </td>
-                    {/* 10. Ngày TĐ */}
-                    <td style={{ padding: "6px" }}>
-                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold ${daysPending <= 7 ? "bg-green-100 text-green-700" : daysPending <= 14 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                        {daysPending}d
-                      </span>
-                    </td>
-                    {/* 11. TT Xử Lý */}
-                    <td style={{ padding: "6px" }}>
-                      <StatusDropdown claimId={c.id} currentStatus={c.claimStatus} onUpdate={fetchClaims} />
-                    </td>
-                    {/* 12. ND XL */}
-                    <td style={{ padding: "6px" }}>
-                      <button
-                        onClick={() => setProcessingPopup({ id: c.id, content: c.processingContent || "" })}
-                        style={{
-                          padding: "3px 6px", border: "1px solid #e5e7eb", borderRadius: "4px",
-                          background: "#fff", cursor: "pointer", fontSize: "11px", color: "#6b7280",
-                          display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap",
-                        }}
-                      >
-                        <FileText size={11} /> {c.processingContent ? "Sửa" : "Thêm"}
-                      </button>
-                    </td>
-                    {/* 13. Thời Hạn — INLINE EDITABLE */}
-                    <td style={{ padding: "6px" }}>
-                      <input
-                        type="date"
-                        defaultValue={c.deadline ? format(new Date(c.deadline), "yyyy-MM-dd") : ""}
-                        onChange={e => handleInlineEditField(c.id, "deadline", e.target.value || null)}
-                        style={{
-                          width: "100%", fontSize: "11px",
-                          fontWeight: 600,
-                          border: "1px solid #e5e7eb", borderRadius: "4px",
-                          padding: "3px 4px", outline: "none", boxSizing: "border-box",
-                          color: c.deadline
-                            ? (daysLeft < 0 ? "#dc2626" : daysLeft <= 3 ? "#ca8a04" : "#475569")
-                            : "#9ca3af",
-                          background: c.deadline
-                            ? (daysLeft < 0 ? "#fef2f2" : daysLeft <= 3 ? "#fefce8" : "#fff")
-                            : "#fff",
-                        }}
-                      />
-                    </td>
-                    {/* 14. Thao Tác + Ghi Chú */}
-                    <td style={{ padding: "6px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        {/* Row 1: action buttons */}
-                        <div style={{ display: "flex", gap: "2px", alignItems: "center" }}>
-                          <button
-                            onClick={() => setDetailClaimId(c.id)}
-                            className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors"
-                            title="Xem chi tiết"
-                          >
-                            <Eye size={12} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setTodoClaimOrder(c); }}
-                            className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 rounded border border-transparent hover:border-blue-200 transition-colors"
-                            title="Thêm vào Công Việc"
-                          >
-                            <CheckSquare size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleComplete(c.id, c.order?.requestCode)}
-                            disabled={!COMPLETION_STATUSES.includes(c.claimStatus) || c.isCompleted}
-                            className="p-1 w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Hoàn tất"
-                          >
-                            <Check size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
-                            className="p-1 w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 rounded border border-transparent hover:border-red-200 transition-colors"
-                            title="Xóa đơn"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                          <button
-                            onClick={() => setTrackingCode(c.order?.requestCode || "")}
-                            className="p-1 w-6 h-6 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 rounded border border-transparent hover:border-emerald-200 transition-colors"
-                            title="Tra hành trình"
-                          >
-                            <Truck size={12} />
-                          </button>
+                    {col.label}
+                    {col.sortField && sortBy === col.sortField && (
+                      <span style={{ marginLeft: "3px", color: "#2563EB" }}>{sortDir === "asc" ? "↑" : "↓"}</span>
+                    )}
+                    {col.sortField && sortBy !== col.sortField && (
+                      <ChevronDown size={10} style={{ marginLeft: "2px", opacity: 0.3, display: "inline-block", verticalAlign: "middle" }} />
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Đang tải...</td></tr>
+              ) : claims.length === 0 ? (
+                <tr><td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>Không có đơn nào</td></tr>
+              ) : (
+                claims.map((c: any, idx: number) => {
+                  const daysPending = daysBetween(c.detectedDate);
+                  const daysLeft = c.deadline ? daysUntil(c.deadline) : Infinity;
+                  const issCfg = ISSUE_TYPE_CONFIG[c.issueType] || ISSUE_TYPE_CONFIG.OTHER;
+
+                  return (
+                    <tr
+                      key={c.id}
+                      style={{
+                        borderBottom: "1px solid #f1f5f9",
+                        background: c.isCompleted ? "#f9fafb" : idx % 2 === 0 ? "#fff" : "#fafbfc",
+                        opacity: c.isCompleted ? 0.6 : 1,
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => { if (!c.isCompleted) e.currentTarget.style.background = "#f0f7ff"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = c.isCompleted ? "#f9fafb" : idx % 2 === 0 ? "#fff" : "#fafbfc"; }}
+                    >
+                      {/* 0. Checkbox */}
+                      <td style={{ padding: "4px", textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(c.id)}
+                          onChange={() => toggleSelect(c.id)}
+                          style={{ accentColor: "#2563EB", cursor: "pointer" }}
+                        />
+                      </td>
+                      {/* 1. STT */}
+                      <td style={{ padding: "6px", color: "#94a3b8", fontWeight: 500, fontSize: "12px" }}>
+                        {(pagination.page - 1) * pagination.pageSize + idx + 1}
+                      </td>
+                      {/* 2. Mã Yêu Cầu */}
+                      <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <button
+                          onClick={() => setDetailClaimId(c.id)}
+                          style={{ fontWeight: 700, color: "#2563EB", background: "none", border: "none", cursor: "pointer", fontSize: "12px", fontFamily: "monospace" }}
+                          title={c.order?.requestCode}
+                        >
+                          {c.order?.requestCode}
+                        </button>
+                      </td>
+                      {/* 3. Mã ĐT */}
+                      <td style={{ padding: "6px", color: "#475569", fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.order?.carrierOrderCode || ""}>{c.order?.carrierOrderCode || "—"}</td>
+                      {/* 4. Tên Cửa Hàng */}
+                      <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#374151", fontSize: "12px" }} title={c.order?.shopName || ""}>
+                        {c.order?.shopName || "—"}
+                      </td>
+                      {/* 5. Trạng Thái Đơn — wrap long text */}
+                      <td style={{ padding: "6px" }}>
+                        <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600" style={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: "1.4" }}>
+                          {c.order?.status || "—"}
+                        </span>
+                      </td>
+                      {/* 6. COD */}
+                      <td style={{ padding: "6px", textAlign: "right", fontWeight: 600, color: "#059669", fontSize: "12px", whiteSpace: "nowrap" }}>
+                        {formatVND(c.order?.codAmount || 0)}
+                      </td>
+                      {/* 7. Loại VĐ — INLINE EDITABLE */}
+                      <td style={{ padding: "6px" }}>
+                        <select
+                          value={c.issueType}
+                          onChange={e => handleInlineEditField(c.id, "issueType", e.target.value)}
+                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${issCfg.bg} ${issCfg.text} ${issCfg.border}`}
+                          style={{ outline: "none", appearance: "auto", maxWidth: "100%" }}
+                        >
+                          {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
+                            <option key={k} value={k}>{v.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      {/* 8. Nội Dung VĐ — INLINE EDITABLE, full-text display */}
+                      <td style={{ padding: "6px", verticalAlign: "top" }}>
+                        <div
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={e => {
+                            const newVal = (e.currentTarget.textContent || "").trim();
+                            if (newVal !== (c.issueDescription || "")) {
+                              handleInlineEditField(c.id, "issueDescription", newVal || null);
+                            }
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              (e.target as HTMLElement).blur();
+                            }
+                          }}
+                          style={{
+                            fontSize: "11px", lineHeight: "1.4",
+                            color: c.issueDescription ? "#374151" : "#9ca3af",
+                            fontStyle: c.issueDescription ? "normal" : "italic",
+                            background: c.issueDescription ? "#fffef5" : "transparent",
+                            border: c.issueDescription ? "1px solid #e5e7eb" : "1px dashed #d1d5db",
+                            borderRadius: "4px",
+                            padding: "3px 6px",
+                            outline: "none",
+                            minHeight: "20px",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                            cursor: "text",
+                            transition: "all 0.15s",
+                          }}
+                          onFocus={e => {
+                            e.currentTarget.style.border = "1px solid #2563EB";
+                            e.currentTarget.style.boxShadow = "0 0 0 2px rgba(37,99,235,0.12)";
+                            e.currentTarget.style.background = "#fffff0";
+                          }}
+                          onBlurCapture={e => {
+                            e.currentTarget.style.border = c.issueDescription ? "1px solid #e5e7eb" : "1px dashed #d1d5db";
+                            e.currentTarget.style.boxShadow = "none";
+                            e.currentTarget.style.background = c.issueDescription ? "#fffef5" : "transparent";
+                          }}
+                        >
+                          {c.issueDescription || "Nhập nội dung..."}
                         </div>
-                        {/* Row 2: inline staff notes (Ghi Chú) */}
-                        <InlineStaffNote requestCode={c.order?.requestCode || ""} initialValue={c.order?.staffNotes || ""} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      </td>
+                      {/* 9. Ngày PH */}
+                      <td style={{ padding: "6px", color: "#475569", fontSize: "11px", whiteSpace: "nowrap" }}>
+                        {format(new Date(c.detectedDate), "dd/MM/yy")}
+                      </td>
+                      {/* 10. Ngày TĐ */}
+                      <td style={{ padding: "6px" }}>
+                        <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold ${daysPending <= 7 ? "bg-green-100 text-green-700" : daysPending <= 14 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+                          {daysPending}d
+                        </span>
+                      </td>
+                      {/* 11. TT Xử Lý */}
+                      <td style={{ padding: "6px" }}>
+                        <StatusDropdown claimId={c.id} currentStatus={c.claimStatus} onUpdate={fetchClaims} />
+                      </td>
+                      {/* 12. ND XL */}
+                      <td style={{ padding: "6px" }}>
+                        <button
+                          onClick={() => setProcessingPopup({ id: c.id, content: c.processingContent || "" })}
+                          style={{
+                            padding: "3px 6px", border: "1px solid #e5e7eb", borderRadius: "4px",
+                            background: "#fff", cursor: "pointer", fontSize: "11px", color: "#6b7280",
+                            display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap",
+                          }}
+                        >
+                          <FileText size={11} /> {c.processingContent ? "Sửa" : "Thêm"}
+                        </button>
+                      </td>
+                      {/* 13. Thời Hạn — INLINE EDITABLE */}
+                      <td style={{ padding: "6px" }}>
+                        <input
+                          type="date"
+                          defaultValue={c.deadline ? format(new Date(c.deadline), "yyyy-MM-dd") : ""}
+                          onChange={e => handleInlineEditField(c.id, "deadline", e.target.value || null)}
+                          style={{
+                            width: "100%", fontSize: "11px",
+                            fontWeight: 600,
+                            border: "1px solid #e5e7eb", borderRadius: "4px",
+                            padding: "3px 4px", outline: "none", boxSizing: "border-box",
+                            color: c.deadline
+                              ? (daysLeft < 0 ? "#dc2626" : daysLeft <= 3 ? "#ca8a04" : "#475569")
+                              : "#9ca3af",
+                            background: c.deadline
+                              ? (daysLeft < 0 ? "#fef2f2" : daysLeft <= 3 ? "#fefce8" : "#fff")
+                              : "#fff",
+                          }}
+                        />
+                      </td>
+                      {/* 14. Thao Tác + Ghi Chú */}
+                      <td style={{ padding: "6px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          {/* Row 1: action buttons */}
+                          <div style={{ display: "flex", gap: "2px", alignItems: "center" }}>
+                            <button
+                              onClick={() => setDetailClaimId(c.id)}
+                              className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors"
+                              title="Xem chi tiết"
+                            >
+                              <Eye size={12} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setTodoClaimOrder(c); }}
+                              className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 rounded border border-transparent hover:border-blue-200 transition-colors"
+                              title="Thêm vào Công Việc"
+                            >
+                              <CheckSquare size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleComplete(c.id, c.order?.requestCode)}
+                              disabled={!COMPLETION_STATUSES.includes(c.claimStatus) || c.isCompleted}
+                              className="p-1 w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Hoàn tất"
+                            >
+                              <Check size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
+                              className="p-1 w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 rounded border border-transparent hover:border-red-200 transition-colors"
+                              title="Xóa đơn"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => setTrackingCode(c.order?.requestCode || "")}
+                              className="p-1 w-6 h-6 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 rounded border border-transparent hover:border-emerald-200 transition-colors"
+                              title="Tra hành trình"
+                            >
+                              <Truck size={12} />
+                            </button>
+                          </div>
+                          {/* Row 2: inline staff notes (Ghi Chú) */}
+                          <InlineStaffNote requestCode={c.order?.requestCode || ""} initialValue={c.order?.staffNotes || ""} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
