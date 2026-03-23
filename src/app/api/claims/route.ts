@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
 
     if (!showCompleted) {
       where.isCompleted = false;
+    } else {
+      where.isCompleted = true;
     }
 
     if (issueType) {

@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
           },
         ],
       };
-    }    const rawOrders = await prisma.order.findMany({
+    } const rawOrders = await prisma.order.findMany({
       where,
       select: {
         id: true,
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
       // 3. null — caller/UI handles display
       const effectiveDate = lastDelayDate ?? getMostRecentTimestampFromNotes(o.publicNotes);
       const daysReturning = effectiveDate
-        ? Math.floor((Date.now() - effectiveDate.getTime()) / 86400000)
+        ? Math.max(0, Math.floor((Date.now() - effectiveDate.getTime()) / 86400000))
         : 0;
       return {
         ...o,
