@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 const PERIODS = [
   { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
-  { value: "quarter", label: "Quý" },
+  { value: "quarter", label: "Quý" }, { value: "custom", label: "Tùy chọn" },
 ];
 const GROUP_LABELS: Record<string, { label: string; color: string }> = {
   COD: { label: "COD", color: "#10b981" }, SHOP_PAYOUT: { label: "Trả shop", color: "#ef4444" },
@@ -18,6 +18,8 @@ const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n
 
 export default function CashbookTab() {
   const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [uploads, setUploads] = useState<any[]>([]);
@@ -30,13 +32,14 @@ export default function CashbookTab() {
   const fetchData = useCallback(async () => {
     const groupParam = groupFilter.length > 0 ? `&group=${groupFilter.join(",")}` : "";
     const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
+    const customParams = period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : "";
     const [sumRes, txRes, upRes] = await Promise.all([
-      fetch(`/api/finance/cashbook/summary?period=${period}`).then(r => r.json()),
-      fetch(`/api/finance/cashbook?period=${period}&page=${pagination.page}&pageSize=${pagination.pageSize}${groupParam}${searchParam}`).then(r => r.json()),
+      fetch(`/api/finance/cashbook/summary?period=${period}${customParams}`).then(r => r.json()),
+      fetch(`/api/finance/cashbook?period=${period}&page=${pagination.page}&pageSize=${pagination.pageSize}${groupParam}${searchParam}${customParams}`).then(r => r.json()),
       fetch("/api/finance/cashbook/uploads").then(r => r.json()),
     ]);
     setSummary(sumRes); setTransactions(txRes.transactions || []); setPagination(txRes.pagination || pagination); setUploads(upRes.uploads || []);
-  }, [period, pagination.page, pagination.pageSize, groupFilter, search]);
+  }, [period, pagination.page, pagination.pageSize, groupFilter, search, customFrom, customTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -80,6 +83,14 @@ export default function CashbookTab() {
           }}>{p.label}</button>
         ))}
       </div>
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center" }}>
+          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Từ:</label>
+          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Đến:</label>
+          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+        </div>
+      )}
 
       {/* Section A: Upload Area */}
       <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, border: "2px dashed #d1d5db", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>

@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 const PERIODS = [
   { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
-  { value: "quarter", label: "Quý này" }, { value: "year", label: "Năm nay" },
+  { value: "quarter", label: "Quý này" }, { value: "year", label: "Năm nay" }, { value: "custom", label: "Tùy chọn" },
 ];
 const VIEWS = [
   { id: "carrier", label: "Theo Đối tác" }, { id: "shop", label: "Theo Cửa hàng" }, { id: "negative", label: "Đơn doanh thu âm" },
@@ -21,6 +21,8 @@ export default function AnalysisTab() {
   const shopParam = searchParams.get("shop") || "";
   const [view, setView] = useState(viewParam);
   const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [carriers, setCarriers] = useState<any[]>([]);
   const [shops, setShops] = useState<any[]>([]);
   const [trends, setTrends] = useState<any[]>([]);
@@ -41,12 +43,14 @@ export default function AnalysisTab() {
   };
 
   const fetchCarriers = useCallback(async () => {
-    const r = await fetch(`/api/finance/carriers?period=${period}`);
+    const cp = period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : "";
+    const r = await fetch(`/api/finance/carriers?period=${period}${cp}`);
     const d = await r.json(); setCarriers(d.carriers || []);
-  }, [period]);
+  }, [period, customFrom, customTo]);
 
   const fetchShops = useCallback(async () => {
-    const url = shopSearch ? `/api/finance/shops?period=${period}&shop=${encodeURIComponent(shopSearch)}` : `/api/finance/shops?period=${period}`;
+    const cp = period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : "";
+    const url = shopSearch ? `/api/finance/shops?period=${period}&shop=${encodeURIComponent(shopSearch)}${cp}` : `/api/finance/shops?period=${period}${cp}`;
     const [shopsRes, trendsRes] = await Promise.all([fetch(url).then(r => r.json()), fetch("/api/finance/shop-trends").then(r => r.json())]);
     setShops(shopsRes.shops || []);
     setTrends(trendsRes.trends || []);
@@ -57,12 +61,13 @@ export default function AnalysisTab() {
       const cr = await fetch(`/api/finance/shop-chart?shops=${encodeURIComponent(top5.join(","))}&granularity=${granularity}`);
       const cd = await cr.json(); setChartData(cd.chartData || []);
     }
-  }, [period, shopSearch, granularity]);
+  }, [period, shopSearch, granularity, customFrom, customTo]);
 
   const fetchNeg = useCallback(async () => {
-    const r = await fetch(`/api/finance/negative-revenue?period=${period}`);
+    const cp = period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : "";
+    const r = await fetch(`/api/finance/negative-revenue?period=${period}${cp}`);
     setNegData(await r.json());
-  }, [period]);
+  }, [period, customFrom, customTo]);
 
   useEffect(() => { if (view === "carrier") fetchCarriers(); else if (view === "shop") fetchShops(); else fetchNeg(); }, [view, fetchCarriers, fetchShops, fetchNeg]);
 
@@ -91,6 +96,14 @@ export default function AnalysisTab() {
             }}>{p.label}</button>
           ))}
         </div>
+        {period === "custom" && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Từ:</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+            <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Đến:</label>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+          </div>
+        )}
         <div style={{ display: "flex", gap: 4 }}>
           {VIEWS.map(v => (
             <button key={v.id} onClick={() => switchView(v.id)} style={{

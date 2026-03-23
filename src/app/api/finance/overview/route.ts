@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DeliveryStatus } from "@prisma/client";
-import { format, subMonths, startOfMonth, endOfMonth, startOfQuarter, startOfYear } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { parsePeriodFromURL } from "@/lib/finance-period";
 
-function getDateRange(period: string, from?: string, to?: string) {
-  const now = new Date();
-  switch (period) {
-    case "last_month": return { from: startOfMonth(subMonths(now, 1)), to: endOfMonth(subMonths(now, 1)) };
-    case "quarter": return { from: startOfQuarter(now), to: now };
-    case "half": return { from: subMonths(startOfMonth(now), 5), to: now };
-    case "year": return { from: startOfYear(now), to: now };
-    case "custom": return { from: from ? new Date(from) : subMonths(now, 1), to: to ? new Date(to) : now };
-    default: return { from: startOfMonth(now), to: now };
-  }
-}
 
 const REVENUE_STATUSES: DeliveryStatus[] = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] as DeliveryStatus[];
 
@@ -24,8 +14,7 @@ export async function GET(req: NextRequest) {
     if (error) return error;
 
     const url = new URL(req.url);
-    const period = url.searchParams.get("period") || "month";
-    const range = getDateRange(period, url.searchParams.get("from") || undefined, url.searchParams.get("to") || undefined);
+    const range = parsePeriodFromURL(url);
 
     const revenueWhere = {
       deliveryStatus: { in: REVENUE_STATUSES },

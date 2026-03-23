@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { format } from "date-fns";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { parsePeriodFromURL } from "@/lib/finance-period";
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,11 +10,8 @@ export async function GET(req: NextRequest) {
     if (error) return error;
 
     const url = new URL(req.url);
-    const period = url.searchParams.get("period") || "month";
-    const now = new Date();
-    let from = startOfMonth(now), to = now;
-    if (period === "last_month") { from = startOfMonth(subMonths(now, 1)); to = endOfMonth(subMonths(now, 1)); }
-    else if (period === "quarter") { from = subMonths(startOfMonth(now), 2); }
+    const range = parsePeriodFromURL(url);
+    const from = range.from, to = range.to;
 
     const entries = await prisma.cashbookEntry.findMany({
       where: { transactionTime: { gte: from, lte: to } },

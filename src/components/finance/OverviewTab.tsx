@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const PERIODS = [
   { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
   { value: "quarter", label: "Quý này" }, { value: "half", label: "6 tháng" },
-  { value: "year", label: "Năm nay" },
+  { value: "year", label: "Năm nay" }, { value: "custom", label: "Tùy chọn" },
 ];
 const COLORS = ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
@@ -15,6 +15,8 @@ interface Props { isAdmin: boolean; }
 
 export default function OverviewTab({ isAdmin }: Props) {
   const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [overview, setOverview] = useState<any>(null);
   const [pnl, setPnl] = useState<any>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -31,14 +33,14 @@ export default function OverviewTab({ isAdmin }: Props) {
 
   const fetchAll = useCallback(async () => {
     const [ov, pl, exp, cat, bud] = await Promise.all([
-      fetch(`/api/finance/overview?period=${period}`).then(r => r.json()),
+      fetch(`/api/finance/overview?period=${period}${period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : ""}`).then(r => r.json()),
       fetch(`/api/finance/pnl?month=${curMonth}`).then(r => r.json()),
       fetch(`/api/finance/expenses?month=${curMonth}`).then(r => r.json()),
       fetch("/api/finance/categories").then(r => r.json()),
       fetch(`/api/finance/budgets?month=${curMonth}`).then(r => r.json()),
     ]);
     setOverview(ov); setPnl(pl); setExpenses(exp.expenses || []); setCategories(cat.categories || []); setBudgets(bud);
-  }, [period, curMonth]);
+  }, [period, curMonth, customFrom, customTo]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -106,6 +108,14 @@ export default function OverviewTab({ isAdmin }: Props) {
           }}>{p.label}</button>
         ))}
       </div>
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center" }}>
+          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Từ:</label>
+          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Đến:</label>
+          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+        </div>
+      )}
 
       {/* Section A: Summary Cards */}
       {s && (
