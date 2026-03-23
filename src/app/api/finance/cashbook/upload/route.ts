@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import type { Prisma } from "@prisma/client";
+import { CashbookGroup } from "@prisma/client";
 
-const GROUP_MAP: Record<string, string> = {
-  "COD": "COD",
-  "Đối soát cho shop": "SHOP_PAYOUT",
-  "Phí đối soát": "RECONCILIATION_FEE",
-  "Nạp tiền": "TOP_UP",
-  "Đền bù": "COMPENSATION",
-  "Phí hợp tác": "COOPERATION_FEE",
+export const maxDuration = 60;
+
+const GROUP_MAP: Record<string, CashbookGroup> = {
+  "COD": CashbookGroup.COD,
+  "Đối soát cho shop": CashbookGroup.SHOP_PAYOUT,
+  "Phí đối soát": CashbookGroup.RECONCILIATION_FEE,
+  "Nạp tiền": CashbookGroup.TOP_UP,
+  "Đền bù": CashbookGroup.COMPENSATION,
+  "Phí hợp tác": CashbookGroup.COOPERATION_FEE,
 };
 
 export async function POST(req: NextRequest) {
@@ -29,7 +33,6 @@ export async function POST(req: NextRequest) {
     for (const name of workbook.SheetNames) {
       const s = workbook.Sheets[name];
       const range = XLSX.utils.decode_range(s["!ref"] || "A1");
-      // Check if first row contains expected headers
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cell = s[XLSX.utils.encode_cell({ r: range.s.r, c })];
         if (cell?.v && String(cell.v).includes("Mã phiếu")) { sheet = s; break; }
@@ -38,16 +41,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (!sheet) {
-      // Fallback — use first sheet
       sheet = workbook.Sheets[workbook.SheetNames[0]];
     }
 
     const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-    let newRows = 0, duplicateRows = 0;
-    let dateFrom: Date | null = null, dateTo: Date | null = null;
+    const uploadedBy = session.user.name || session.user.id!;
+    let dateFrom: Date | null = null;
+    let dateTo: Date | null = null;
+
+    // 1. Parse all rows into entries array (in memory)
+    const entries: Prisma.CashbookEntryCreateManyInput[] = [];
 
     for (const row of rows) {
-      // Map column names (flexible)
       const timeStr = row["Thời gian tính nợ"] || row["Thời gian"] || "";
       const receiptCode = String(row["Mã phiếu"] || "").trim();
       const groupStr = String(row["Nhóm phiếu"] || row["Nhóm"] || "").trim();
@@ -57,24 +62,19 @@ export async function POST(req: NextRequest) {
 
       if (!receiptCode || !timeStr) continue;
 
-      // Parse date
       let transactionTime: Date;
       if (typeof timeStr === "number") {
-        // Excel serial date
         transactionTime = new Date((timeStr - 25569) * 86400 * 1000);
       } else {
         transactionTime = new Date(timeStr);
       }
       if (isNaN(transactionTime.getTime())) continue;
 
-      // Track date range
       if (!dateFrom || transactionTime < dateFrom) dateFrom = transactionTime;
       if (!dateTo || transactionTime > dateTo) dateTo = transactionTime;
 
-      // Map group
-      const groupType = (GROUP_MAP[groupStr] || "OTHER") as any;
+      const groupType = GROUP_MAP[groupStr] || CashbookGroup.OTHER;
 
-      // Parse extra fields from content
       let rawCod: number | null = null;
       let shippingFee: number | null = null;
       let shopName: string | null = null;
@@ -91,37 +91,53 @@ export async function POST(req: NextRequest) {
         if (parts.length > 1) shopName = parts.slice(1).join(",").trim();
       }
 
-      await prisma.cashbookEntry.create({
-        data: {
-          transactionTime,
-          receiptCode,
-          groupType,
-          content,
-          amount,
-          balance,
-          rawCod,
-          shippingFee,
-          shopName,
-          uploadedBy: session.user.name || session.user.id!,
-        },
+      entries.push({
+        transactionTime,
+        receiptCode,
+        groupType,
+        content,
+        amount,
+        balance,
+        rawCod,
+        shippingFee,
+        shopName,
+        uploadedBy,
       });
-      newRows++;
     }
 
-    // Record upload
+    // 2. Bulk insert using createMany (batches of 500)
+    const BATCH_SIZE = 500;
+    let newRows = 0;
+
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      const result = await prisma.cashbookEntry.createMany({
+        data: batch,
+        skipDuplicates: true,
+      });
+      newRows += result.count;
+    }
+
+    // 3. Record upload
     await prisma.cashbookUpload.create({
       data: {
         fileName: file.name,
         rowCount: rows.length,
         newRows,
-        duplicateRows,
+        duplicateRows: entries.length - newRows,
         dateFrom,
         dateTo,
-        uploadedBy: session.user.name || session.user.id!,
+        uploadedBy,
       },
     });
 
-    return NextResponse.json({ newRows, duplicateRows, total: rows.length, dateFrom, dateTo });
+    return NextResponse.json({
+      newRows,
+      duplicateRows: entries.length - newRows,
+      total: rows.length,
+      dateFrom,
+      dateTo,
+    });
   } catch (error) {
     console.error("Cashbook upload error:", error);
     return NextResponse.json({ error: "Lỗi xử lý file" }, { status: 500 });
