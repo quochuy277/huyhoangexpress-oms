@@ -995,7 +995,7 @@ export default function ClaimsClient() {
   const [search, setSearch] = useState("");
   const [filterIssueType, setFilterIssueType] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterCarrier, setFilterCarrier] = useState("");
+  const [filterCompleted, setFilterCompleted] = useState<"" | "completed">("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [sortBy, setSortBy] = useState("deadline");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -1029,7 +1029,6 @@ export default function ClaimsClient() {
       });
       if (filterIssueType.length) params.set("issueType", filterIssueType.join(","));
       if (filterStatus) params.set("claimStatus", filterStatus);
-      if (filterCarrier) params.set("carrier", filterCarrier);
 
       const res = await fetch(`/api/claims?${params}`);
       const data = await res.json();
@@ -1038,7 +1037,7 @@ export default function ClaimsClient() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.pageSize, search, filterIssueType, filterStatus, filterCarrier, showCompleted, sortBy, sortDir]);
+  }, [pagination.page, pagination.pageSize, search, filterIssueType, filterStatus, showCompleted, sortBy, sortDir]);
 
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
 
@@ -1054,7 +1053,10 @@ export default function ClaimsClient() {
     try {
       const res = await fetch("/api/claims/auto-detect", { method: "POST" });
       const data = await res.json();
-      if (data.newClaims > 0) fetchClaims();
+      fetchClaims();
+      if (data.autoCompleted > 0 || data.newClaims > 0) {
+        // Data updated - already refetched
+      }
     } finally {
       setDetecting(false);
     }
@@ -1268,26 +1270,29 @@ export default function ClaimsClient() {
           ))}
         </select>
 
-        {/* Carrier filter */}
-        <select
-          style={{ ...inputStyle, width: "auto", padding: "7px 10px", fontSize: "12px" }}
-          value={filterCarrier}
-          onChange={e => { setFilterCarrier(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
-        >
-          <option value="">Tất cả ĐT</option>
-          {["GHN", "GTK", "SPX", "JAT", "BSI"].map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        {/* Show completed toggle */}
-        <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#6b7280", cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={e => { setShowCompleted(e.target.checked); setPagination(p => ({ ...p, page: 1 })); }}
-            style={{ accentColor: "#2563EB" }}
-          />
-          Hiện đơn hoàn tất
-        </label>
+        {/* Completed filter toggle */}
+        <div style={{ display: "flex", gap: "4px" }}>
+          <button
+            onClick={() => { setShowCompleted(false); setFilterCompleted(""); setPagination(p => ({ ...p, page: 1 })); }}
+            style={{
+              padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", cursor: "pointer",
+              background: !showCompleted ? "#2563eb" : "#fff", color: !showCompleted ? "#fff" : "#64748b",
+              fontWeight: 600, fontSize: "12px", transition: "all 0.2s",
+            }}
+          >
+            Chưa hoàn tất
+          </button>
+          <button
+            onClick={() => { setShowCompleted(true); setFilterCompleted("completed"); setPagination(p => ({ ...p, page: 1 })); }}
+            style={{
+              padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", cursor: "pointer",
+              background: showCompleted ? "#10b981" : "#fff", color: showCompleted ? "#fff" : "#64748b",
+              fontWeight: 600, fontSize: "12px", transition: "all 0.2s",
+            }}
+          >
+            Đã hoàn tất
+          </button>
+        </div>
       </div>
 
       {/* Keyframe for InlineStaffNote save animation */}
@@ -1605,10 +1610,17 @@ export default function ClaimsClient() {
                               <CheckSquare size={12} />
                             </button>
                             <button
-                              onClick={() => handleComplete(c.id, c.order?.requestCode)}
-                              disabled={!COMPLETION_STATUSES.includes(c.claimStatus) || c.isCompleted}
-                              className="p-1 w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                              title="Hoàn tất"
+                              onClick={async () => {
+                                if (c.isCompleted) {
+                                  // Un-complete: set back to uncompleted
+                                  await fetch(`/api/claims/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isCompleted: false, claimStatus: "PENDING" }) });
+                                  fetchClaims();
+                                } else {
+                                  handleComplete(c.id, c.order?.requestCode);
+                                }
+                              }}
+                              className={`p-1 w-6 h-6 flex items-center justify-center rounded border border-transparent transition-colors ${c.isCompleted ? "text-orange-500 hover:bg-orange-50 hover:border-orange-200" : "text-green-500 hover:bg-green-50 hover:border-green-200"}`}
+                              title={c.isCompleted ? "Kéo lại chưa hoàn tất" : "Hoàn tất"}
                             >
                               <Check size={12} />
                             </button>

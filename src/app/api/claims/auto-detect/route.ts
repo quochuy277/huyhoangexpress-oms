@@ -9,14 +9,17 @@ export async function POST() {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const count = await createAutoDetectedClaims(session.user.id);
+    const result = await createAutoDetectedClaims(session.user.id);
+
+    const messages: string[] = [];
+    if (result.newClaims > 0) messages.push(`Thêm ${result.newClaims} đơn có vấn đề mới`);
+    if (result.autoCompleted > 0) messages.push(`Tự động hoàn tất ${result.autoCompleted} đơn đã đối soát/trả hàng`);
 
     return NextResponse.json({
       success: true,
-      newClaims: count,
-      message: count > 0
-        ? `Đã phát hiện và thêm ${count} đơn có vấn đề mới`
-        : "Không phát hiện đơn có vấn đề mới",
+      newClaims: result.newClaims,
+      autoCompleted: result.autoCompleted,
+      message: messages.length > 0 ? messages.join(". ") : "Không phát hiện thay đổi mới",
     });
   } catch (error) {
     console.error("POST /api/claims/auto-detect error:", error);

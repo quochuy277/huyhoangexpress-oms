@@ -1,11 +1,51 @@
 import { prisma } from "@/lib/prisma";
 
+const FINAL_STATUSES = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"];
+
+/**
+ * Auto-complete existing claims whose orders have reached a final delivery status.
+ * Returns count of auto-completed claims.
+ */
+export async function autoCompleteResolvedClaims(): Promise<number> {
+  const claimsToComplete = await prisma.claimOrder.findMany({
+    where: {
+      isCompleted: false,
+      order: { deliveryStatus: { in: FINAL_STATUSES as any[] } },
+    },
+    select: { id: true },
+  });
+
+  if (claimsToComplete.length === 0) return 0;
+
+  const ids = claimsToComplete.map(c => c.id);
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.claimOrder.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        claimStatus: "RESOLVED",
+        isCompleted: true,
+        completedAt: now,
+        completedBy: "Hệ thống (tự động)",
+      },
+    }),
+    prisma.claimStatusHistory.createMany({
+      data: ids.map(id => ({
+        claimOrderId: id,
+        toStatus: "RESOLVED" as any,
+        changedBy: "Hệ thống",
+        changedAt: now,
+        note: "Tự động hoàn tất: đơn đã đối soát/trả hàng",
+      })),
+    }),
+  ]);
+
+  return ids.length;
+}
+
 /**
  * Auto-detect orders with slow journey times based on region.
- * Region-based thresholds:
- *   0.x, 1.x, 2.x (Nội Tỉnh) → 4 days
- *   3.x, 4.x (Nội Miền) → 10 days
- *   5.x, 6.x (Liên Miền) → 15 days
  */
 export async function detectSlowJourneyOrders(): Promise<string[]> {
   const now = new Date();
@@ -13,51 +53,25 @@ export async function detectSlowJourneyOrders(): Promise<string[]> {
   const orders = await prisma.order.findMany({
     where: {
       pickupTime: { not: null },
-      deliveryStatus: {
-        notIn: ["DELIVERED", "RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"],
-      },
+      deliveryStatus: { notIn: ["DELIVERED", ...FINAL_STATUSES] as any[] },
       claimOrder: null,
       claimLocked: false,
     },
-    select: {
-      id: true,
-      requestCode: true,
-      pickupTime: true,
-      regionGroup: true,
-    },
+    select: { id: true, pickupTime: true, regionGroup: true },
   });
 
   const slowOrders: string[] = [];
-
   for (const order of orders) {
     if (!order.pickupTime) continue;
-
-    const daysSincePickup = Math.floor(
-      (now.getTime() - new Date(order.pickupTime).getTime()) / 86400000
-    );
-
+    const days = Math.floor((now.getTime() - new Date(order.pickupTime).getTime()) / 86400000);
     const region = order.regionGroup || "";
-    let maxDays: number;
-
-    if (
-      region.startsWith("0.") ||
-      region.startsWith("1.") ||
-      region.startsWith("2.")
-    ) {
-      maxDays = 4;
-    } else if (region.startsWith("3.") || region.startsWith("4.")) {
-      maxDays = 10;
-    } else if (region.startsWith("5.") || region.startsWith("6.")) {
-      maxDays = 15;
-    } else {
-      maxDays = 15;
-    }
-
-    if (daysSincePickup > maxDays) {
-      slowOrders.push(order.id);
-    }
+    const maxDays = region.startsWith("0.") || region.startsWith("1.") || region.startsWith("2.")
+      ? 4
+      : region.startsWith("3.") || region.startsWith("4.")
+        ? 10
+        : 15;
+    if (days > maxDays) slowOrders.push(order.id);
   }
-
   return slowOrders;
 }
 
@@ -69,9 +83,7 @@ export async function detectInternalNoteIssues(): Promise<string[]> {
     where: {
       claimOrder: null,
       claimLocked: false,
-      deliveryStatus: {
-        notIn: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"],
-      },
+      deliveryStatus: { notIn: FINAL_STATUSES as any[] },
       OR: [
         { internalNotes: { contains: "yêu cầu khiếu nại", mode: "insensitive" } },
         { internalNotes: { contains: "yêu cầu đền bù", mode: "insensitive" } },
@@ -80,78 +92,49 @@ export async function detectInternalNoteIssues(): Promise<string[]> {
     },
     select: { id: true },
   });
-
-  return orders.map((o) => o.id);
+  return orders.map(o => o.id);
 }
 
 /**
- * Create ClaimOrder records for auto-detected orders.
- * Returns count of newly created claims.
+ * Create ClaimOrder records for auto-detected orders + auto-complete resolved ones.
  */
-export async function createAutoDetectedClaims(
-  userId: string
-): Promise<number> {
-  const [slowIds, noteIds] = await Promise.all([
+export async function createAutoDetectedClaims(userId: string): Promise<{ newClaims: number; autoCompleted: number }> {
+  // Run all detection + auto-complete in parallel
+  const [slowIds, noteIds, autoCompleted] = await Promise.all([
     detectSlowJourneyOrders(),
     detectInternalNoteIssues(),
+    autoCompleteResolvedClaims(),
   ]);
 
   let created = 0;
   const now = new Date();
   const deadline = new Date(now.getTime() + 15 * 86400000);
 
-  // Create claims for slow journey orders
-  for (const orderId of slowIds) {
+  // Batch create claims — use individual creates with try/catch to skip duplicates
+  const allNewClaims = [
+    ...slowIds.map(id => ({ orderId: id, issueType: "SLOW_JOURNEY" as const, source: "AUTO_SLOW_JOURNEY" as const, note: "Tự động phát hiện: Hành trình chậm" })),
+    ...noteIds.map(id => ({ orderId: id, issueType: "OTHER" as const, issueDescription: "Phát hiện từ ghi chú nội bộ", source: "AUTO_INTERNAL_NOTE" as const, note: "Tự động phát hiện: Từ ghi chú nội bộ" })),
+  ];
+
+  for (const claim of allNewClaims) {
     try {
       await prisma.claimOrder.create({
         data: {
-          orderId,
-          issueType: "SLOW_JOURNEY",
+          orderId: claim.orderId,
+          issueType: claim.issueType,
+          issueDescription: "issueDescription" in claim ? claim.issueDescription : undefined,
           detectedDate: now,
           deadline,
-          source: "AUTO_SLOW_JOURNEY",
+          source: claim.source,
           createdById: userId,
-          statusHistory: {
-            create: {
-              toStatus: "PENDING",
-              changedBy: "Hệ thống",
-              note: "Tự động phát hiện: Hành trình chậm",
-            },
-          },
+          statusHistory: { create: { toStatus: "PENDING", changedBy: "Hệ thống", note: claim.note } },
         },
       });
       created++;
     } catch {
-      // Skip if already exists (unique constraint on orderId)
+      // Skip duplicates (unique constraint on orderId)
     }
   }
 
-  // Create claims for internal note issues
-  for (const orderId of noteIds) {
-    try {
-      await prisma.claimOrder.create({
-        data: {
-          orderId,
-          issueType: "OTHER",
-          issueDescription: "Phát hiện từ ghi chú nội bộ",
-          detectedDate: now,
-          deadline,
-          source: "AUTO_INTERNAL_NOTE",
-          createdById: userId,
-          statusHistory: {
-            create: {
-              toStatus: "PENDING",
-              changedBy: "Hệ thống",
-              note: "Tự động phát hiện: Từ ghi chú nội bộ",
-            },
-          },
-        },
-      });
-      created++;
-    } catch {
-      // Skip duplicates
-    }
-  }
-
-  return created;
+  return { newClaims: created, autoCompleted };
 }
