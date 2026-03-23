@@ -18,7 +18,7 @@ import { format } from "date-fns";
 
 function getDaysReturning(deliveredDate: string | null): number {
   if (!deliveredDate) return 0;
-  return Math.floor((Date.now() - new Date(deliveredDate).getTime()) / 86400000);
+  return Math.max(0, Math.floor((Date.now() - new Date(deliveredDate).getTime()) / 86400000));
 }
 
 function DaysBadge({ days }: { days: number }) {
