@@ -10,6 +10,7 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
   const claimsToComplete = await prisma.claimOrder.findMany({
     where: {
       isCompleted: false,
+      issueType: { notIn: ["DAMAGED", "LOST"] as any[] },
       order: { deliveryStatus: { in: FINAL_STATUSES as any[] } },
     },
     select: { id: true },
