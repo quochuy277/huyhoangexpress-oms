@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Users, Shield, Plus, Pencil, Key, Trash2, Loader2, X, CheckSquare } from "lucide-react";
+import { Users, Shield, Plus, Pencil, Key, Trash2, Loader2, X, CheckSquare, Eye, EyeOff } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PERMISSION_CATEGORIES, PERMISSION_KEYS } from "@/lib/permissions";
 
@@ -243,7 +243,7 @@ function UsersTab() {
       ]);
       if (usersRes.ok) setUsers(await usersRes.json());
       if (groupsRes.ok) setGroups(await groupsRes.json());
-    } catch {} finally { setLoading(false); }
+    } catch { } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -358,6 +358,7 @@ function UserFormDialog({ user, groups, onClose, onSaved }: {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.permissionGroupId) { setError("Vui lòng điền đầy đủ thông tin bắt buộc"); return; }
@@ -400,7 +401,12 @@ function UserFormDialog({ user, groups, onClose, onSaved }: {
           </Field>
           {!isEdit && (
             <Field label="Mật khẩu" required>
-              <input type="password" style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Tối thiểu 6 ký tự" />
+              <div style={{ position: "relative" }}>
+                <input type={showPw ? "text" : "password"} style={{ ...inputStyle, paddingRight: "40px" }} onFocus={iFocus} onBlur={iBlur} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Tối thiểu 6 ký tự" />
+                <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#6b7280", display: "flex", alignItems: "center" }} title={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </Field>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -459,6 +465,7 @@ function PasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void 
   const [pw, setPw] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [showPw, setShowPw] = useState(false);
 
   const handleSave = async () => {
     if (pw.length < 6) { setMsg({ type: "err", text: "Mật khẩu mới phải ít nhất 6 ký tự" }); return; }
@@ -484,7 +491,12 @@ function PasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
             <label style={labelStyle}>Mật khẩu mới <span style={{ color: "#ef4444" }}>*</span></label>
-            <input type="password" placeholder="Tối thiểu 6 ký tự" value={pw} onChange={e => setPw(e.target.value)} style={inputStyle} onFocus={iFocus} onBlur={iBlur} />
+            <div style={{ position: "relative" }}>
+              <input type={showPw ? "text" : "password"} placeholder="Tối thiểu 6 ký tự" value={pw} onChange={e => setPw(e.target.value)} style={{ ...inputStyle, paddingRight: "40px" }} onFocus={iFocus} onBlur={iBlur} />
+              <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#6b7280", display: "flex", alignItems: "center" }} title={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           {msg && <p style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: msg.type === "ok" ? "#f0fdf4" : "#fef2f2", color: msg.type === "ok" ? "#16a34a" : "#dc2626", border: `1px solid ${msg.type === "ok" ? "#bbf7d0" : "#fecaca"}` }}>{msg.text}</p>}
         </div>
@@ -558,7 +570,7 @@ function PermissionsTab() {
     try {
       const res = await fetch("/api/admin/permission-groups");
       if (res.ok) setGroups(await res.json());
-    } catch {} finally { setLoading(false); }
+    } catch { } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
@@ -867,7 +879,7 @@ function RequestsFeedbackTab() {
       ]);
       if (rRes.ok) setRequests(await rRes.json());
       if (fRes.ok) setFeedbacks(await fRes.json());
-    } catch {} finally { setLoading(false); }
+    } catch { } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -880,7 +892,7 @@ function RequestsFeedbackTab() {
         body: JSON.stringify({ action }),
       });
       if (res.ok) fetchAll();
-    } catch {}
+    } catch { }
   };
 
   const STATUS_STYLES: Record<string, { bg: string; color: string; border: string; label: string }> = {
