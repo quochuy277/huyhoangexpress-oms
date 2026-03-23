@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 
 const PERIODS = [
@@ -31,6 +32,7 @@ export default function AnalysisTab() {
   const [granularity, setGranularity] = useState("day");
   const [negData, setNegData] = useState<any>(null);
   const [shopSearch, setShopSearch] = useState(shopParam);
+  const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
   useEffect(() => { setView(viewParam); }, [viewParam]);
 
@@ -85,6 +87,7 @@ export default function AnalysisTab() {
   const tableHeaderStyle: React.CSSProperties = { padding: 10, textAlign: "left", borderBottom: "2px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 700 };
 
   return (
+    <>
     <div>
       {/* Period + View toggle */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
@@ -280,7 +283,7 @@ export default function AnalysisTab() {
                 {(negData.orders || []).map((o: any, i: number) => (
                   <tr key={o.requestCode} style={{ borderBottom: "1px solid #f1f5f9", borderLeft: i === 0 ? "3px solid #ef4444" : "none" }}>
                     <td style={{ padding: 8 }}>{i + 1}</td>
-                    <td style={{ padding: 8, fontWeight: 600, color: "#2563eb", cursor: "pointer" }} onClick={() => router.push(`/orders/${o.requestCode}`)}>{o.requestCode}</td>
+                    <td style={{ padding: 8, fontWeight: 600, color: "#2563eb", cursor: "pointer" }} onClick={() => setDetailRequestCode(o.requestCode)}>{o.requestCode}</td>
                     <td style={{ padding: 8 }}>{o.carrierName}</td>
                     <td style={{ padding: 8 }}>{o.creatorShopName}</td>
                     <td style={{ padding: 8 }}>{o.status}</td>
@@ -298,5 +301,14 @@ export default function AnalysisTab() {
         </>
       )}
     </div>
+
+    {/* Order Detail Dialog */}
+    <OrderDetailDialog
+      requestCode={detailRequestCode}
+      open={!!detailRequestCode}
+      onClose={() => setDetailRequestCode(null)}
+      userRole="ADMIN"
+    />
+    </>
   );
 }

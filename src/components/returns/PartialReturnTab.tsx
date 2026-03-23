@@ -9,6 +9,7 @@ import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
 import { TrackingPopup } from "@/components/tracking/TrackingPopup";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -48,6 +49,7 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
   const [confirmingCode, setConfirmingCode] = useState<string | null>(null);
   const [claimReturnOrder, setClaimReturnOrder] = useState<ReturnOrder | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
   // Filter
   let filtered = data.filter((o) => {
@@ -147,15 +149,10 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
                     <TableCell className="font-bold text-slate-800 text-[11px] px-2 truncate" title={o.requestCode}>
                       <div className="flex flex-col gap-0.5">
                         {o.claimOrder && <ClaimBadge issueType={o.claimOrder.issueType} />}
-                        <a
-                          href={`/orders/${o.requestCode}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const currentUrl = `${pathname}?${searchParams.toString()}`;
-                            router.push(`/orders/${o.requestCode}?from=${encodeURIComponent(currentUrl)}`);
-                          }}
-                          className="hover:text-blue-600 hover:underline font-mono cursor-pointer"
-                        >{o.requestCode}</a>
+                        <button
+                          onClick={() => setDetailRequestCode(o.requestCode)}
+                          className="hover:text-blue-600 hover:underline font-mono cursor-pointer text-left"
+                        >{o.requestCode}</button>
                       </div>
                     </TableCell>
                     <TableCell className="text-slate-700 text-[11px] px-2 truncate">{o.carrierOrderCode || "-"}</TableCell>
@@ -282,6 +279,14 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
         requestCode={trackingCode || ""}
         isOpen={!!trackingCode}
         onClose={() => setTrackingCode(null)}
+      />
+
+      {/* Order Detail Dialog */}
+      <OrderDetailDialog
+        requestCode={detailRequestCode}
+        open={!!detailRequestCode}
+        onClose={() => setDetailRequestCode(null)}
+        userRole="ADMIN"
       />
     </>
   );
