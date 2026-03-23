@@ -144,6 +144,14 @@ const closeHoverOut = (e: React.MouseEvent<HTMLButtonElement>) => {
 
 /* ============================================================ */
 
+/* Reusable form field wrapper — defined outside components to avoid re-mount on re-render */
+const Field = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+  <div>
+    <label style={labelStyle}>{label} {required && <span style={{ color: "#ef4444" }}>*</span>}</label>
+    {children}
+  </div>
+);
+
 interface UserRow {
   id: string;
   email: string;
@@ -368,12 +376,7 @@ function UserFormDialog({ user, groups, onClose, onSaved }: {
     finally { setSaving(false); }
   };
 
-  const Field = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
-    <div>
-      <label style={labelStyle}>{label} {required && <span style={{ color: "#ef4444" }}>*</span>}</label>
-      {children}
-    </div>
-  );
+
 
   return createPortal(
     <>
