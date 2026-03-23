@@ -9,7 +9,7 @@ import type { ParsedOrder } from "@/lib/excel-parser";
 import { Prisma } from "@prisma/client";
 
 const BATCH_SIZE = 500;
-const SQL_SUB_BATCH = 50; // Rows per raw SQL INSERT (keeps params manageable)
+const SQL_SUB_BATCH = 250; // Rows per raw SQL INSERT (~15k params, within PostgreSQL 65535 limit)
 
 // Vercel serverless max duration (seconds)
 export const maxDuration = 60;
