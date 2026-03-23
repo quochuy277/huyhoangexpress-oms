@@ -48,7 +48,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-32 h-32 mb-3">
             <Image
-              src="/images/LOGO.png"
+              src="/images/logo.png"
               alt="Huy Hoàng Express"
               width={128}
               height={128}
