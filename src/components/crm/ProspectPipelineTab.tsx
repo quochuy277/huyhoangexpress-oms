@@ -106,22 +106,28 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
     const sourceStage = source.droppableId as StageKey;
     const destStage = destination.droppableId as StageKey;
 
-    // Optimistic update
+    // Optimistic update: immediately update React Query cache
+    queryClient.setQueryData(["crm-prospects", search], (old: any) => {
+      if (!old?.data?.prospects) return old;
+      const updated = old.data.prospects.map((p: Prospect) => {
+        if (p.id === draggableId) return { ...p, stage: destStage };
+        return p;
+      });
+      return { ...old, data: { ...old.data, prospects: updated } };
+    });
+
+    // Build reorder items from current byStage (after optimistic update)
     const sourceItems = [...byStage[sourceStage]];
     const destItems = sourceStage === destStage ? sourceItems : [...byStage[destStage]];
-
     const [movedItem] = sourceItems.splice(source.index, 1);
     const updatedItem = { ...movedItem, stage: destStage };
-
     if (sourceStage === destStage) {
       sourceItems.splice(destination.index, 0, updatedItem);
     } else {
       destItems.splice(destination.index, 0, updatedItem);
     }
 
-    // Build reorder items
     const items: Array<{ id: string; sortOrder: number; stage: string }> = [];
-
     if (sourceStage === destStage) {
       sourceItems.forEach((p, i) => items.push({ id: p.id, sortOrder: i, stage: sourceStage }));
     } else {
@@ -129,29 +135,25 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
       destItems.forEach((p, i) => items.push({ id: p.id, sortOrder: i, stage: destStage }));
     }
 
-    // If moving to a different stage, also call stage API
-    if (sourceStage !== destStage) {
-      try {
-        await fetch(`/api/crm/prospects/${draggableId}/stage`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage: destStage }),
-        });
-      } catch { /* will refresh anyway */ }
-    }
-
-    // Batch reorder
+    // API calls (non-blocking for UI)
     try {
-      await fetch("/api/crm/prospects/reorder", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+      const promises: Promise<any>[] = [];
+      if (sourceStage !== destStage) {
+        promises.push(fetch(`/api/crm/prospects/${draggableId}/stage`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage: destStage }),
+        }));
+      }
+      promises.push(fetch("/api/crm/prospects/reorder", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
-      });
-    } catch { /* will refresh anyway */ }
+      }));
+      await Promise.all(promises);
+    } catch { /* optimistic update already applied */ }
 
     queryClient.invalidateQueries({ queryKey: ["crm-prospects"] });
     queryClient.invalidateQueries({ queryKey: ["crm-prospect-stats"] });
-  }, [allProspects, queryClient]);
+  }, [allProspects, queryClient, search]);
 
   const handleMarkLost = async (id: string, reason: string) => {
     await fetch(`/api/crm/prospects/${id}/lost`, {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2, Lock, FileEdit, MessageSquare, User, Calendar, Phone, MapPin, CreditCard, Link2, Mail, Shield } from "lucide-react";
+import { X, Loader2, Lock, FileEdit, MessageSquare, User, Calendar, Phone, MapPin, CreditCard, Link2, Mail, Shield, Eye, EyeOff } from "lucide-react";
 
 /* ============================================================
    Shared styles
@@ -86,7 +86,7 @@ export function UserProfileDialog({ onClose }: Props) {
   const [subDialog, setSubDialog] = useState<"password" | "change" | "feedback" | null>(null);
 
   useEffect(() => {
-    fetch("/api/profile").then(r => r.json()).then(setProfile).catch(() => {}).finally(() => setLoading(false));
+    fetch("/api/profile").then(r => r.json()).then(setProfile).catch(() => { }).finally(() => setLoading(false));
   }, []);
 
   const formatValue = (key: string, val: unknown): string => {
@@ -207,6 +207,8 @@ export function UserProfileDialog({ onClose }: Props) {
 function PasswordSubDialog({ onClose }: { onClose: () => void }) {
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -237,11 +239,21 @@ function PasswordSubDialog({ onClose }: { onClose: () => void }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           <div>
             <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>Mật khẩu cũ <span style={{ color: "#ef4444" }}>*</span></label>
-            <input type="password" style={inputStyle} value={oldPw} onChange={e => setOldPw(e.target.value)} placeholder="Nhập mật khẩu hiện tại" />
+            <div style={{ position: "relative" }}>
+              <input type={showOld ? "text" : "password"} style={{ ...inputStyle, paddingRight: "40px" }} value={oldPw} onChange={e => setOldPw(e.target.value)} placeholder="Nhập mật khẩu hiện tại" />
+              <button type="button" onClick={() => setShowOld(!showOld)} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: "2px", display: "flex" }}>
+                {showOld ? <EyeOff style={{ width: "16px", height: "16px" }} /> : <Eye style={{ width: "16px", height: "16px" }} />}
+              </button>
+            </div>
           </div>
           <div>
             <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>Mật khẩu mới <span style={{ color: "#ef4444" }}>*</span></label>
-            <input type="password" style={inputStyle} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Tối thiểu 6 ký tự" />
+            <div style={{ position: "relative" }}>
+              <input type={showNew ? "text" : "password"} style={{ ...inputStyle, paddingRight: "40px" }} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Tối thiểu 6 ký tự" />
+              <button type="button" onClick={() => setShowNew(!showNew)} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: "2px", display: "flex" }}>
+                {showNew ? <EyeOff style={{ width: "16px", height: "16px" }} /> : <Eye style={{ width: "16px", height: "16px" }} />}
+              </button>
+            </div>
           </div>
           {msg && <p style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: msg.type === "ok" ? "#f0fdf4" : "#fef2f2", color: msg.type === "ok" ? "#16a34a" : "#dc2626", border: `1px solid ${msg.type === "ok" ? "#bbf7d0" : "#fecaca"}` }}>{msg.text}</p>}
         </div>
