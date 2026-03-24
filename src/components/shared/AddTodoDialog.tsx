@@ -12,6 +12,7 @@ interface AddTodoDialogProps {
   defaultPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   linkedOrderId?: string;
   source?: string;
+  userRole?: string;
 }
 
 export function AddTodoDialog({
@@ -22,6 +23,7 @@ export function AddTodoDialog({
   defaultPriority,
   linkedOrderId,
   source,
+  userRole,
 }: AddTodoDialogProps) {
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
@@ -30,8 +32,38 @@ export function AddTodoDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [assigneeId, setAssigneeId] = useState("");
+  const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [resolvedRole, setResolvedRole] = useState(userRole || "");
 
-  useEffect(() => { setMounted(true); }, []);
+  const canAssign = resolvedRole === "ADMIN" || resolvedRole === "MANAGER";
+
+  useEffect(() => {
+    setMounted(true);
+
+    // Auto-detect role if not provided, then fetch users if admin/manager
+    const init = async () => {
+      let role = userRole || "";
+      if (!role) {
+        try {
+          const res = await fetch("/api/auth/me");
+          if (res.ok) {
+            const data = await res.json();
+            role = data.role || "";
+            setResolvedRole(role);
+          }
+        } catch { /* ignore */ }
+      }
+      if (role === "ADMIN" || role === "MANAGER") {
+        try {
+          const res = await fetch("/api/todos/users");
+          const data = await res.json();
+          setUsers(data.users || []);
+        } catch { /* ignore */ }
+      }
+    };
+    init();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset fields when dialog opens with new defaults
   useEffect(() => {
@@ -40,6 +72,7 @@ export function AddTodoDialog({
       setDescription(defaultDescription);
       setPriority(defaultPriority);
       setDueDate("");
+      setAssigneeId("");
       setToast(null);
     }
   }, [open, defaultTitle, defaultDescription, defaultPriority]);
@@ -60,6 +93,7 @@ export function AddTodoDialog({
           dueDate: dueDate || null,
           linkedOrderId: linkedOrderId || null,
           source: source || "MANUAL",
+          assigneeId: assigneeId || null,
         }),
       });
 
@@ -295,6 +329,46 @@ export function AddTodoDialog({
               }}
             />
           </div>
+
+          {/* Field 5: Gán nhân viên (Admin/Manager only) */}
+          {canAssign && users.length > 0 && (
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                Gán cho nhân viên
+              </label>
+              <select
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                style={{
+                  width: "100%",
+                  background: "#FFFFFF",
+                  border: "1.5px solid #d1d5db",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  fontSize: "14px",
+                  color: "#1a1a1a",
+                  outline: "none",
+                  boxSizing: "border-box" as const,
+                  cursor: "pointer",
+                  appearance: "auto" as const,
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "#2563EB";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                <option value="">Tôi (mặc định)</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Toast */}
           {toast && (

@@ -397,6 +397,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
           defaultPriority="MEDIUM"
           linkedOrderId={order.id}
           source="FROM_ORDER_DETAIL"
+          userRole={userRole}
         />
       )}
 

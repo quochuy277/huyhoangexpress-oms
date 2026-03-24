@@ -10,10 +10,22 @@ export async function GET(req: NextRequest) {
     if (error) return error;
 
     const url = new URL(req.url);
+    const fromParam = url.searchParams.get("from");
+    const toParam = url.searchParams.get("to");
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
-    const [year, mon] = month.split("-").map(Number);
-    const from = startOfMonth(new Date(year, mon - 1));
-    const to = endOfMonth(new Date(year, mon - 1));
+
+    let from: Date, to: Date, label: string;
+    if (fromParam && toParam) {
+      from = new Date(fromParam);
+      to = new Date(toParam);
+      to.setHours(23, 59, 59, 999);
+      label = `${fromParam} → ${toParam}`;
+    } else {
+      const [year, mon] = month.split("-").map(Number);
+      from = startOfMonth(new Date(year, mon - 1));
+      to = endOfMonth(new Date(year, mon - 1));
+      label = month;
+    }
 
     // Auto revenue from orders
     const REVENUE_STATUSES: DeliveryStatus[] = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] as DeliveryStatus[];
@@ -60,7 +72,7 @@ export async function GET(req: NextRequest) {
       operatingExpenses,
       totalOperatingExpenses,
       netProfit,
-      month,
+      month: label,
     });
   } catch (error) {
     console.error("P&L error:", error);

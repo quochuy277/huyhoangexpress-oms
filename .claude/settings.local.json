@@ -22,7 +22,9 @@
       "Bash(xargs grep:*)",
       "Bash(npx tsc:*)",
       "Bash(npx vitest:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(xargs cat:*)",
+      "Bash(grep -r ClaimDetailPanel /e/AAA_CODE/Order_Manager/src --include=*.tsx --include=*.ts)"
     ]
   }
 }

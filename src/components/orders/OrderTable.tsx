@@ -402,6 +402,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
           defaultPriority="MEDIUM"
           linkedOrderId={todoModalOrder.id}
           source="FROM_ORDERS"
+          userRole={userRole}
         />
       )}
 

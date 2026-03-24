@@ -29,18 +29,44 @@ export default function OverviewTab({ isAdmin }: Props) {
   const [expForm, setExpForm] = useState({ categoryId: "", title: "", amount: "", date: "", note: "" });
   const [newCat, setNewCat] = useState("");
   const [budgetForm, setBudgetForm] = useState<Record<string, string>>({});
-  const curMonth = new Date().toISOString().slice(0, 7);
+
+  // P&L Period
+  const [pnlPeriod, setPnlPeriod] = useState("month");
+  const [pnlCustomFrom, setPnlCustomFrom] = useState("");
+  const [pnlCustomTo, setPnlCustomTo] = useState("");
+
+  const getPnlDates = useCallback(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    if (pnlPeriod === "month") {
+      return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
+    } else if (pnlPeriod === "quarter") {
+      const qStart = Math.floor(m / 3) * 3;
+      return { from: new Date(y, qStart, 1), to: new Date(y, qStart + 3, 0) };
+    } else if (pnlPeriod === "year") {
+      return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) };
+    } else if (pnlPeriod === "custom" && pnlCustomFrom && pnlCustomTo) {
+      return { from: new Date(pnlCustomFrom), to: new Date(pnlCustomTo) };
+    }
+    return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
+  }, [pnlPeriod, pnlCustomFrom, pnlCustomTo]);
+
+  const fmtDateParam = (d: Date) => d.toISOString().slice(0, 10);
 
   const fetchAll = useCallback(async () => {
+    const { from: pFrom, to: pTo } = getPnlDates();
+    const fromStr = fmtDateParam(pFrom);
+    const toStr = fmtDateParam(pTo);
     const [ov, pl, exp, cat, bud] = await Promise.all([
       fetch(`/api/finance/overview?period=${period}${period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : ""}`).then(r => r.json()),
-      fetch(`/api/finance/pnl?month=${curMonth}`).then(r => r.json()),
-      fetch(`/api/finance/expenses?month=${curMonth}`).then(r => r.json()),
+      fetch(`/api/finance/pnl?from=${fromStr}&to=${toStr}`).then(r => r.json()),
+      fetch(`/api/finance/expenses?from=${fromStr}&to=${toStr}`).then(r => r.json()),
       fetch("/api/finance/categories").then(r => r.json()),
-      fetch(`/api/finance/budgets?month=${curMonth}`).then(r => r.json()),
+      fetch(`/api/finance/budgets?month=${pFrom.toISOString().slice(0, 7)}`).then(r => r.json()),
     ]);
     setOverview(ov); setPnl(pl); setExpenses(exp.expenses || []); setCategories(cat.categories || []); setBudgets(bud);
-  }, [period, curMonth, customFrom, customTo]);
+  }, [period, customFrom, customTo, getPnlDates]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -74,7 +100,7 @@ export default function OverviewTab({ isAdmin }: Props) {
 
   const saveBudgets = async () => {
     const budgetArr = Object.entries(budgetForm).map(([categoryId, amount]) => ({ categoryId, amount: parseFloat(amount) || 0 }));
-    await fetch("/api/finance/budgets", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: curMonth, budgets: budgetArr }) });
+    await fetch("/api/finance/budgets", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: getPnlDates().from.toISOString().slice(0, 7), budgets: budgetArr }) });
     setShowBudgetDialog(false); fetchAll();
   };
 
@@ -205,9 +231,33 @@ export default function OverviewTab({ isAdmin }: Props) {
       {/* Section D: P&L Statement */}
       {pnl && (
         <div style={{ background: "#fff", borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>📊 KẾT QUẢ KINH DOANH — {pnl.month}</h3>
+            <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+              {[
+                { value: "month", label: "Tháng này" },
+                { value: "quarter", label: "Quý này" },
+                { value: "year", label: "Năm nay" },
+                { value: "custom", label: "Tùy chọn" },
+              ].map(p => (
+                <button key={p.value} onClick={() => setPnlPeriod(p.value)} style={{
+                  padding: "5px 12px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
+                  background: pnlPeriod === p.value ? "#2563eb" : "#fff",
+                  color: pnlPeriod === p.value ? "#fff" : "#64748b",
+                  fontWeight: 600, fontSize: 12, transition: "all 0.2s",
+                }}>{p.label}</button>
+              ))}
+            </div>
           </div>
+          {pnlPeriod === "custom" && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Từ:</label>
+              <input type="date" value={pnlCustomFrom} onChange={e => setPnlCustomFrom(e.target.value)} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 12 }} />
+              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Đến:</label>
+              <input type="date" value={pnlCustomTo} onChange={e => setPnlCustomTo(e.target.value)} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 12 }} />
+              <button onClick={fetchAll} style={{ padding: "5px 12px", borderRadius: 8, background: "#2563eb", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Áp dụng</button>
+            </div>
+          )}
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
               <tr><td colSpan={2} style={{ fontWeight: 700, padding: "10px 0 4px", color: "#2563eb", borderBottom: "1px solid #e2e8f0" }}>DOANH THU (tự động từ đơn hàng)</td></tr>

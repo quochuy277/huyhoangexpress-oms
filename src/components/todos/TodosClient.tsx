@@ -92,6 +92,8 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
   const [sending, setSending] = useState(false);
   const [editTitle, setEditTitle] = useState(false);
   const [titleInput, setTitleInput] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -149,10 +151,15 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
   };
 
   const handleDelete = async () => {
-    if (!confirm("Bạn có chắc muốn xóa công việc này?")) return;
-    await fetch(`/api/todos/${todo.id}`, { method: "DELETE" });
-    onDelete(todo.id);
-    onClose();
+    setDeleting(true);
+    try {
+      await fetch(`/api/todos/${todo.id}`, { method: "DELETE" });
+      onDelete(todo.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   return createPortal(
@@ -283,10 +290,10 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
           </div>
         )}
 
-        {/* Footer */}
         {detail && (
+          <>
           <div style={{ padding: "12px 20px", borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between" }}>
-            <button onClick={handleDelete} style={{ ...btnSecondary, color: "#dc2626", borderColor: "#fecaca" }}><Trash2 size={14} /> Xóa</button>
+            <button onClick={() => setShowDeleteConfirm(true)} style={{ ...btnSecondary, color: "#dc2626", borderColor: "#fecaca" }}><Trash2 size={14} /> Xóa</button>
             <button onClick={handleComplete} style={{
               display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px", borderRadius: "8px", border: "none",
               background: detail.status === "DONE" ? "#f59e0b" : "#16a34a", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: "pointer",
@@ -294,6 +301,70 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
               {detail.status === "DONE" ? <><RotateCcw size={14} /> Mở lại</> : <><Check size={14} /> Hoàn thành</>}
             </button>
           </div>
+
+          {/* Delete Confirmation Dialog */}
+          {showDeleteConfirm && (
+            <>
+              <div onClick={() => setShowDeleteConfirm(false)} style={{ position: "fixed", inset: 0, zIndex: 10100, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }} />
+              <div style={{
+                position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+                zIndex: 10101, width: "400px", maxWidth: "calc(100vw - 32px)",
+                background: "#fff", borderRadius: "16px", border: "1.5px solid #fecaca",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.15)", padding: "28px",
+                animation: "confirmPopIn 0.2s ease-out",
+              }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+                  <div style={{
+                    width: "48px", height: "48px", borderRadius: "50%", background: "#fef2f2",
+                    display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px",
+                    border: "2px solid #fecaca",
+                  }}>
+                    <Trash2 size={22} color="#dc2626" />
+                  </div>
+                  <div style={{ fontSize: "16px", fontWeight: 700, color: "#1e293b", marginBottom: "8px" }}>Xóa công việc?</div>
+                  <div style={{ fontSize: "13px", color: "#6b7280", marginBottom: "6px", lineHeight: "1.5" }}>
+                    Hành động này không thể hoàn tác. Công việc sau sẽ bị xóa vĩnh viễn:
+                  </div>
+                  <div style={{
+                    fontSize: "13px", fontWeight: 600, color: "#dc2626", background: "#fef2f2",
+                    padding: "8px 14px", borderRadius: "8px", marginBottom: "20px",
+                    maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    &quot;{detail?.title || todo.title}&quot;
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    style={{
+                      flex: 1, padding: "10px", borderRadius: "10px", border: "1.5px solid #d1d5db",
+                      background: "#fff", fontSize: "14px", fontWeight: 600, color: "#374151",
+                      cursor: "pointer", transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+                  >Hủy</button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    style={{
+                      flex: 1, padding: "10px", borderRadius: "10px", border: "none",
+                      background: deleting ? "#f87171" : "#dc2626", fontSize: "14px", fontWeight: 600, color: "#fff",
+                      cursor: deleting ? "not-allowed" : "pointer", transition: "all 0.15s",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                    }}
+                    onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = "#b91c1c"; }}
+                    onMouseLeave={e => { if (!deleting) e.currentTarget.style.background = "#dc2626"; }}
+                  >
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    {deleting ? "Đang xóa..." : "Xóa"}
+                  </button>
+                </div>
+              </div>
+              <style>{`@keyframes confirmPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
+            </>
+          )}
+          </>
         )}
       </div>
     </>,
@@ -403,10 +474,24 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   };
 
   // Delete
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleting, setConfirmDeleting] = useState(false);
+  const confirmDeleteTodo = confirmDeleteId ? todos.find((t: any) => t.id === confirmDeleteId) : null;
+
   const handleDeleteTodo = async (id: string) => {
-    if (!confirm("Xóa công việc này?")) return;
-    await fetch(`/api/todos/${id}`, { method: "DELETE" });
-    fetchTodos(); fetchStats();
+    setConfirmDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (!confirmDeleteId) return;
+    setConfirmDeleting(true);
+    try {
+      await fetch(`/api/todos/${confirmDeleteId}`, { method: "DELETE" });
+      fetchTodos(); fetchStats();
+    } finally {
+      setConfirmDeleting(false);
+      setConfirmDeleteId(null);
+    }
   };
 
   // Update from detail panel
@@ -719,6 +804,68 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
           userName={userName}
           userRole={userRole}
         />
+      )}
+      {/* List-level Delete Confirmation Dialog */}
+      {confirmDeleteId && (
+        <>
+          <div onClick={() => setConfirmDeleteId(null)} style={{ position: "fixed", inset: 0, zIndex: 10100, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }} />
+          <div style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            zIndex: 10101, width: "400px", maxWidth: "calc(100vw - 32px)",
+            background: "#fff", borderRadius: "16px", border: "1.5px solid #fecaca",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.15)", padding: "28px",
+            animation: "confirmPopIn 0.2s ease-out",
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <div style={{
+                width: "48px", height: "48px", borderRadius: "50%", background: "#fef2f2",
+                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px",
+                border: "2px solid #fecaca",
+              }}>
+                <Trash2 size={22} color="#dc2626" />
+              </div>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: "#1e293b", marginBottom: "8px" }}>Xóa công việc?</div>
+              <div style={{ fontSize: "13px", color: "#6b7280", marginBottom: "6px", lineHeight: "1.5" }}>
+                Hành động này không thể hoàn tác. Công việc sau sẽ bị xóa vĩnh viễn:
+              </div>
+              <div style={{
+                fontSize: "13px", fontWeight: 600, color: "#dc2626", background: "#fef2f2",
+                padding: "8px 14px", borderRadius: "8px", marginBottom: "20px",
+                maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                &quot;{confirmDeleteTodo?.title || ""}&quot;
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                style={{
+                  flex: 1, padding: "10px", borderRadius: "10px", border: "1.5px solid #d1d5db",
+                  background: "#fff", fontSize: "14px", fontWeight: 600, color: "#374151",
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+              >Hủy</button>
+              <button
+                onClick={executeDelete}
+                disabled={confirmDeleting}
+                style={{
+                  flex: 1, padding: "10px", borderRadius: "10px", border: "none",
+                  background: confirmDeleting ? "#f87171" : "#dc2626", fontSize: "14px", fontWeight: 600, color: "#fff",
+                  cursor: confirmDeleting ? "not-allowed" : "pointer", transition: "all 0.15s",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                }}
+                onMouseEnter={e => { if (!confirmDeleting) e.currentTarget.style.background = "#b91c1c"; }}
+                onMouseLeave={e => { if (!confirmDeleting) e.currentTarget.style.background = "#dc2626"; }}
+              >
+                {confirmDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {confirmDeleting ? "Đang xóa..." : "Xóa"}
+              </button>
+            </div>
+          </div>
+          <style>{`@keyframes confirmPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
+        </>
       )}
 
       {/* Reminder popup */}

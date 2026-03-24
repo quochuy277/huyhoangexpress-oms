@@ -11,11 +11,17 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const month = url.searchParams.get("month");
+    const fromParam = url.searchParams.get("from");
+    const toParam = url.searchParams.get("to");
     const category = url.searchParams.get("category");
     const search = url.searchParams.get("search");
 
     const where: Record<string, unknown> = {};
-    if (month) {
+    if (fromParam && toParam) {
+      const toDate = new Date(toParam);
+      toDate.setHours(23, 59, 59, 999);
+      where.date = { gte: new Date(fromParam), lte: toDate };
+    } else if (month) {
       const [y, m] = month.split("-").map(Number);
       where.date = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0) };
     }

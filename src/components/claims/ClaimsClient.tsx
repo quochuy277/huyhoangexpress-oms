@@ -833,7 +833,7 @@ function ClaimDetailPanel({
    ============================================================ */
 function StatusDropdown({
   claimId, currentStatus, onUpdate,
-}: { claimId: string; currentStatus: string; onUpdate: () => void }) {
+}: { claimId: string; currentStatus: string; onUpdate: (newStatus: string) => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -850,6 +850,8 @@ function StatusDropdown({
 
   const changeStatus = async (newStatus: string) => {
     if (newStatus === currentStatus) { setOpen(false); return; }
+    setOpen(false);
+    onUpdate(newStatus); // optimistic update ngay lập tức
     setLoading(true);
     try {
       await fetch(`/api/claims/${claimId}`, {
@@ -857,10 +859,8 @@ function StatusDropdown({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ claimStatus: newStatus }),
       });
-      onUpdate();
     } finally {
       setLoading(false);
-      setOpen(false);
     }
   };
 
@@ -909,7 +909,7 @@ function StatusDropdown({
    ============================================================ */
 function ProcessingContentPopup({
   claimId, open, onClose, initialContent, onUpdate,
-}: { claimId: string; open: boolean; onClose: () => void; initialContent: string; onUpdate: () => void }) {
+}: { claimId: string; open: boolean; onClose: () => void; initialContent: string; onUpdate: (content: string) => void }) {
   const [content, setContent] = useState(initialContent || "");
   const [saving, setSaving] = useState(false);
 
@@ -923,7 +923,7 @@ function ProcessingContentPopup({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ processingContent: content }),
       });
-      onUpdate();
+      onUpdate(content); // trả content về để optimistic update
       onClose();
     } finally {
       setSaving(false);
@@ -1189,22 +1189,27 @@ export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) 
     }
   };
 
+  // Cập nhật optimistic: chỉ cập nhật row trong state, không reload toàn bảng
+  const updateClaimLocal = useCallback((id: string, changes: Record<string, any>) => {
+    setClaims(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
+  }, []);
+
   const handleInlineEdit = async (claimId: string, field: string, value: number) => {
+    updateClaimLocal(claimId, { [field]: value });
     await fetch(`/api/claims/${claimId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
     });
-    fetchClaims();
   };
 
   const handleInlineEditField = async (claimId: string, field: string, value: string | null) => {
+    updateClaimLocal(claimId, { [field]: value });
     await fetch(`/api/claims/${claimId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
     });
-    fetchClaims();
   };
 
   const handleDelete = (claimId: string, requestCode: string) => {
@@ -1665,7 +1670,11 @@ export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) 
                       </td>
                       {/* 11. TT Xử Lý */}
                       <td style={{ padding: "6px" }}>
-                        <StatusDropdown claimId={c.id} currentStatus={c.claimStatus} onUpdate={fetchClaims} />
+                        <StatusDropdown
+                          claimId={c.id}
+                          currentStatus={c.claimStatus}
+                          onUpdate={(newStatus) => updateClaimLocal(c.id, { claimStatus: newStatus })}
+                        />
                       </td>
                       {/* 12. ND XL */}
                       <td style={{ padding: "6px" }}>
@@ -1831,7 +1840,7 @@ export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) 
           open={true}
           onClose={() => setProcessingPopup(null)}
           initialContent={processingPopup.content}
-          onUpdate={fetchClaims}
+          onUpdate={(content) => updateClaimLocal(processingPopup.id, { processingContent: content })}
         />
       )}
 
