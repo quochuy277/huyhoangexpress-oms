@@ -74,9 +74,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   userRole: string;
+  baseZIndex?: number;
 }
 
-export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Props) {
+export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZIndex = 9998 }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -218,11 +219,11 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
 
   return createPortal(
     <>
-      <div style={overlayStyle} onClick={onClose} />
+      <div style={{ ...overlayStyle, zIndex: baseZIndex }} onClick={onClose} />
       <div
         style={{
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-          zIndex: 9999, background: "#FFFFFF", border: "1.5px solid #2563EB",
+          zIndex: baseZIndex + 1, background: "#FFFFFF", border: "1.5px solid #2563EB",
           borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
           width: "min(900px, calc(100vw - 16px))", maxHeight: "90vh",
           display: "flex", flexDirection: "column",

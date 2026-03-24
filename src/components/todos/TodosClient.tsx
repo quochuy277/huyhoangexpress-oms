@@ -378,6 +378,7 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
         open={!!orderDetailCode}
         onClose={() => setOrderDetailCode(null)}
         userRole={userRole}
+        baseZIndex={10200}
       />
     </>,
     document.body
