@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import dynamic from "next/dynamic";
 
-const TodosClient = dynamic(() => import("@/components/todos/TodosClient"), { ssr: false, loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
+const TodosClient = dynamic(() => import("@/components/todos/TodosClient"));
 
 export default async function TodosPage() {
   const session = await auth();
