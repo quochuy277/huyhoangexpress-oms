@@ -34,22 +34,22 @@ interface ChangeTypeConfig {
 }
 
 const CHANGE_TYPE_CONFIG: Record<OrderChangeType, ChangeTypeConfig> = {
-  STATUS_CHANGE:         { label: "Đổi trạng thái",   icon: "🔄", color: "text-blue-700",    bgColor: "bg-blue-50",    borderColor: "border-blue-200" },
-  CARRIER_FEE_CONFIRMED: { label: "XN phí NVC",       icon: "💰", color: "text-amber-700",   bgColor: "bg-amber-50",   borderColor: "border-amber-200" },
-  COD_CONFIRMED:         { label: "Thanh toán COD",    icon: "💵", color: "text-green-700",   bgColor: "bg-green-50",   borderColor: "border-green-200" },
-  SERVICE_FEE_CHANGE:    { label: "Đổi tổng phí",     icon: "💲", color: "text-cyan-700",    bgColor: "bg-cyan-50",    borderColor: "border-cyan-200" },
-  SURCHARGE_CHANGE:      { label: "Đổi phụ phí",      icon: "📋", color: "text-indigo-700",  bgColor: "bg-indigo-50",  borderColor: "border-indigo-200" },
-  COD_AMOUNT_CHANGE:     { label: "Đổi tiền hàng",    icon: "💳", color: "text-pink-700",    bgColor: "bg-pink-50",    borderColor: "border-pink-200" },
-  WEIGHT_CHANGE:         { label: "Đổi khối lượng",   icon: "⚖️", color: "text-orange-700",  bgColor: "bg-orange-50",  borderColor: "border-orange-200" },
-  CARRIER_SWITCH:        { label: "Đổi NVC",          icon: "🔀", color: "text-teal-700",    bgColor: "bg-teal-50",    borderColor: "border-teal-200" },
-  RECIPIENT_CHANGE:      { label: "Đổi người nhận",   icon: "👤", color: "text-sky-700",     bgColor: "bg-sky-50",     borderColor: "border-sky-200" },
-  RETURN_COMPLETED:      { label: "Trả hàng",         icon: "📦", color: "text-emerald-700", bgColor: "bg-emerald-50", borderColor: "border-emerald-200" },
-  CLAIM_RELATED:         { label: "Khiếu nại/ĐB",    icon: "⚠️", color: "text-red-700",     bgColor: "bg-red-50",     borderColor: "border-red-200" },
-  RETURN_APPROVED:       { label: "Duyệt hoàn",       icon: "✅", color: "text-emerald-700", bgColor: "bg-emerald-50", borderColor: "border-emerald-200" },
-  INTERNAL_STATUS_NOTE:  { label: "NV đổi TT nội bộ", icon: "🏷️", color: "text-violet-700", bgColor: "bg-violet-50",  borderColor: "border-violet-200" },
-  STAFF_NOTE:            { label: "Ghi chú NV",       icon: "📝", color: "text-slate-700",   bgColor: "bg-slate-50",   borderColor: "border-slate-200" },
-  REDELIVER:             { label: "Kéo giao lại",     icon: "🔁", color: "text-sky-700",     bgColor: "bg-sky-50",     borderColor: "border-sky-200" },
-  OTHER:                 { label: "Khác",             icon: "➕", color: "text-gray-700",    bgColor: "bg-gray-50",    borderColor: "border-gray-200" },
+  STATUS_CHANGE: { label: "Đổi trạng thái", icon: "🔄", color: "text-blue-700", bgColor: "bg-blue-50", borderColor: "border-blue-200" },
+  CARRIER_FEE_CONFIRMED: { label: "XN phí NVC", icon: "💰", color: "text-amber-700", bgColor: "bg-amber-50", borderColor: "border-amber-200" },
+  COD_CONFIRMED: { label: "Thanh toán COD", icon: "💵", color: "text-green-700", bgColor: "bg-green-50", borderColor: "border-green-200" },
+  SERVICE_FEE_CHANGE: { label: "Đổi tổng phí", icon: "💲", color: "text-cyan-700", bgColor: "bg-cyan-50", borderColor: "border-cyan-200" },
+  SURCHARGE_CHANGE: { label: "Đổi phụ phí", icon: "📋", color: "text-indigo-700", bgColor: "bg-indigo-50", borderColor: "border-indigo-200" },
+  COD_AMOUNT_CHANGE: { label: "Đổi tiền hàng", icon: "💳", color: "text-pink-700", bgColor: "bg-pink-50", borderColor: "border-pink-200" },
+  WEIGHT_CHANGE: { label: "Đổi khối lượng", icon: "⚖️", color: "text-orange-700", bgColor: "bg-orange-50", borderColor: "border-orange-200" },
+  CARRIER_SWITCH: { label: "Đổi NVC", icon: "🔀", color: "text-teal-700", bgColor: "bg-teal-50", borderColor: "border-teal-200" },
+  RECIPIENT_CHANGE: { label: "Đổi người nhận", icon: "👤", color: "text-sky-700", bgColor: "bg-sky-50", borderColor: "border-sky-200" },
+  RETURN_COMPLETED: { label: "Trả hàng", icon: "📦", color: "text-emerald-700", bgColor: "bg-emerald-50", borderColor: "border-emerald-200" },
+  CLAIM_RELATED: { label: "Khiếu nại/ĐB", icon: "⚠️", color: "text-red-700", bgColor: "bg-red-50", borderColor: "border-red-200" },
+  RETURN_APPROVED: { label: "Duyệt hoàn", icon: "✅", color: "text-emerald-700", bgColor: "bg-emerald-50", borderColor: "border-emerald-200" },
+  INTERNAL_STATUS_NOTE: { label: "NV đổi TT nội bộ", icon: "🏷️", color: "text-violet-700", bgColor: "bg-violet-50", borderColor: "border-violet-200" },
+  STAFF_NOTE: { label: "Ghi chú NV", icon: "📝", color: "text-slate-700", bgColor: "bg-slate-50", borderColor: "border-slate-200" },
+  REDELIVER: { label: "Kéo giao lại", icon: "🔁", color: "text-sky-700", bgColor: "bg-sky-50", borderColor: "border-sky-200" },
+  OTHER: { label: "Khác", icon: "➕", color: "text-gray-700", bgColor: "bg-gray-50", borderColor: "border-gray-200" },
 };
 
 // Stat card rows layout
@@ -259,6 +259,7 @@ export function OrderChangesTab() {
             {batches.map((b) => (
               <option key={b.id} value={b.id}>
                 {new Date(b.uploadedAt).toLocaleString("vi-VN", {
+                  timeZone: "Asia/Ho_Chi_Minh",
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
@@ -329,10 +330,9 @@ export function OrderChangesTab() {
                       className={`
                         flex items-center gap-2 px-3 py-2 rounded-lg border text-left
                         transition-all duration-150 hover:shadow-sm
-                        ${
-                          isActive
-                            ? `${config.bgColor} ${config.borderColor} ring-1 ring-offset-1 ring-blue-400`
-                            : `bg-white border-slate-200 hover:${config.bgColor}`
+                        ${isActive
+                          ? `${config.bgColor} ${config.borderColor} ring-1 ring-offset-1 ring-blue-400`
+                          : `bg-white border-slate-200 hover:${config.bgColor}`
                         }
                       `}
                     >
@@ -445,18 +445,18 @@ export function OrderChangesTab() {
             searchCode ||
             shopFilter ||
             carrierFilter) && (
-            <button
-              onClick={() => {
-                setSelectedTypes([]);
-                setSearchCode("");
-                setShopFilter("");
-                setCarrierFilter("");
-              }}
-              className="flex items-center gap-1 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg"
-            >
-              <X className="w-3 h-3" /> Xóa filter
-            </button>
-          )}
+              <button
+                onClick={() => {
+                  setSelectedTypes([]);
+                  setSearchCode("");
+                  setShopFilter("");
+                  setCarrierFilter("");
+                }}
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <X className="w-3 h-3" /> Xóa filter
+              </button>
+            )}
         </div>
       </div>
 
@@ -477,18 +477,16 @@ export function OrderChangesTab() {
                 ].map((col) => (
                   <th
                     key={col.key}
-                    className={`px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider text-left ${col.w} ${
-                      col.sortable ? "cursor-pointer hover:text-slate-700 select-none" : ""
-                    }`}
+                    className={`px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider text-left ${col.w} ${col.sortable ? "cursor-pointer hover:text-slate-700 select-none" : ""
+                      }`}
                     onClick={() => col.sortable && handleSort(col.key)}
                   >
                     <div className="flex items-center gap-1">
                       {col.label}
                       {col.sortable && (
                         <ArrowUpDown
-                          className={`w-3 h-3 ${
-                            sortBy === col.key ? "text-blue-500" : "text-slate-300"
-                          }`}
+                          className={`w-3 h-3 ${sortBy === col.key ? "text-blue-500" : "text-slate-300"
+                            }`}
                         />
                       )}
                     </div>
@@ -622,9 +620,9 @@ export function OrderChangesTab() {
             <p className="text-xs text-slate-500">
               {changesData.total > 0
                 ? `${(changesData.page - 1) * changesData.pageSize + 1}–${Math.min(
-                    changesData.page * changesData.pageSize,
-                    changesData.total
-                  )} / ${changesData.total.toLocaleString("vi-VN")} thay đổi`
+                  changesData.page * changesData.pageSize,
+                  changesData.total
+                )} / ${changesData.total.toLocaleString("vi-VN")} thay đổi`
                 : "0 thay đổi"}
             </p>
             <div className="flex items-center gap-1">

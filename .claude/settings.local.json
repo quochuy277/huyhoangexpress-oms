@@ -7,7 +7,19 @@
       "Bash(grep -rn AUTH_SECRET /e/AAA_CODE/Order_Manager/ --include=*.ts --include=*.env* --include=*.mjs)",
       "Bash(ls /e/AAA_CODE/Order_Manager/.env*)",
       "Bash(grep -rn \"huyhoang\\\\|AUTH_SECRET\" /e/AAA_CODE/Order_Manager/src/ --include=*.ts --include=*.tsx)",
-      "Bash(grep -rn \"prisma.user.update\\\\|prisma.user.findUnique\" /e/AAA_CODE/Order_Manager/src/app/api/admin/users/[id]/password/route.ts)"
+      "Bash(grep -rn \"prisma.user.update\\\\|prisma.user.findUnique\" /e/AAA_CODE/Order_Manager/src/app/api/admin/users/[id]/password/route.ts)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Read(//c/Users/Admin/.claude/plugins/marketplaces/claude-plugins-official/plugins/**)",
+      "Read(//c/Users/Admin/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Bash(find ~/.claude -name installed*.json -o -name *.plugins.json)",
+      "Bash(find ~/.claude -name *.json)",
+      "Bash(xargs ls:*)",
+      "Bash(git clone:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d[''''plugins''''][:3], indent=2\\)\\)\")",
+      "Bash(xargs grep:*)"
     ]
   }
 }

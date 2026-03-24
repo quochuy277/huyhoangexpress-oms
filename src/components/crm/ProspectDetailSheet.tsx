@@ -61,7 +61,7 @@ const RESULTS = [
 
 function formatDate(date: string | Date | null) {
   if (!date) return "—";
-  return new Date(date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export function ProspectDetailSheet({ prospectId, userId, userName, onClose, onMarkLost, onReopen }: ProspectDetailSheetProps) {
@@ -177,8 +177,8 @@ export function ProspectDetailSheet({ prospectId, userId, userName, onClose, onM
                           isActive
                             ? "bg-blue-600 text-white border-blue-600 scale-105 shadow-sm"
                             : isPast
-                            ? "bg-blue-100 text-blue-700 border-blue-200"
-                            : "bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100",
+                              ? "bg-blue-100 text-blue-700 border-blue-200"
+                              : "bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100",
                           prospect.isLost && "opacity-50 cursor-not-allowed"
                         )}
                       >

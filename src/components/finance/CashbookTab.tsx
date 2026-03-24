@@ -179,7 +179,7 @@ export default function CashbookTab() {
                 return (
                   <tr key={t.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                     <td style={{ padding: 6 }}>{(pagination.page - 1) * pagination.pageSize + i + 1}</td>
-                    <td style={{ padding: 6, whiteSpace: "nowrap" }}>{new Date(t.transactionTime).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td style={{ padding: 6, whiteSpace: "nowrap" }}>{new Date(t.transactionTime).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
                     <td style={{ padding: 6, fontSize: 12 }}>{t.receiptCode}</td>
                     <td style={{ padding: 6, textAlign: "center" }}><span style={{ background: g.color, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{g.label}</span></td>
                     <td style={{ padding: 6, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.content}</td>

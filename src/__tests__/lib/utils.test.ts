@@ -61,10 +61,11 @@ describe("formatNumber", () => {
 // formatDate
 // ============================================================
 describe("formatDate", () => {
-  it("formats Date object to DD/MM/YYYY HH:mm", () => {
-    const d = new Date(2024, 11, 25, 14, 30); // 25/12/2024 14:30
-    const result = formatDate(d);
-    expect(result).toBe("25/12/2024 14:30");
+  it("formats UTC ISO string to Vietnam timezone (UTC+7)", () => {
+    // 2024-12-25 07:30 UTC = 2024-12-25 14:30 Vietnam
+    const result = formatDate("2024-12-25T07:30:00.000Z");
+    expect(result).toMatch(/25\/12\/2024/);
+    expect(result).toMatch(/14:30/);
   });
 
   it("returns '—' for null", () => {
@@ -79,14 +80,18 @@ describe("formatDate", () => {
     expect(formatDate("not-a-date")).toBe("—");
   });
 
-  it("formats ISO string", () => {
-    const result = formatDate("2024-06-15T08:00:00.000Z");
-    expect(result).toMatch(/\d{2}\/\d{2}\/2024 \d{2}:\d{2}/);
+  it("formats ISO string with correct timezone offset", () => {
+    // 2024-06-15 01:00 UTC = 2024-06-15 08:00 Vietnam
+    const result = formatDate("2024-06-15T01:00:00.000Z");
+    expect(result).toMatch(/15\/06\/2024/);
+    expect(result).toMatch(/08:00/);
   });
 
-  it("pads single digit day and month", () => {
-    const d = new Date(2024, 0, 5, 9, 5); // 05/01/2024 09:05
-    expect(formatDate(d)).toBe("05/01/2024 09:05");
+  it("handles midnight UTC correctly (shows next day in Vietnam)", () => {
+    // 2024-03-23 18:04 UTC = 2024-03-24 01:04 Vietnam
+    const result = formatDate("2024-03-23T18:04:00.000Z");
+    expect(result).toMatch(/24\/03\/2024/);
+    expect(result).toMatch(/01:04/);
   });
 });
 
@@ -94,9 +99,10 @@ describe("formatDate", () => {
 // formatDateOnly
 // ============================================================
 describe("formatDateOnly", () => {
-  it("formats Date object to DD/MM/YYYY", () => {
-    const d = new Date(2024, 11, 25);
-    expect(formatDateOnly(d)).toBe("25/12/2024");
+  it("formats UTC ISO string to Vietnam date", () => {
+    // 2024-12-25 00:00 UTC = 2024-12-25 07:00 Vietnam → 25/12/2024
+    const result = formatDateOnly("2024-12-25T00:00:00.000Z");
+    expect(result).toBe("25/12/2024");
   });
 
   it("returns '—' for null", () => {
@@ -111,9 +117,10 @@ describe("formatDateOnly", () => {
     expect(formatDateOnly("invalid")).toBe("—");
   });
 
-  it("pads single digit day and month", () => {
-    const d = new Date(2024, 0, 3); // 03/01/2024
-    expect(formatDateOnly(d)).toBe("03/01/2024");
+  it("handles date near UTC midnight correctly", () => {
+    // 2024-01-02 20:00 UTC = 2024-01-03 03:00 Vietnam → 03/01/2024
+    const result = formatDateOnly("2024-01-02T20:00:00.000Z");
+    expect(result).toBe("03/01/2024");
   });
 });
 

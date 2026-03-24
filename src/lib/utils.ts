@@ -22,35 +22,45 @@ export function formatVND(amount: number | { toNumber?: () => number } | null | 
 }
 
 /**
- * Format Date to Vietnamese format DD/MM/YYYY HH:mm
+ * Vietnam timezone constant — used across all date formatting
+ */
+const VN_TIMEZONE = "Asia/Ho_Chi_Minh";
+
+/**
+ * Format Date to Vietnamese format HH:mm DD/MM/YYYY
+ * Always uses Vietnam timezone (UTC+7) regardless of server/client timezone
  */
 export function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
   if (isNaN(d.getTime())) return "—";
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
+  return d.toLocaleString("vi-VN", {
+    timeZone: VN_TIMEZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 /**
  * Format Date to DD/MM/YYYY (date only, no time)
+ * Always uses Vietnam timezone (UTC+7) regardless of server/client timezone
  */
 export function formatDateOnly(date: Date | string | null | undefined): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
   if (isNaN(d.getTime())) return "—";
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-
-  return `${day}/${month}/${year}`;
+  return d.toLocaleDateString("vi-VN", {
+    timeZone: VN_TIMEZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 /**

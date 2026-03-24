@@ -81,7 +81,7 @@ function formatVND(amount: number) {
 
 function formatDate(date: string | Date | null) {
   if (!date) return "—";
-  return new Date(date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 interface EditableProfileState {
@@ -496,8 +496,8 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, onClose,
                         </div>
                         <span className={cn("text-xs px-2 py-0.5 rounded-full border shrink-0",
                           todo.status === "DONE" ? "bg-green-50 text-green-700 border-green-200" :
-                          todo.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                          "bg-slate-50 text-slate-600 border-slate-200"
+                            todo.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                              "bg-slate-50 text-slate-600 border-slate-200"
                         )}>
                           {todo.status === "DONE" ? "Xong" : todo.status === "IN_PROGRESS" ? "Đang làm" : "Cần làm"}
                         </span>
