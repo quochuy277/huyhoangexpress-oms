@@ -7,6 +7,7 @@ import { detectOrderChanges } from "@/lib/change-detector";
 import type { DetectedChange } from "@/lib/change-detector";
 import type { ParsedOrder } from "@/lib/excel-parser";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { createAutoDetectedClaims } from "@/lib/claim-detector";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -336,7 +337,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 8. Return result
+  // 8. Chạy auto-detect claims trong nền sau khi upload orders xong
+  // Không await - không block response, lỗi được bỏ qua (non-critical)
+  createAutoDetectedClaims(session.user.id).catch((err) =>
+    console.error("Auto-detect claims after upload failed:", err)
+  );
+
+  // 9. Return result
   return NextResponse.json({
     success: true,
     summary: {

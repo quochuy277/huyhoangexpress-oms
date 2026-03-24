@@ -351,6 +351,42 @@ function getDisplayValue(fieldName: string, value: string | null): string {
 /* ============================================================
    DETAIL PANEL — Redesigned 700px with inline editing
    ============================================================ */
+/* Editable fields buffered locally before manual save */
+type LocalEdits = {
+  issueType: string;
+  issueDescription: string;
+  deadline: string; // "YYYY-MM-DD" or ""
+  claimStatus: string;
+  processingContent: string;
+  carrierCompensation: number;
+  customerCompensation: number;
+};
+
+function toLocalEdits(d: any): LocalEdits {
+  return {
+    issueType: d.issueType || "",
+    issueDescription: d.issueDescription || "",
+    deadline: d.deadline ? new Date(d.deadline).toISOString().split("T")[0] : "",
+    claimStatus: d.claimStatus || "",
+    processingContent: d.processingContent || "",
+    carrierCompensation: d.carrierCompensation || 0,
+    customerCompensation: d.customerCompensation || 0,
+  };
+}
+
+function computeIsDirty(edits: LocalEdits, original: any): boolean {
+  const origDeadline = original.deadline ? new Date(original.deadline).toISOString().split("T")[0] : "";
+  return (
+    edits.issueType !== (original.issueType || "") ||
+    edits.issueDescription !== (original.issueDescription || "") ||
+    edits.deadline !== origDeadline ||
+    edits.claimStatus !== (original.claimStatus || "") ||
+    edits.processingContent !== (original.processingContent || "") ||
+    Number(edits.carrierCompensation) !== Number(original.carrierCompensation || 0) ||
+    Number(edits.customerCompensation) !== Number(original.customerCompensation || 0)
+  );
+}
+
 function ClaimDetailPanel({
   claimId, open, onClose, onUpdate, onAddTodo, onComplete, onDelete, onTrackOrder,
 }: {
@@ -363,6 +399,8 @@ function ClaimDetailPanel({
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [edits, setEdits] = useState<LocalEdits | null>(null);
 
   const fetchDetail = useCallback(() => {
     if (!claimId) return;
@@ -377,39 +415,67 @@ function ClaimDetailPanel({
     if (open && claimId) fetchDetail();
   }, [open, claimId, fetchDetail]);
 
-  const saveField = async (field: string, value: any) => {
+  // Khi data load về (lần đầu hoặc sau khi save), sync localEdits
+  useEffect(() => {
+    if (data) setEdits(toLocalEdits(data));
+  }, [data]);
+
+  const isDirty = !!(data && edits && computeIsDirty(edits, data));
+  const canEditCarrierComp = edits?.claimStatus === "CARRIER_COMPENSATED";
+  const canEditCustomerComp = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"].includes(edits?.claimStatus || "");
+
+  const setEdit = <K extends keyof LocalEdits>(field: K, value: LocalEdits[K]) => {
+    setEdits(prev => prev ? { ...prev, [field]: value } : prev);
+  };
+
+  const handleSave = async () => {
+    if (!data || !edits || !isDirty) return;
+    // Build diff — chỉ gửi các field thực sự thay đổi
+    const changes: Record<string, any> = {};
+    if (edits.issueType !== (data.issueType || "")) changes.issueType = edits.issueType;
+    if (edits.issueDescription !== (data.issueDescription || "")) changes.issueDescription = edits.issueDescription || null;
+    const origDeadline = data.deadline ? new Date(data.deadline).toISOString().split("T")[0] : "";
+    if (edits.deadline !== origDeadline) changes.deadline = edits.deadline || null;
+    if (edits.claimStatus !== (data.claimStatus || "")) changes.claimStatus = edits.claimStatus;
+    if (edits.processingContent !== (data.processingContent || "")) changes.processingContent = edits.processingContent || null;
+    if (Number(edits.carrierCompensation) !== Number(data.carrierCompensation || 0)) changes.carrierCompensation = Number(edits.carrierCompensation) || 0;
+    if (Number(edits.customerCompensation) !== Number(data.customerCompensation || 0)) changes.customerCompensation = Number(edits.customerCompensation) || 0;
+
     setSaving(true);
     try {
       await fetch(`/api/claims/${claimId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify(changes),
       });
-      fetchDetail();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+      fetchDetail(); // Reload data → triggers useEffect → resets edits
       onUpdate?.();
     } finally {
       setSaving(false);
     }
   };
 
-  if (!open) return null;
+  const handleReset = () => {
+    if (data) setEdits(toLocalEdits(data));
+  };
 
-  const statusCfg = data ? CLAIM_STATUS_CONFIG[data.claimStatus] : null;
-  const canEditCarrierComp = data?.claimStatus === "CARRIER_COMPENSATED";
-  const canEditCustomerComp = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"].includes(data?.claimStatus);
+  const handleClose = () => {
+    if (isDirty && !confirm("Bạn có thay đổi chưa lưu. Thoát mà không lưu?")) return;
+    onClose();
+  };
+
+  if (!open) return null;
 
   // Merge statusHistory + changeLogs into unified timeline
   const timeline: any[] = [];
   if (data?.statusHistory) {
-    data.statusHistory.forEach((h: any) => {
-      timeline.push({ type: "status", ...h });
-    });
+    data.statusHistory.forEach((h: any) => { timeline.push({ type: "status", ...h }); });
   }
   if (data?.changeLogs) {
     data.changeLogs.forEach((l: any) => {
-      if (l.fieldName !== "claimStatus") { // status changes already in statusHistory
-        timeline.push({ type: "change", ...l });
-      }
+      if (l.fieldName !== "claimStatus") timeline.push({ type: "change", ...l });
     });
   }
   timeline.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
@@ -429,12 +495,13 @@ function ClaimDetailPanel({
 
   return createPortal(
     <>
-      <div style={overlayStyle} onClick={onClose} />
+      <div style={overlayStyle} onClick={handleClose} />
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0, width: "min(700px, 100vw)",
-        zIndex: 9999, background: "#f8fafc", borderLeft: "2px solid #2563EB",
+        zIndex: 9999, background: "#f8fafc", borderLeft: `2px solid ${isDirty ? "#f59e0b" : "#2563EB"}`,
         boxShadow: "-12px 0 40px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column",
         animation: "slideIn 0.25s ease-out",
+        transition: "border-color 0.2s",
       }}>
         {/* Header */}
         <div style={{
@@ -442,32 +509,40 @@ function ClaimDetailPanel({
           padding: "12px 16px", background: "#fff", borderBottom: "1px solid #e5e7eb",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ padding: "6px", borderRadius: "8px", background: "#eff6ff" }}>
-              <ShieldAlert size={18} color="#2563EB" />
+            <div style={{ padding: "6px", borderRadius: "8px", background: isDirty ? "#fef3c7" : "#eff6ff" }}>
+              <ShieldAlert size={18} color={isDirty ? "#d97706" : "#2563EB"} />
             </div>
             <div>
-              <div style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>Chi Tiết Đơn Có Vấn Đề</div>
+              <div style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "8px" }}>
+                Chi Tiết Đơn Có Vấn Đề
+                {isDirty && (
+                  <span style={{
+                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "99px",
+                    background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a",
+                    letterSpacing: "0.02em",
+                  }}>
+                    ● Chưa lưu
+                  </span>
+                )}
+                {saveSuccess && (
+                  <span style={{
+                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "99px",
+                    background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0",
+                  }}>
+                    ✓ Đã lưu
+                  </span>
+                )}
+              </div>
               {data?.order?.requestCode && (
                 <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "1px" }}>{data.order.requestCode}</div>
               )}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-            {saving && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
             {data && (
               <button
-                onClick={() => {
-                  const rc = data.order?.requestCode;
-                  if (rc && onTrackOrder) {
-                    onTrackOrder(rc);
-                  }
-                }}
-                style={{
-                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
-                  borderRadius: "8px", border: "1.5px solid #6ee7b7", background: "#ecfdf5",
-                  color: "#059669", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
+                onClick={() => { const rc = data.order?.requestCode; if (rc && onTrackOrder) onTrackOrder(rc); }}
+                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #6ee7b7", background: "#ecfdf5", color: "#059669", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "#d1fae5"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "#ecfdf5"; }}
                 title="Tra hành trình"
@@ -478,12 +553,7 @@ function ClaimDetailPanel({
             {data && onAddTodo && (
               <button
                 onClick={() => onAddTodo(data)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
-                  borderRadius: "8px", border: "1.5px solid #93c5fd", background: "#eff6ff",
-                  color: "#2563EB", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #93c5fd", background: "#eff6ff", color: "#2563EB", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "#dbeafe"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "#eff6ff"; }}
                 title="Thêm vào Công Việc"
@@ -495,13 +565,7 @@ function ClaimDetailPanel({
               <button
                 onClick={() => onComplete(claimId, data.order?.requestCode || "")}
                 disabled={!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted}
-                style={{
-                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
-                  borderRadius: "8px", border: "1.5px solid #bbf7d0", background: "#f0fdf4",
-                  color: "#16a34a", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                  transition: "all 0.15s",
-                  opacity: (!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted) ? 0.4 : 1,
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #bbf7d0", background: "#f0fdf4", color: "#16a34a", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s", opacity: (!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted) ? 0.4 : 1 }}
                 onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#dcfce7"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "#f0fdf4"; }}
                 title={data.isCompleted ? "Đã hoàn tất" : !COMPLETION_STATUSES.includes(data.claimStatus) ? "Chưa đủ điều kiện hoàn tất" : "Hoàn tất xử lý"}
@@ -512,12 +576,7 @@ function ClaimDetailPanel({
             {data && onDelete && (
               <button
                 onClick={() => onDelete(claimId, data.order?.requestCode || "")}
-                style={{
-                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
-                  borderRadius: "8px", border: "1.5px solid #fecaca", background: "#fef2f2",
-                  color: "#dc2626", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #fecaca", background: "#fef2f2", color: "#dc2626", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "#fee2e2"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "#fef2f2"; }}
                 title="Xóa đơn"
@@ -525,7 +584,7 @@ function ClaimDetailPanel({
                 <Trash2 size={13} /> Xóa
               </button>
             )}
-            <button onClick={onClose} style={{ ...closeBtnBase, width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={handleClose} style={{ ...closeBtnBase, width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X size={18} />
             </button>
           </div>
@@ -534,7 +593,7 @@ function ClaimDetailPanel({
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
           {loading && <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={24} /></div>}
-          {data && !loading && (
+          {data && edits && !loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
 
               {/* === Section 1: Thông tin đơn hàng === */}
@@ -560,12 +619,11 @@ function ClaimDetailPanel({
               <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #fde68a" }}>
                 {sectionTitle(<AlertTriangle size={14} color="#d97706" />, "Thông tin vấn đề")}
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {/* Loại VĐ — editable select */}
                   <div>
                     <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Loại vấn đề</label>
                     <select
-                      value={data.issueType}
-                      onChange={e => saveField("issueType", e.target.value)}
+                      value={edits.issueType}
+                      onChange={e => setEdit("issueType", e.target.value)}
                       style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px", cursor: "pointer" }}
                     >
                       {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
@@ -573,20 +631,15 @@ function ClaimDetailPanel({
                       ))}
                     </select>
                   </div>
-                  {/* Nội dung VĐ — editable textarea */}
                   <div>
                     <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Nội dung vấn đề</label>
                     <textarea
-                      defaultValue={data.issueDescription || ""}
-                      onBlur={e => {
-                        const v = e.target.value.trim();
-                        if (v !== (data.issueDescription || "")) saveField("issueDescription", v || null);
-                      }}
+                      value={edits.issueDescription}
+                      onChange={e => setEdit("issueDescription", e.target.value)}
                       placeholder="Mô tả chi tiết vấn đề..."
                       style={{ ...inputStyle, minHeight: "60px", resize: "vertical", fontSize: "13px" }}
                     />
                   </div>
-                  {/* Read-only dates */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
                     <div>
                       <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Ngày phát hiện</label>
@@ -601,13 +654,12 @@ function ClaimDetailPanel({
                       </div>
                     </div>
                   </div>
-                  {/* Thời hạn — editable */}
                   <div>
                     <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Thời hạn</label>
                     <input
                       type="date"
-                      defaultValue={data.deadline ? new Date(data.deadline).toISOString().split("T")[0] : ""}
-                      onChange={e => saveField("deadline", e.target.value || null)}
+                      value={edits.deadline}
+                      onChange={e => setEdit("deadline", e.target.value)}
                       style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
                     />
                   </div>
@@ -618,12 +670,11 @@ function ClaimDetailPanel({
               <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #bbf7d0" }}>
                 {sectionTitle(<FileText size={14} color="#16a34a" />, "Xử lý")}
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {/* TT Xử Lý — editable select */}
                   <div>
                     <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Trạng thái xử lý</label>
                     <select
-                      value={data.claimStatus}
-                      onChange={e => saveField("claimStatus", e.target.value)}
+                      value={edits.claimStatus}
+                      onChange={e => setEdit("claimStatus", e.target.value)}
                       style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px", cursor: "pointer" }}
                     >
                       {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
@@ -631,20 +682,15 @@ function ClaimDetailPanel({
                       ))}
                     </select>
                   </div>
-                  {/* ND XL — editable textarea */}
                   <div>
                     <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Nội dung xử lý</label>
                     <textarea
-                      defaultValue={data.processingContent || ""}
-                      onBlur={e => {
-                        const v = e.target.value.trim();
-                        if (v !== (data.processingContent || "")) saveField("processingContent", v || null);
-                      }}
+                      value={edits.processingContent}
+                      onChange={e => setEdit("processingContent", e.target.value)}
                       placeholder="Nhập nội dung xử lý..."
                       style={{ ...inputStyle, minHeight: "60px", resize: "vertical", fontSize: "13px" }}
                     />
                   </div>
-                  {/* Compensation fields — conditionally editable */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
                     <div>
                       <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>
@@ -654,11 +700,8 @@ function ClaimDetailPanel({
                       {canEditCarrierComp ? (
                         <input
                           type="number"
-                          defaultValue={data.carrierCompensation || 0}
-                          onBlur={e => {
-                            const v = parseFloat(e.target.value) || 0;
-                            if (v !== data.carrierCompensation) saveField("carrierCompensation", v);
-                          }}
+                          value={edits.carrierCompensation}
+                          onChange={e => setEdit("carrierCompensation", parseFloat(e.target.value) || 0)}
                           min={0}
                           style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
                         />
@@ -676,11 +719,8 @@ function ClaimDetailPanel({
                       {canEditCustomerComp ? (
                         <input
                           type="number"
-                          defaultValue={data.customerCompensation || 0}
-                          onBlur={e => {
-                            const v = parseFloat(e.target.value) || 0;
-                            if (v !== data.customerCompensation) saveField("customerCompensation", v);
-                          }}
+                          value={edits.customerCompensation}
+                          onChange={e => setEdit("customerCompensation", parseFloat(e.target.value) || 0)}
                           min={0}
                           style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
                         />
@@ -702,7 +742,7 @@ function ClaimDetailPanel({
                 ) : (
                   <div style={{ borderLeft: "2px solid #e2e8f0", paddingLeft: "16px", marginLeft: "6px" }}>
                     {timeline.map((item, i) => (
-                      <div key={item.id} style={{ position: "relative", marginBottom: "14px", paddingBottom: i < timeline.length - 1 ? "0" : "0" }}>
+                      <div key={item.id} style={{ position: "relative", marginBottom: "14px" }}>
                         <div style={{
                           position: "absolute", left: "-23px", top: "3px", width: "10px", height: "10px",
                           borderRadius: "50%",
@@ -710,21 +750,17 @@ function ClaimDetailPanel({
                           border: `2px solid ${i === 0 ? (item.type === "status" ? "#2563EB" : "#8b5cf6") : "#d1d5db"}`,
                         }} />
                         {item.type === "status" ? (
-                          <>
-                            <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
-                              <span style={{ color: "#6b7280", fontWeight: 400 }}>TT Xử lý → </span>
-                              {CLAIM_STATUS_CONFIG[item.toStatus]?.label || item.toStatus}
-                            </div>
-                          </>
+                          <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                            <span style={{ color: "#6b7280", fontWeight: 400 }}>TT Xử lý → </span>
+                            {CLAIM_STATUS_CONFIG[item.toStatus]?.label || item.toStatus}
+                          </div>
                         ) : (
                           <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
                             <span style={{ color: "#6b7280", fontWeight: 400 }}>{FIELD_LABEL_MAP[item.fieldName] || item.fieldName}: </span>
                             <span style={{ color: "#dc2626", textDecoration: "line-through", marginRight: "4px" }}>
                               {getDisplayValue(item.fieldName, item.oldValue)}
                             </span>
-                            → <span style={{ color: "#059669" }}>
-                              {getDisplayValue(item.fieldName, item.newValue)}
-                            </span>
+                            → <span style={{ color: "#059669" }}>{getDisplayValue(item.fieldName, item.newValue)}</span>
                           </div>
                         )}
                         <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
@@ -740,6 +776,51 @@ function ClaimDetailPanel({
             </div>
           )}
         </div>
+
+        {/* Footer: Save / Reset — chỉ hiển thị khi có data */}
+        {data && edits && (
+          <div style={{
+            padding: "12px 16px", background: "#fff", borderTop: "1px solid #e5e7eb",
+            display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end",
+          }}>
+            {isDirty && (
+              <button
+                onClick={handleReset}
+                disabled={saving}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px", padding: "8px 14px",
+                  borderRadius: "8px", border: "1.5px solid #d1d5db", background: "#fff",
+                  color: "#6b7280", fontSize: "13px", fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#f9fafb"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
+                title="Hoàn tác — bỏ tất cả thay đổi chưa lưu"
+              >
+                <RotateCcw size={13} /> Hoàn tác
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+              style={{
+                display: "flex", alignItems: "center", gap: "6px", padding: "8px 18px",
+                borderRadius: "8px",
+                border: isDirty ? "1.5px solid #2563EB" : "1.5px solid #d1d5db",
+                background: isDirty ? "#2563EB" : "#f9fafb",
+                color: isDirty ? "#fff" : "#9ca3af",
+                fontSize: "13px", fontWeight: 700, cursor: isDirty ? "pointer" : "default",
+                transition: "all 0.2s",
+                opacity: saving ? 0.7 : 1,
+              }}
+              onMouseEnter={e => { if (isDirty && !saving) e.currentTarget.style.background = "#1d4ed8"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isDirty ? "#2563EB" : "#f9fafb"; }}
+            >
+              {saving ? <Loader2 className="animate-spin" size={14} /> : <Check size={14} />}
+              {saving ? "Đang lưu..." : isDirty ? "Lưu thay đổi" : "Không có thay đổi"}
+            </button>
+          </div>
+        )}
       </div>
       <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity:0 } to { transform: translateX(0); opacity:1 } }`}</style>
     </>,
@@ -1085,8 +1166,7 @@ export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) 
     }
   };
 
-  // Run auto-detect silently in background on first load (does NOT block or re-trigger initial fetch)
-  useEffect(() => { runAutoDetect(); }, []);
+  // Auto-detect chỉ chạy khi user bấm nút hoặc sau khi upload Excel - không chạy tự động khi mount
 
   const handleComplete = (claimId: string, requestCode: string) => {
     setCompleteConfirm({ id: claimId, requestCode, loading: false, success: null });
