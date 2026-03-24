@@ -129,7 +129,7 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
         <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
           {/* Order summary */}
           <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", marginBottom: "16px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }} className="resp-grid-1-2">
               <div><span style={{ color: "#6b7280" }}>Mã YC: </span><strong>{order.requestCode}</strong></div>
               <div><span style={{ color: "#6b7280" }}>Đối tác: </span><strong>{order.carrierName || "—"}</strong></div>
               <div><span style={{ color: "#6b7280" }}>Shop: </span><strong>{order.shopName || "—"}</strong></div>
@@ -139,7 +139,7 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
 
           {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "10px 14px", marginBottom: "12px", color: "#dc2626", fontSize: "13px" }}>{error}</div>}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }} className="resp-grid-1-2">
             <div>
               <label style={labelStyle}>Loại Vấn Đề *</label>
               <select style={inputStyle} value={issueType} onChange={e => setIssueType(e.target.value)}>

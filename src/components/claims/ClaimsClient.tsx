@@ -254,7 +254,7 @@ function AddClaimDialog({
             <>
               {/* Order info summary */}
               <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", marginBottom: "16px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }} className="resp-grid-1-2">
                   <div><span style={{ color: "#6b7280" }}>Mã YC: </span><strong>{selected.requestCode}</strong></div>
                   <div><span style={{ color: "#6b7280" }}>Đối tác: </span><strong>{selected.carrierName}</strong></div>
                   <div><span style={{ color: "#6b7280" }}>Shop: </span><strong>{selected.shopName}</strong></div>
@@ -265,7 +265,7 @@ function AddClaimDialog({
               {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "10px 14px", marginBottom: "12px", color: "#dc2626", fontSize: "13px" }}>{error}</div>}
 
               {/* Required fields */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }} className="resp-grid-1-2">
                 <div>
                   <label style={labelStyle}>Loại Vấn Đề *</label>
                   <select
@@ -540,7 +540,7 @@ function ClaimDetailPanel({
               {/* === Section 1: Thông tin đơn hàng === */}
               <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
                 {sectionTitle(<Package size={14} color="#2563EB" />, "Thông tin đơn hàng")}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }} className="resp-grid-1-2">
                   {infoRow("Mã yêu cầu", <span style={{ color: "#2563EB", fontWeight: 700 }}>{data.order?.requestCode || "—"}</span>)}
                   {infoRow("Mã ĐT đối tác", data.order?.carrierOrderCode || "—")}
                   {infoRow("Cửa hàng", data.order?.shopName || "—")}
@@ -587,7 +587,7 @@ function ClaimDetailPanel({
                     />
                   </div>
                   {/* Read-only dates */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
                     <div>
                       <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Ngày phát hiện</label>
                       <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
@@ -645,7 +645,7 @@ function ClaimDetailPanel({
                     />
                   </div>
                   {/* Compensation fields — conditionally editable */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
                     <div>
                       <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>
                         NVC đền bù

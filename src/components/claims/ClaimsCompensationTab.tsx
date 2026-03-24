@@ -125,7 +125,7 @@ export default function ClaimsCompensationTab() {
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((c, i) => (
           <div key={i} style={{
             background: c.bgColor, border: `0.5px solid ${c.borderColor}30`,
@@ -152,7 +152,7 @@ export default function ClaimsCompensationTab() {
             <div style={{ position: "relative" }}>
               <Search size={14} style={{ position: "absolute", left: "10px", top: "8px", color: "#9ca3af" }} />
               <input
-                style={{ padding: "6px 10px 6px 30px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "12px", width: "180px", outline: "none" }}
+                style={{ padding: "6px 10px 6px 30px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "12px", width: "100%", maxWidth: "180px", outline: "none" }}
                 placeholder="Tìm cửa hàng..."
                 value={shopSearch}
                 onChange={e => setShopSearch(e.target.value)}
@@ -210,7 +210,7 @@ export default function ClaimsCompensationTab() {
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }} className="resp-grid-1-2">
         {/* Bar Chart: Monthly compensation */}
         <div style={cardStyle}>
           <div style={{ fontSize: "14px", fontWeight: 700, color: "#1e293b", marginBottom: "16px" }}>Tiền đền bù theo tháng</div>

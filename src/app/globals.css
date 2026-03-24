@@ -117,3 +117,19 @@
   animation: hero-float-delayed 5s ease-in-out infinite;
   animation-delay: 1s;
 }
+
+/* Responsive: dialog grids stack on mobile */
+@media (max-width: 639px) {
+  .resp-grid-1-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .resp-dialog-actions {
+    flex-wrap: wrap;
+  }
+  .resp-dialog-actions button span.resp-hide-mobile {
+    display: none;
+  }
+  .resp-pad-sm {
+    padding: 12px !important;
+  }
+}

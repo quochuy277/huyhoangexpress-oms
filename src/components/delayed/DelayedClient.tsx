@@ -151,7 +151,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
           <h1 className="text-2xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
             📦 Phân Tích Đơn Hoãn Giao
           </h1>
-          <p className="text-slate-500 mt-1 min-w-[300px]">
+          <p className="text-slate-500 mt-1">
             Hệ thống nhận diện & chấm điểm Rủi ro (AI Scoring) các đơn gặp sự cố giao hàng.
           </p>
         </div>

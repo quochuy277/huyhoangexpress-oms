@@ -161,7 +161,7 @@ export default function AnalysisTab() {
       {view === "shop" && (
         <>
           <div style={{ marginBottom: 16 }}>
-            <input placeholder="🔍 Tìm cửa hàng..." value={shopSearch} onChange={e => setShopSearch(e.target.value)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #d1d5db", width: 300, fontSize: 14 }} />
+            <input placeholder="🔍 Tìm cửa hàng..." value={shopSearch} onChange={e => setShopSearch(e.target.value)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #d1d5db", width: "100%", maxWidth: 300, fontSize: 14 }} />
           </div>
           <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflowX: "auto" }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>🏪 Xếp hạng Cửa hàng</h3>

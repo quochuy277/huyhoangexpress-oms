@@ -342,7 +342,7 @@ function CreateAnnouncementDialog({ onClose, onCreated }: { onClose: () => void;
           </div>
 
           {/* Attachment */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }} className="resp-grid-1-2">
             <div>
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
                 <Paperclip style={{ width: "12px", height: "12px", display: "inline", marginRight: "4px" }} />

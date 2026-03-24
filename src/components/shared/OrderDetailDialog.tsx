@@ -224,7 +224,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           zIndex: 9999, background: "#FFFFFF", border: "1.5px solid #2563EB",
           borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-          width: "min(900px, calc(100vw - 32px))", maxHeight: "90vh",
+          width: "min(900px, calc(100vw - 16px))", maxHeight: "90vh",
           display: "flex", flexDirection: "column",
           animation: "orderDetailPopIn 0.2s ease-out",
         }}
@@ -232,7 +232,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
         {/* Header */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "14px 20px", borderBottom: "1px solid #e5e7eb", flexShrink: 0,
+          padding: "10px 12px", borderBottom: "1px solid #e5e7eb", flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ padding: "6px", borderRadius: "8px", background: "#eff6ff" }}>
@@ -243,7 +243,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
               <div style={{ fontSize: "12px", color: "#6b7280", fontFamily: "monospace", marginTop: "1px" }}>{requestCode}</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }} className="resp-dialog-actions">
             {/* Action: Đơn có vấn đề */}
             <button
               onClick={() => setShowClaim(true)}
@@ -252,7 +252,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
               onMouseLeave={e => { e.currentTarget.style.background = "#fff7ed"; }}
               title="Chuyển vào Đơn có vấn đề"
             >
-              <AlertTriangle size={13} /> Đơn có vấn đề
+              <AlertTriangle size={13} /> <span className="resp-hide-mobile">Đơn có vấn đề</span>
             </button>
             {/* Action: Công việc */}
             <button
@@ -262,7 +262,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
               onMouseLeave={e => { e.currentTarget.style.background = "#eff6ff"; }}
               title="Thêm vào Công Việc"
             >
-              <CheckSquare size={13} /> Công Việc
+              <CheckSquare size={13} /> <span className="resp-hide-mobile">Công Việc</span>
             </button>
             {/* Action: Hành trình */}
             <button
@@ -272,7 +272,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
               onMouseLeave={e => { e.currentTarget.style.background = "#ecfdf5"; }}
               title="Tra hành trình"
             >
-              <Truck size={13} /> Hành trình
+              <Truck size={13} /> <span className="resp-hide-mobile">Hành trình</span>
             </button>
             {/* Close */}
             <button
@@ -313,7 +313,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
               </div>
 
               {/* Sections grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
                 {sections.map((section) => {
                   const Icon = section.icon;
                   return (
@@ -328,7 +328,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
                         <Icon style={{ width: "14px", height: "14px", color: "#64748b" }} />
                         <span style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>{section.title}</span>
                       </div>
-                      <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 14px" }}>
+                      <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 14px" }} className="resp-grid-1-2">
                         {section.fields.map((f) => (
                           <div key={f.label}>
                             <div style={{ fontSize: "10px", color: "#94a3b8" }}>{f.label}</div>
@@ -360,7 +360,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole }: Prop
                   <FileText style={{ width: "14px", height: "14px", color: "#64748b" }} />
                   <span style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>Ghi Chú</span>
                 </div>
-                <div style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
                   <NoteBlock label="Ghi Chú Giao Hàng" value={order.deliveryNotes} bg="#f8fafc" />
                   <NoteBlock label="Mô Tả Sản Phẩm" value={order.productDescription} bg="#f8fafc" />
                   <NoteBlock label="Ghi Chú Nội Bộ" value={order.internalNotes} bg="#fefce8" />

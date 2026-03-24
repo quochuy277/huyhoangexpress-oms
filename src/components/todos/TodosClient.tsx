@@ -214,7 +214,7 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
                   placeholder="Thêm mô tả..."
                 />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }} className="resp-grid-1-2">
                 <div>
                   <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", display: "block", marginBottom: "4px" }}>Mức ưu tiên</label>
                   <select value={detail.priority} onChange={e => saveField("priority", e.target.value)} style={{ ...inputStyle, width: "100%" }}>
@@ -249,7 +249,7 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
             {detail.linkedOrder && (
               <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px", marginBottom: "20px" }}>
                 <div style={{ fontSize: "12px", fontWeight: 700, color: "#475569", marginBottom: "8px" }}>🔗 Đơn hàng liên kết</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "12px" }} className="resp-grid-1-2">
                   <div><span style={{ color: "#9ca3af" }}>Mã YC: </span><span style={{ color: "#2563eb", fontWeight: 600 }}>{detail.linkedOrder.requestCode}</span></div>
                   <div><span style={{ color: "#9ca3af" }}>Shop: </span><span style={{ fontWeight: 500 }}>{detail.linkedOrder.shopName}</span></div>
                   <div><span style={{ color: "#9ca3af" }}>Trạng thái: </span><span style={{ fontWeight: 500 }}>{detail.linkedOrder.status}</span></div>
