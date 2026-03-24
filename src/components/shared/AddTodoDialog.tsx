@@ -38,10 +38,20 @@ export function AddTodoDialog({
 
   const canAssign = resolvedRole === "ADMIN" || resolvedRole === "MANAGER";
 
-  useEffect(() => {
-    setMounted(true);
+  useEffect(() => { setMounted(true); }, []);
 
-    // Auto-detect role if not provided, then fetch users if admin/manager
+  // Fetch role & users when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    // Reset fields
+    setTitle(defaultTitle);
+    setDescription(defaultDescription);
+    setPriority(defaultPriority);
+    setDueDate("");
+    setAssigneeId("");
+    setToast(null);
+
+    // Auto-detect role if not provided, then fetch users
     const init = async () => {
       let role = userRole || "";
       if (!role) {
@@ -53,6 +63,8 @@ export function AddTodoDialog({
             setResolvedRole(role);
           }
         } catch { /* ignore */ }
+      } else {
+        setResolvedRole(role);
       }
       if (role === "ADMIN" || role === "MANAGER") {
         try {
@@ -63,19 +75,7 @@ export function AddTodoDialog({
       }
     };
     init();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset fields when dialog opens with new defaults
-  useEffect(() => {
-    if (open) {
-      setTitle(defaultTitle);
-      setDescription(defaultDescription);
-      setPriority(defaultPriority);
-      setDueDate("");
-      setAssigneeId("");
-      setToast(null);
-    }
-  }, [open, defaultTitle, defaultDescription, defaultPriority]);
+  }, [open, defaultTitle, defaultDescription, defaultPriority, userRole]);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;

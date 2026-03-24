@@ -1082,9 +1082,11 @@ type ClaimFilters = {
 
 interface ClaimsClientProps {
   onCountChange?: (count: number) => void;
+  externalDetailClaimId?: string | null;
+  onExternalDetailConsumed?: () => void;
 }
 
-export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) {
+export default function ClaimsClient({ onCountChange, externalDetailClaimId, onExternalDetailConsumed }: ClaimsClientProps = {}) {
   const [claims, setClaims] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
@@ -1140,6 +1142,14 @@ export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) 
   }, [filters, onCountChange]);
 
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
+
+  // Open detail panel when triggered from external tab
+  useEffect(() => {
+    if (externalDetailClaimId) {
+      setDetailClaimId(externalDetailClaimId);
+      onExternalDetailConsumed?.();
+    }
+  }, [externalDetailClaimId, onExternalDetailConsumed]);
 
   // Re-fetch when user switches back to this tab (throttle 30s to avoid excessive calls)
   useEffect(() => {

@@ -72,7 +72,7 @@ function Dialog({ open, onClose, title, children }: {
 /* ============================================================
    MAIN COMPONENT
    ============================================================ */
-export default function ClaimsToolsTab({ isAdmin }: { isAdmin: boolean }) {
+export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: boolean; onOpenClaim?: (claimId: string) => void }) {
   // Documents state
   const [docs, setDocs] = useState<any[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
@@ -392,7 +392,16 @@ export default function ClaimsToolsTab({ isAdmin }: { isAdmin: boolean }) {
                   </td>
                   <td style={{ padding: "8px 10px", color: "#1e293b", fontWeight: 500 }}>{a.staff || "—"}</td>
                   <td style={{ padding: "8px 10px" }}>
-                    <span style={{ color: "#2563EB", fontWeight: 600 }}>{a.requestCode || "—"}</span>
+                    {a.claimId && onOpenClaim ? (
+                      <button
+                        onClick={() => onOpenClaim(a.claimId)}
+                        style={{ background: "none", border: "none", padding: 0, color: "#2563EB", fontWeight: 600, cursor: "pointer", fontSize: "12px", textDecoration: "underline" }}
+                      >
+                        {a.requestCode || "—"}
+                      </button>
+                    ) : (
+                      <span style={{ color: "#2563EB", fontWeight: 600 }}>{a.requestCode || "—"}</span>
+                    )}
                   </td>
                   <td style={{ padding: "8px 10px" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>

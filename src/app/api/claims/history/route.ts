@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
     // Transform into unified activities
     type Activity = {
       id: string;
+      claimId: string;
       timestamp: Date;
       staff: string;
       requestCode: string;
@@ -88,6 +89,7 @@ export async function GET(req: NextRequest) {
       const isNew = sh.fromStatus === null;
       activities.push({
         id: sh.id,
+        claimId: sh.claimOrder?.id || "",
         timestamp: sh.changedAt,
         staff: sh.changedBy,
         requestCode,
@@ -106,6 +108,7 @@ export async function GET(req: NextRequest) {
       const { action, dotColor } = getActionFromField(cl.fieldName, cl.newValue);
       activities.push({
         id: cl.id,
+        claimId: cl.claimOrder?.id || "",
         timestamp: cl.changedAt,
         staff: cl.changedBy,
         requestCode,

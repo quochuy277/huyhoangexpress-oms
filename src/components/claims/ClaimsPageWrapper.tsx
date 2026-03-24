@@ -19,6 +19,7 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
   const [activeTab, setActiveTab] = useState<TabKey>("claims");
   const [claimCount, setClaimCount] = useState(0);
   const [canViewFinance, setCanViewFinance] = useState(false);
+  const [externalDetailClaimId, setExternalDetailClaimId] = useState<string | null>(null);
 
   const isAdmin = userRole === "ADMIN";
 
@@ -76,10 +77,20 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
       {/* Tab content — use CSS show/hide to prevent re-mount and avoid re-running auto-detect on tab switch */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <div style={{ display: activeTab === "claims" ? "block" : "none", height: "100%" }}>
-          <ClaimsClient onCountChange={setClaimCount} />
+          <ClaimsClient
+            onCountChange={setClaimCount}
+            externalDetailClaimId={externalDetailClaimId}
+            onExternalDetailConsumed={() => setExternalDetailClaimId(null)}
+          />
         </div>
         <div style={{ display: activeTab === "tools" ? "block" : "none", height: "100%" }}>
-          <ClaimsToolsTab isAdmin={isAdmin} />
+          <ClaimsToolsTab
+            isAdmin={isAdmin}
+            onOpenClaim={(claimId) => {
+              setExternalDetailClaimId(claimId);
+              setActiveTab("claims");
+            }}
+          />
         </div>
         {canViewFinance && (
           <div style={{ display: activeTab === "compensation" ? "block" : "none", height: "100%" }}>

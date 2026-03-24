@@ -11,6 +11,7 @@ import {
 import { format } from "date-fns";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useRouter } from "next/navigation";
+import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 
 /* ============================================================
    CONSTANTS
@@ -477,6 +478,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleting, setConfirmDeleting] = useState(false);
   const confirmDeleteTodo = confirmDeleteId ? todos.find((t: any) => t.id === confirmDeleteId) : null;
+  const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
 
   const handleDeleteTodo = async (id: string) => {
     setConfirmDeleteId(id);
@@ -559,6 +561,19 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
               <Columns3 size={14} /> Kanban
             </button>
           </div>
+          <button
+            onClick={() => setShowNewTodoDialog(true)}
+            style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              padding: "7px 16px", borderRadius: 8, border: "none",
+              background: "#2563eb", color: "#fff", fontSize: 13, fontWeight: 600,
+              cursor: "pointer", transition: "background 0.2s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "#1d4ed8"}
+            onMouseLeave={e => e.currentTarget.style.background = "#2563eb"}
+          >
+            <Plus size={15} /> Thêm mới
+          </button>
         </div>
       </div>
 
@@ -867,6 +882,17 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
           <style>{`@keyframes confirmPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
         </>
       )}
+
+      {/* New Todo Dialog */}
+      <AddTodoDialog
+        open={showNewTodoDialog}
+        onClose={() => { setShowNewTodoDialog(false); fetchTodos(); fetchStats(); }}
+        defaultTitle=""
+        defaultDescription=""
+        defaultPriority="MEDIUM"
+        source="MANUAL"
+        userRole={userRole}
+      />
 
       {/* Reminder popup */}
       {reminder && (
