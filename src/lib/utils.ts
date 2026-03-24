@@ -89,18 +89,21 @@ export function parseVietnameseDate(
   const minutes = match[5] ? parseInt(match[5], 10) : 0;
   const seconds = match[6] ? parseInt(match[6], 10) : 0;
 
-  const date = new Date(year, month, day, hours, minutes, seconds);
-
-  // Validate that the date is real (e.g., not Feb 30)
+  // Validate that the date is real BEFORE applying timezone offset
+  // (e.g., reject Feb 30, but don't fail on timezone day-shift)
+  const validationDate = new Date(Date.UTC(year, month, day));
   if (
-    date.getDate() !== day ||
-    date.getMonth() !== month ||
-    date.getFullYear() !== year
+    validationDate.getUTCDate() !== day ||
+    validationDate.getUTCMonth() !== month ||
+    validationDate.getUTCFullYear() !== year
   ) {
     return null;
   }
 
-  return date;
+  // Excel dates from GHN are in Vietnam time (UTC+7).
+  // Subtract 7 hours to store as correct UTC in the database.
+  const VN_UTC_OFFSET_HOURS = 7;
+  return new Date(Date.UTC(year, month, day, hours - VN_UTC_OFFSET_HOURS, minutes, seconds));
 }
 
 /**

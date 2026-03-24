@@ -191,15 +191,24 @@ function numOrNull(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+/**
+ * Vietnam timezone offset in minutes (UTC+7 = -420 minutes)
+ * Used to convert Vietnam local times from Excel to proper UTC for storage.
+ */
+const VN_UTC_OFFSET_HOURS = 7;
+
 function parseDate(val: unknown): Date | null {
   if (val === undefined || val === null || val === "") return null;
   if (val instanceof Date) return val;
 
   // SheetJS numeric date (Excel serial number)
+  // Excel dates from GHN are in Vietnam time (UTC+7).
+  // We must subtract 7 hours to store as correct UTC.
   if (typeof val === "number") {
     try {
       const d = XLSX.SSF.parse_date_code(val);
-      return new Date(d.y, d.m - 1, d.d, d.H || 0, d.M || 0, d.S || 0);
+      const utcMs = Date.UTC(d.y, d.m - 1, d.d, (d.H || 0) - VN_UTC_OFFSET_HOURS, d.M || 0, d.S || 0);
+      return new Date(utcMs);
     } catch {
       return null;
     }

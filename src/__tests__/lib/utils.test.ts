@@ -128,27 +128,38 @@ describe("formatDateOnly", () => {
 // parseVietnameseDate
 // ============================================================
 describe("parseVietnameseDate", () => {
-  it("parses DD/MM/YYYY format", () => {
+  it("parses DD/MM/YYYY format and stores as UTC (Vietnam UTC+7)", () => {
+    // 25/12/2024 00:00 Vietnam = 24/12/2024 17:00 UTC
     const result = parseVietnameseDate("25/12/2024");
     expect(result).not.toBeNull();
-    expect(result!.getDate()).toBe(25);
-    expect(result!.getMonth()).toBe(11); // 0-indexed
-    expect(result!.getFullYear()).toBe(2024);
+    expect(result!.getUTCDate()).toBe(24);
+    expect(result!.getUTCHours()).toBe(17);
   });
 
-  it("parses DD/MM/YYYY HH:mm:ss format", () => {
+  it("parses DD/MM/YYYY HH:mm:ss and converts to UTC", () => {
+    // 25/12/2024 14:30:00 Vietnam = 25/12/2024 07:30:00 UTC
     const result = parseVietnameseDate("25/12/2024 14:30:00");
     expect(result).not.toBeNull();
-    expect(result!.getHours()).toBe(14);
-    expect(result!.getMinutes()).toBe(30);
-    expect(result!.getSeconds()).toBe(0);
+    expect(result!.getUTCDate()).toBe(25);
+    expect(result!.getUTCHours()).toBe(7);
+    expect(result!.getUTCMinutes()).toBe(30);
+    expect(result!.getUTCSeconds()).toBe(0);
   });
 
   it("parses DD/MM/YYYY HH:mm format (without seconds)", () => {
+    // 15/06/2024 09:05 Vietnam = 15/06/2024 02:05 UTC
     const result = parseVietnameseDate("15/06/2024 09:05");
     expect(result).not.toBeNull();
-    expect(result!.getHours()).toBe(9);
-    expect(result!.getMinutes()).toBe(5);
+    expect(result!.getUTCHours()).toBe(2);
+    expect(result!.getUTCMinutes()).toBe(5);
+  });
+
+  it("handles early morning Vietnam time (shifts to previous UTC day)", () => {
+    // 23/03/2026 03:00 Vietnam = 22/03/2026 20:00 UTC
+    const result = parseVietnameseDate("23/03/2026 03:00");
+    expect(result).not.toBeNull();
+    expect(result!.getUTCDate()).toBe(22);
+    expect(result!.getUTCHours()).toBe(20);
   });
 
   it("returns null for invalid date (30/02/2024 - Feb 30)", () => {
@@ -174,8 +185,9 @@ describe("parseVietnameseDate", () => {
   it("handles single digit day and month", () => {
     const result = parseVietnameseDate("5/6/2024");
     expect(result).not.toBeNull();
-    expect(result!.getDate()).toBe(5);
-    expect(result!.getMonth()).toBe(5); // June = index 5
+    // 05/06/2024 00:00 Vietnam = 04/06/2024 17:00 UTC
+    expect(result!.getUTCDate()).toBe(4);
+    expect(result!.getUTCMonth()).toBe(5); // June = index 5
   });
 
   it("returns null for invalid month (13th month)", () => {
