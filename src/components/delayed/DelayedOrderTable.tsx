@@ -16,6 +16,7 @@ import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { CopyOrderButton } from "./CopyOrderButton";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -34,6 +35,7 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
   const [todoOrder, setTodoOrder] = useState<ProcessedDelayedOrder | null>(null);
   const [claimDelayedOrder, setClaimDelayedOrder] = useState<ProcessedDelayedOrder | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
   const sortedData = [...data].sort((a, b) => {
     let va = a[sortKey] as any;
@@ -142,17 +144,12 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
                     <TableCell className="font-bold text-slate-800 text-[11px] px-2 overflow-hidden text-ellipsis whitespace-nowrap" title={o.requestCode}>
                       <div className="flex flex-col gap-0.5">
                         {o.claimOrder && <ClaimBadge issueType={o.claimOrder.issueType} />}
-                        <a
-                          href={`/orders/${o.requestCode}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const currentUrl = `${pathname}?${searchParams.toString()}`;
-                            router.push(`/orders/${o.requestCode}?from=${encodeURIComponent(currentUrl)}`);
-                          }}
-                          className="hover:text-blue-600 hover:underline font-mono cursor-pointer"
+                        <button
+                          onClick={() => setDetailRequestCode(o.requestCode)}
+                          className="hover:text-blue-600 hover:underline font-mono cursor-pointer text-left"
                         >
                           {o.requestCode}
-                        </a>
+                        </button>
                       </div>
                     </TableCell>
 
@@ -334,6 +331,14 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
         requestCode={trackingCode || ""}
         isOpen={!!trackingCode}
         onClose={() => setTrackingCode(null)}
+      />
+
+      {/* Order Detail Dialog */}
+      <OrderDetailDialog
+        requestCode={detailRequestCode}
+        open={!!detailRequestCode}
+        onClose={() => setDetailRequestCode(null)}
+        userRole="ADMIN"
       />
     </div>
   );

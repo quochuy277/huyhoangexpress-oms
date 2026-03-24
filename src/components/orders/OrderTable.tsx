@@ -6,6 +6,7 @@ import { formatVND, formatDate } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Edit2, AlertTriangle, CheckSquare, X, Truck } from "lucide-react";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
@@ -52,6 +53,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
   const [todoModalOrder, setTodoModalOrder] = useState<OrderRow | null>(null);
   const [claimOrder, setClaimOrder] = useState<OrderRow | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
@@ -214,7 +216,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                     <div className="flex flex-col gap-0.5">
                       {order.claimOrder && <ClaimBadge issueType={order.claimOrder.issueType} />}
                       <button
-                        onClick={() => router.push(`/orders/${order.requestCode}?from=${encodeURIComponent(`${pathname}?${searchParams.toString()}`)}`)}
+                        onClick={() => setDetailRequestCode(order.requestCode)}
                         className="font-mono text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
                       >
                         {order.requestCode}
@@ -224,7 +226,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                   {/* Mã Đơn Đối Tác */}
                   <td className="px-3 py-2.5">
                     <button
-                      onClick={() => router.push(`/orders/${order.requestCode}?from=${encodeURIComponent(`${pathname}?${searchParams.toString()}`)}`)}
+                      onClick={() => setDetailRequestCode(order.requestCode)}
                       className="block w-full text-slate-700 truncate max-w-[140px] font-mono text-xs hover:text-blue-600 text-left"
                     >
                       {order.carrierOrderCode || "—"}
@@ -233,7 +235,7 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
                   {/* Tên Cửa Hàng */}
                   <td className="px-3 py-2.5">
                     <button
-                      onClick={() => router.push(`/orders/${order.requestCode}?from=${encodeURIComponent(`${pathname}?${searchParams.toString()}`)}`)}
+                      onClick={() => setDetailRequestCode(order.requestCode)}
                       className="block w-full text-slate-700 truncate max-w-[180px] text-left"
                     >
                       {order.shopName || "—"}
@@ -417,6 +419,14 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
         requestCode={trackingCode || ""}
         isOpen={!!trackingCode}
         onClose={() => setTrackingCode(null)}
+      />
+
+      {/* Order Detail Dialog */}
+      <OrderDetailDialog
+        requestCode={detailRequestCode}
+        open={!!detailRequestCode}
+        onClose={() => setDetailRequestCode(null)}
+        userRole={userRole}
       />
     </div>
   );
