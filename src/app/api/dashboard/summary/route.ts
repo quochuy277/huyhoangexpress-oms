@@ -66,56 +66,61 @@ export async function GET() {
     overdueClaimsCount,
   };
 
-  // ROW 2 & ROW 5 DATA: Finance & Rates
+  // ROW 2 & ROW 5 DATA: Finance & Rates — all queries run in parallel
+  // Delivery Rates: single groupBy instead of 4 separate count queries
+  const deliveryRatesPromise = prisma.order.groupBy({
+    by: ["deliveryStatus"],
+    _count: true,
+    where: { createdTime: { gte: startOfMonth } },
+  });
+
   if (isManagerOrAdmin) {
-    // Current Month Finance
-    const financeCurrent = await prisma.order.aggregate({
-      _sum: { revenue: true, carrierFee: true },
-      where: {
-        deliveryStatus: { in: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] },
-        createdTime: { gte: startOfMonth }
-      }
-    });
+    const [
+      financeCurrent,
+      financePrevious,
+      monthOrderCountCurrent,
+      monthOrderCountPrevious,
+      negativeRevenueCount,
+      claims,
+      expenses,
+      statusGroups,
+    ] = await Promise.all([
+      prisma.order.aggregate({
+        _sum: { revenue: true, carrierFee: true },
+        where: {
+          deliveryStatus: { in: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] },
+          createdTime: { gte: startOfMonth },
+        },
+      }),
+      prisma.order.aggregate({
+        _sum: { revenue: true },
+        where: {
+          deliveryStatus: { in: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] },
+          createdTime: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+        },
+      }),
+      prisma.order.count({ where: { createdTime: { gte: startOfMonth } } }),
+      prisma.order.count({ where: { createdTime: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } } }),
+      prisma.order.count({
+        where: {
+          revenue: { lt: 0 },
+          deliveryStatus: { in: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] },
+          createdTime: { gte: startOfMonth },
+        },
+      }),
+      prisma.claimOrder.findMany({
+        where: { detectedDate: { gte: startOfMonth, lte: new Date() } },
+        select: { customerCompensation: true, carrierCompensation: true },
+      }),
+      prisma.expense.findMany({
+        where: { date: { gte: startOfMonth, lte: new Date() } },
+      }),
+      deliveryRatesPromise,
+    ]);
 
-    // Previous Month Finance
-    const financePrevious = await prisma.order.aggregate({
-      _sum: { revenue: true },
-      where: {
-        deliveryStatus: { in: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] },
-        createdTime: { gte: startOfPreviousMonth, lte: endOfPreviousMonth }
-      }
-    });
-
-    // Order Counts
-    const monthOrderCountCurrent = await prisma.order.count({
-      where: { createdTime: { gte: startOfMonth } }
-    });
-    const monthOrderCountPrevious = await prisma.order.count({
-      where: { createdTime: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } }
-    });
-
-    // Negative Revenue Orders
-    const negativeRevenueCount = await prisma.order.count({
-      where: {
-        revenue: { lt: 0 },
-        deliveryStatus: { in: ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] },
-        createdTime: { gte: startOfMonth }
-      }
-    });
-
-    // Claims data for claimDiff
-    const claims = await prisma.claimOrder.findMany({
-      where: { detectedDate: { gte: startOfMonth, lte: new Date() } },
-      select: { customerCompensation: true, carrierCompensation: true },
-    });
     const customerComp = claims.reduce((s: number, c: any) => s + Number(c.customerCompensation ?? 0), 0);
     const carrierComp = claims.reduce((s: number, c: any) => s + Number(c.carrierCompensation ?? 0), 0);
     const claimDiff = carrierComp - customerComp;
-
-    // Operating expenses
-    const expenses = await prisma.expense.findMany({
-      where: { date: { gte: startOfMonth, lte: new Date() } },
-    });
     const totalOperatingExpenses = expenses.reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
 
     responseData.revenue = {
@@ -132,30 +137,36 @@ export async function GET() {
       previousMonth: monthOrderCountPrevious,
     };
     responseData.negativeRevenueCount = negativeRevenueCount;
+
+    // Compute delivery rates from groupBy result
+    const statusMap = new Map(statusGroups.map((g) => [g.deliveryStatus, g._count]));
+    const currentMonthTotal = monthOrderCountCurrent;
+    const successCount = (statusMap.get("DELIVERED") ?? 0) + (statusMap.get("RECONCILED") ?? 0);
+    const returnCount = (statusMap.get("RETURNED_FULL") ?? 0) + (statusMap.get("RETURNED_PARTIAL") ?? 0);
+    const delayCount = (statusMap.get("DELIVERY_DELAYED") ?? 0) + (statusMap.get("RETURN_CONFIRMED") ?? 0);
+
+    responseData.deliveryRates = {
+      successRate: currentMonthTotal > 0 ? (successCount / currentMonthTotal) * 100 : 0,
+      returnRate: currentMonthTotal > 0 ? (returnCount / currentMonthTotal) * 100 : 0,
+      delayRate: currentMonthTotal > 0 ? (delayCount / currentMonthTotal) * 100 : 0,
+    };
+  } else {
+    // Non-admin: only delivery rates
+    const statusGroups = await deliveryRatesPromise;
+    const statusMap = new Map(statusGroups.map((g) => [g.deliveryStatus, g._count]));
+    const currentMonthTotal = statusGroups.reduce((sum, g) => sum + g._count, 0);
+    const successCount = (statusMap.get("DELIVERED") ?? 0) + (statusMap.get("RECONCILED") ?? 0);
+    const returnCount = (statusMap.get("RETURNED_FULL") ?? 0) + (statusMap.get("RETURNED_PARTIAL") ?? 0);
+    const delayCount = (statusMap.get("DELIVERY_DELAYED") ?? 0) + (statusMap.get("RETURN_CONFIRMED") ?? 0);
+
+    responseData.deliveryRates = {
+      successRate: currentMonthTotal > 0 ? (successCount / currentMonthTotal) * 100 : 0,
+      returnRate: currentMonthTotal > 0 ? (returnCount / currentMonthTotal) * 100 : 0,
+      delayRate: currentMonthTotal > 0 ? (delayCount / currentMonthTotal) * 100 : 0,
+    };
   }
 
-  // Delivery Rates for ROW 5 (All Roles)
-  const currentMonthTotal = await prisma.order.count({
-    where: { createdTime: { gte: startOfMonth } }
+  return NextResponse.json(responseData, {
+    headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
   });
-
-  const successStatus = await prisma.order.count({
-    where: { deliveryStatus: { in: ["DELIVERED", "RECONCILED"] }, createdTime: { gte: startOfMonth } }
-  });
-  
-  const returnStatus = await prisma.order.count({
-    where: { deliveryStatus: { in: ["RETURNED_FULL", "RETURNED_PARTIAL"] }, createdTime: { gte: startOfMonth } }
-  });
-
-  const delayStatus = await prisma.order.count({
-    where: { deliveryStatus: { in: ["DELIVERY_DELAYED", "RETURN_CONFIRMED"] }, createdTime: { gte: startOfMonth } }
-  });
-
-  responseData.deliveryRates = {
-    successRate: currentMonthTotal > 0 ? (successStatus / currentMonthTotal) * 100 : 0,
-    returnRate: currentMonthTotal > 0 ? (returnStatus / currentMonthTotal) * 100 : 0,
-    delayRate: currentMonthTotal > 0 ? (delayStatus / currentMonthTotal) * 100 : 0,
-  };
-
-  return NextResponse.json(responseData);
 }

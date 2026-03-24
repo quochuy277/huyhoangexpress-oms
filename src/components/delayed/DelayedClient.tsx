@@ -5,7 +5,6 @@ import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
 import { Search, Loader2, AlertTriangle, ShieldCheck, AlertCircle, RefreshCw, FileDown } from "lucide-react";
 import { DelayedTable } from "./DelayedTable";
-import * as XLSX from "xlsx";
 
 export function DelayedClient({ userRole }: { userRole: string }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -119,8 +118,9 @@ export function DelayedClient({ userRole }: { userRole: string }) {
     setReasonFilter("");
   };
 
-  // 4. Xuất Excel
-  const exportToExcel = () => {
+  // 4. Xuất Excel (lazy load xlsx)
+  const exportToExcel = async () => {
+    const XLSX = await import("xlsx");
     const dataToExport = filteredOrders.map((o: any, i: number) => ({
       "STT": i + 1,
       "Mã Yêu Cầu": o.requestCode,

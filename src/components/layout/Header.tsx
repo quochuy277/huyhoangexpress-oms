@@ -3,10 +3,11 @@
 import { logoutAction } from "@/lib/actions/auth-actions";
 import type { Role } from "@prisma/client";
 import { Bell, LogOut, User, ChevronDown, ExternalLink, Pin, Paperclip, Menu } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserProfileDialog } from "@/components/shared/UserProfileDialog";
 import { stripHtml } from "@/lib/sanitize";
+import { useQuery } from "@tanstack/react-query";
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Quản trị viên",
@@ -46,37 +47,43 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const [menuOpen, setMenuOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [bellTab, setBellTab] = useState<"todos" | "announcements">("todos");
-  const [overdueCount, setOverdueCount] = useState(0);
-  const [overdueItems, setOverdueItems] = useState<{ id: string; title: string; daysOverdue: number }[]>([]);
-  const [announcementCount, setAnnouncementCount] = useState(0);
-  const [announcements, setAnnouncements] = useState<AnnouncementPreview[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchCounts = () => {
-      fetch("/api/todos/overdue-count").then(r => r.json()).then(d => setOverdueCount(d.count || 0)).catch(() => { });
-      fetch("/api/announcements/unread-count").then(r => r.json()).then(d => setAnnouncementCount(d.count || 0)).catch(() => { });
-    };
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 60000);
-    return () => clearInterval(interval);
-  }, []);
+  const { data: overdueData } = useQuery({
+    queryKey: ["header-overdue-count"],
+    queryFn: () => fetch("/api/todos/overdue-count").then(r => r.json()),
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+  const overdueCount = overdueData?.count || 0;
 
-  useEffect(() => {
-    if (bellOpen) {
-      fetch("/api/todos/reminders").then(r => r.json()).then(d => {
-        setOverdueItems(d.overdue?.items || []);
-      }).catch(() => { });
-      fetch("/api/announcements?pageSize=10").then(r => r.json()).then(d => {
-        setAnnouncements(d.announcements || []);
-      }).catch(() => { });
-    }
-  }, [bellOpen]);
+  const { data: announcementData } = useQuery({
+    queryKey: ["header-announcement-count"],
+    queryFn: () => fetch("/api/announcements/unread-count").then(r => r.json()),
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+  const announcementCount = announcementData?.count || 0;
+
+  const { data: remindersData } = useQuery({
+    queryKey: ["header-reminders"],
+    queryFn: () => fetch("/api/todos/reminders").then(r => r.json()),
+    enabled: bellOpen,
+    staleTime: 30000,
+  });
+  const overdueItems: { id: string; title: string; daysOverdue: number }[] = remindersData?.overdue?.items || [];
+
+  const { data: announcementsListData, refetch: refetchAnnouncements } = useQuery({
+    queryKey: ["header-announcements-list"],
+    queryFn: () => fetch("/api/announcements?pageSize=10").then(r => r.json()),
+    enabled: bellOpen,
+    staleTime: 30000,
+  });
+  const announcements: AnnouncementPreview[] = announcementsListData?.announcements || [];
 
   const handleMarkRead = async (id: string) => {
     await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch(() => { });
-    setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, isRead: true } : a));
-    setAnnouncementCount(prev => Math.max(0, prev - 1));
+    refetchAnnouncements();
   };
 
   const totalBadge = overdueCount + announcementCount;

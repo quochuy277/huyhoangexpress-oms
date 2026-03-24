@@ -2,9 +2,11 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import OverviewTab from "./OverviewTab";
-import AnalysisTab from "./AnalysisTab";
-import CashbookTab from "./CashbookTab";
+import dynamic from "next/dynamic";
+
+const OverviewTab = dynamic(() => import("./OverviewTab"), { ssr: false, loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
+const AnalysisTab = dynamic(() => import("./AnalysisTab"), { ssr: false, loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
+const CashbookTab = dynamic(() => import("./CashbookTab"), { ssr: false, loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
 
 const TABS = [
   { id: "overview", label: "Tổng quan & P&L" },

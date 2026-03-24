@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useCallback } from "react";
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { DelayedStatsCards } from "@/components/delayed/DelayedStatsCards";
-import { DelayDistributionChart } from "@/components/delayed/DelayDistributionChart";
-import { DelayReasonChart } from "@/components/delayed/DelayReasonChart";
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
 import { PackageX } from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
+
+const DelayDistributionChart = dynamic(() => import("@/components/delayed/DelayDistributionChart").then(m => ({ default: m.DelayDistributionChart })), { ssr: false, loading: () => <div className="h-64 bg-white rounded-xl border border-slate-200 animate-pulse" /> });
+const DelayReasonChart = dynamic(() => import("@/components/delayed/DelayReasonChart").then(m => ({ default: m.DelayReasonChart })), { ssr: false, loading: () => <div className="h-64 bg-white rounded-xl border border-slate-200 animate-pulse" /> });
 
 export default function DelayedOrdersPage() {
   const searchParams = useSearchParams();

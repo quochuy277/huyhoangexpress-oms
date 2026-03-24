@@ -4,7 +4,9 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Users, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShopManagementTab } from "./ShopManagementTab";
-import { ProspectPipelineTab } from "./ProspectPipelineTab";
+import dynamic from "next/dynamic";
+
+const ProspectPipelineTab = dynamic(() => import("./ProspectPipelineTab").then(m => ({ default: m.ProspectPipelineTab })), { ssr: false, loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
 
 interface CrmClientProps {
   userRole: string;

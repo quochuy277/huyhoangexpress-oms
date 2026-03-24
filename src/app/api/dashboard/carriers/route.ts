@@ -36,5 +36,7 @@ export async function GET(req: NextRequest) {
     count: c._count.id
   })).sort((a, b) => b.count - a.count);
 
-  return NextResponse.json({ carrierDistribution });
+  return NextResponse.json({ carrierDistribution }, {
+    headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=120" },
+  });
 }

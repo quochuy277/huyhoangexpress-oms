@@ -6,7 +6,9 @@ import { uploadLimiter } from "@/lib/rate-limiter";
 import { detectOrderChanges } from "@/lib/change-detector";
 import type { DetectedChange } from "@/lib/change-detector";
 import type { ParsedOrder } from "@/lib/excel-parser";
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
+
+type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 const BATCH_SIZE = 500;
 const SQL_SUB_BATCH = 250; // Rows per raw SQL INSERT (~15k params, within PostgreSQL 65535 limit)
@@ -19,7 +21,7 @@ export const maxDuration = 60;
  * Uses INSERT ... ON CONFLICT DO UPDATE for maximum performance.
  * Prisma.sql handles parameter binding correctly (including enum casting).
  */
-async function bulkUpsertSubBatch(orders: ParsedOrder[]): Promise<void> {
+async function bulkUpsertSubBatch(orders: ParsedOrder[], client: TxClient = prisma): Promise<void> {
   if (orders.length === 0) return;
 
   const rowSqls = orders.map((order) => {
@@ -51,7 +53,7 @@ async function bulkUpsertSubBatch(orders: ParsedOrder[]): Promise<void> {
     )`;
   });
 
-  await prisma.$executeRaw`
+  await client.$executeRaw`
     INSERT INTO "Order" (
       "id", "requestCode", "status", "deliveryStatus",
       "reconciliationCode", "reconciliationDate", "shopName", "customerOrderCode",
@@ -139,10 +141,7 @@ async function bulkUpsertSubBatch(orders: ParsedOrder[]): Promise<void> {
 }
 
 function generateCuid(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 10);
-  const counter = Math.floor(Math.random() * 1000).toString(36);
-  return `c${timestamp}${random}${counter}`;
+  return crypto.randomUUID();
 }
 
 export async function POST(req: NextRequest) {
@@ -254,12 +253,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // c. Bulk upsert using sub-batches of raw SQL
+    // c. Bulk upsert using sub-batches of raw SQL (within a transaction)
     try {
-      for (let i = 0; i < batch.length; i += SQL_SUB_BATCH) {
-        const subBatch = batch.slice(i, i + SQL_SUB_BATCH);
-        await bulkUpsertSubBatch(subBatch);
-      }
+      await prisma.$transaction(async (tx) => {
+        for (let i = 0; i < batch.length; i += SQL_SUB_BATCH) {
+          const subBatch = batch.slice(i, i + SQL_SUB_BATCH);
+          await bulkUpsertSubBatch(subBatch, tx);
+        }
+      });
 
       // Count new vs updated
       for (const order of batch) {

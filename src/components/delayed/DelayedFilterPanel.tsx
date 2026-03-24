@@ -2,7 +2,6 @@
 
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { Search, RefreshCw, FileDown } from "lucide-react";
-import * as XLSX from "xlsx";
 
 interface Props {
   orders: ProcessedDelayedOrder[];
@@ -48,7 +47,8 @@ export function DelayedFilterPanel({
     setRiskFilter("all");
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const XLSX = await import("xlsx");
     const dataToExport = filteredOrders.map((o, i) => ({
       "STT": i + 1,
       "Mã Yêu Cầu": o.requestCode,

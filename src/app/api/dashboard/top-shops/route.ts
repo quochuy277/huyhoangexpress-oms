@@ -42,5 +42,7 @@ export async function GET(req: NextRequest) {
     count: s._count.id
   }));
 
-  return NextResponse.json({ topShops });
+  return NextResponse.json({ topShops }, {
+    headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=120" },
+  });
 }

@@ -242,6 +242,9 @@ model Order {
   @@index([receiverProvince])
   @@index([salesStaff])
   @@index([claimLocked])
+  @@index([deliveryStatus, createdTime])
+  @@index([shopName, deliveryStatus])
+  @@index([deliveredDate])
 }
 
 enum DeliveryStatus {

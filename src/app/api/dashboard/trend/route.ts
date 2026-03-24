@@ -89,5 +89,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     orderTrend,
     statusDistribution
+  }, {
+    headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
   });
 }
