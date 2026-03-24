@@ -36,12 +36,7 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
     }
   }, [userRole, permissionGroupId]);
 
-  useEffect(() => {
-    fetch("/api/claims?page=1&pageSize=1")
-      .then(r => r.json())
-      .then(d => setClaimCount(d.pagination?.total || 0))
-      .catch(() => {});
-  }, []);
+  // claimCount is now updated via onCountChange callback from ClaimsClient - no separate fetch needed
 
   const tabs = [
     { key: "claims" as TabKey, label: `Đơn có vấn đề (${claimCount})`, icon: <AlertTriangle size={15} />, color: "#dc2626" },
@@ -78,11 +73,19 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
         ))}
       </div>
 
-      {/* Tab content */}
+      {/* Tab content — use CSS show/hide to prevent re-mount and avoid re-running auto-detect on tab switch */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        {activeTab === "claims" && <ClaimsClient />}
-        {activeTab === "tools" && <ClaimsToolsTab isAdmin={isAdmin} />}
-        {activeTab === "compensation" && canViewFinance && <ClaimsCompensationTab />}
+        <div style={{ display: activeTab === "claims" ? "block" : "none", height: "100%" }}>
+          <ClaimsClient onCountChange={setClaimCount} />
+        </div>
+        <div style={{ display: activeTab === "tools" ? "block" : "none", height: "100%" }}>
+          <ClaimsToolsTab isAdmin={isAdmin} />
+        </div>
+        {canViewFinance && (
+          <div style={{ display: activeTab === "compensation" ? "block" : "none", height: "100%" }}>
+            <ClaimsCompensationTab />
+          </div>
+        )}
       </div>
     </div>
   );

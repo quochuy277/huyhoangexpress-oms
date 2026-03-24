@@ -988,17 +988,33 @@ function ConfirmActionDialog({
 /* ============================================================
    MAIN COMPONENT
    ============================================================ */
-export default function ClaimsClient() {
+type ClaimFilters = {
+  page: number;
+  pageSize: number;
+  search: string;
+  issueType: string[];
+  status: string;
+  showCompleted: boolean;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+};
+
+interface ClaimsClientProps {
+  onCountChange?: (count: number) => void;
+}
+
+export default function ClaimsClient({ onCountChange }: ClaimsClientProps = {}) {
   const [claims, setClaims] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
-  const [search, setSearch] = useState("");
-  const [filterIssueType, setFilterIssueType] = useState<string[]>([]);
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterCompleted, setFilterCompleted] = useState<"" | "completed">("");
-  const [showCompleted, setShowCompleted] = useState(false);
-  const [sortBy, setSortBy] = useState("deadline");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const [filters, setFilters] = useState<ClaimFilters>({
+    page: 1, pageSize: 20, search: "", issueType: [],
+    status: "", showCompleted: false, sortBy: "deadline", sortDir: "asc",
+  });
+  // Controlled input value for search (debounced before applying to filters)
+  const [searchInput, setSearchInput] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastFetchRef = useRef<number>(0);
 
   // Dialogs
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -1018,32 +1034,39 @@ export default function ClaimsClient() {
 
   const fetchClaims = useCallback(async () => {
     setLoading(true);
+    lastFetchRef.current = Date.now();
     try {
       const params = new URLSearchParams({
-        page: String(pagination.page),
-        pageSize: String(pagination.pageSize),
-        search,
-        showCompleted: String(showCompleted),
-        sortBy,
-        sortDir,
+        page: String(filters.page),
+        pageSize: String(filters.pageSize),
+        search: filters.search,
+        showCompleted: String(filters.showCompleted),
+        sortBy: filters.sortBy,
+        sortDir: filters.sortDir,
       });
-      if (filterIssueType.length) params.set("issueType", filterIssueType.join(","));
-      if (filterStatus) params.set("claimStatus", filterStatus);
+      if (filters.issueType.length) params.set("issueType", filters.issueType.join(","));
+      if (filters.status) params.set("claimStatus", filters.status);
 
       const res = await fetch(`/api/claims?${params}`);
       const data = await res.json();
       setClaims(data.claims || []);
-      setPagination(prev => ({ ...prev, ...data.pagination }));
+      const pg = data.pagination || {};
+      setPagination({ total: pg.total ?? 0, totalPages: pg.totalPages ?? 0 });
+      onCountChange?.(pg.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.pageSize, search, filterIssueType, filterStatus, showCompleted, sortBy, sortDir]);
+  }, [filters, onCountChange]);
 
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
 
-  // Re-fetch when user switches back to this tab (ensures order status is synced)
+  // Re-fetch when user switches back to this tab (throttle 30s to avoid excessive calls)
   useEffect(() => {
-    const onFocus = () => { if (document.visibilityState === "visible") fetchClaims(); };
+    const onFocus = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastFetchRef.current > 30_000) {
+        fetchClaims();
+      }
+    };
     document.addEventListener("visibilitychange", onFocus);
     return () => document.removeEventListener("visibilitychange", onFocus);
   }, [fetchClaims]);
@@ -1053,16 +1076,16 @@ export default function ClaimsClient() {
     try {
       const res = await fetch("/api/claims/auto-detect", { method: "POST" });
       const data = await res.json();
-      fetchClaims();
-      if (data.autoCompleted > 0 || data.newClaims > 0) {
-        // Data updated - already refetched
+      // Only refetch if auto-detect actually found/changed something
+      if (data.newClaims > 0 || data.autoCompleted > 0) {
+        fetchClaims();
       }
     } finally {
       setDetecting(false);
     }
   };
 
-  // Run auto-detect on first load
+  // Run auto-detect silently in background on first load (does NOT block or re-trigger initial fetch)
   useEffect(() => { runAutoDetect(); }, []);
 
   const handleComplete = (claimId: string, requestCode: string) => {
@@ -1181,20 +1204,20 @@ export default function ClaimsClient() {
   };
 
   const toggleIssueFilter = (type: string) => {
-    setFilterIssueType(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setFilters(f => ({
+      ...f,
+      page: 1,
+      issueType: f.issueType.includes(type) ? f.issueType.filter(t => t !== type) : [...f.issueType, type],
+    }));
   };
 
   const toggleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortDir(prev => prev === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(field);
-      setSortDir("asc");
-    }
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setFilters(f => ({
+      ...f,
+      page: 1,
+      sortBy: field,
+      sortDir: f.sortBy === field ? (f.sortDir === "asc" ? "desc" : "asc") : "asc",
+    }));
   };
 
   return (
@@ -1240,8 +1263,15 @@ export default function ClaimsClient() {
           <input
             style={{ ...inputStyle, paddingLeft: "32px", padding: "7px 10px 7px 32px", fontSize: "13px" }}
             placeholder="Tìm mã đơn, SĐT, shop..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
+            value={searchInput}
+            onChange={e => {
+              const val = e.target.value;
+              setSearchInput(val);
+              clearTimeout(searchTimerRef.current);
+              searchTimerRef.current = setTimeout(() => {
+                setFilters(f => ({ ...f, search: val, page: 1 }));
+              }, 400);
+            }}
           />
         </div>
 
@@ -1251,7 +1281,7 @@ export default function ClaimsClient() {
             <button
               key={k}
               onClick={() => toggleIssueFilter(k)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${filterIssueType.includes(k) ? `${v.bg} ${v.text} ${v.border}` : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${filters.issueType.includes(k) ? `${v.bg} ${v.text} ${v.border}` : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}
             >
               {v.label}
             </button>
@@ -1261,8 +1291,8 @@ export default function ClaimsClient() {
         {/* Status filter */}
         <select
           style={{ ...inputStyle, width: "auto", padding: "7px 10px", fontSize: "12px" }}
-          value={filterStatus}
-          onChange={e => { setFilterStatus(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
+          value={filters.status}
+          onChange={e => setFilters(f => ({ ...f, status: e.target.value, page: 1 }))}
         >
           <option value="">Tất cả TT xử lý</option>
           {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
@@ -1273,20 +1303,20 @@ export default function ClaimsClient() {
         {/* Completed filter toggle */}
         <div style={{ display: "flex", gap: "4px" }}>
           <button
-            onClick={() => { setShowCompleted(false); setFilterCompleted(""); setPagination(p => ({ ...p, page: 1 })); }}
+            onClick={() => setFilters(f => ({ ...f, showCompleted: false, page: 1 }))}
             style={{
               padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", cursor: "pointer",
-              background: !showCompleted ? "#2563eb" : "#fff", color: !showCompleted ? "#fff" : "#64748b",
+              background: !filters.showCompleted ? "#2563eb" : "#fff", color: !filters.showCompleted ? "#fff" : "#64748b",
               fontWeight: 600, fontSize: "12px", transition: "all 0.2s",
             }}
           >
             Chưa hoàn tất
           </button>
           <button
-            onClick={() => { setShowCompleted(true); setFilterCompleted("completed"); setPagination(p => ({ ...p, page: 1 })); }}
+            onClick={() => setFilters(f => ({ ...f, showCompleted: true, page: 1 }))}
             style={{
               padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", cursor: "pointer",
-              background: showCompleted ? "#10b981" : "#fff", color: showCompleted ? "#fff" : "#64748b",
+              background: filters.showCompleted ? "#10b981" : "#fff", color: filters.showCompleted ? "#fff" : "#64748b",
               fontWeight: 600, fontSize: "12px", transition: "all 0.2s",
             }}
           >
@@ -1412,10 +1442,10 @@ export default function ClaimsClient() {
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
                   >
                     {col.label}
-                    {col.sortField && sortBy === col.sortField && (
-                      <span style={{ marginLeft: "3px", color: "#2563EB" }}>{sortDir === "asc" ? "↑" : "↓"}</span>
+                    {col.sortField && filters.sortBy === col.sortField && (
+                      <span style={{ marginLeft: "3px", color: "#2563EB" }}>{filters.sortDir === "asc" ? "↑" : "↓"}</span>
                     )}
-                    {col.sortField && sortBy !== col.sortField && (
+                    {col.sortField && filters.sortBy !== col.sortField && (
                       <ChevronDown size={10} style={{ marginLeft: "2px", opacity: 0.3, display: "inline-block", verticalAlign: "middle" }} />
                     )}
                   </th>
@@ -1456,7 +1486,7 @@ export default function ClaimsClient() {
                       </td>
                       {/* 1. STT */}
                       <td style={{ padding: "6px", color: "#94a3b8", fontWeight: 500, fontSize: "12px" }}>
-                        {(pagination.page - 1) * pagination.pageSize + idx + 1}
+                        {(filters.page - 1) * filters.pageSize + idx + 1}
                       </td>
                       {/* 2. Mã Yêu Cầu */}
                       <td style={{ padding: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1661,8 +1691,8 @@ export default function ClaimsClient() {
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span>Hiển thị</span>
             <select
-              value={pagination.pageSize}
-              onChange={e => setPagination(p => ({ ...p, pageSize: Number(e.target.value), page: 1 }))}
+              value={filters.pageSize}
+              onChange={e => setFilters(f => ({ ...f, pageSize: Number(e.target.value), page: 1 }))}
               style={{ border: "1px solid #d1d5db", borderRadius: "6px", padding: "4px 8px", fontSize: "13px" }}
             >
               {[20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
@@ -1671,18 +1701,18 @@ export default function ClaimsClient() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <button
-              onClick={() => setPagination(p => ({ ...p, page: Math.max(1, p.page - 1) }))}
-              disabled={pagination.page <= 1}
+              onClick={() => setFilters(f => ({ ...f, page: Math.max(1, f.page - 1) }))}
+              disabled={filters.page <= 1}
               className="px-3 py-1.5 border border-slate-200 rounded-lg text-[13px] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center font-bold"
             >
               <ChevronLeft size={14} className="mr-1" /> Trước
             </button>
             <span className="font-semibold text-slate-700">
-              {pagination.page} / {pagination.totalPages}
+              {filters.page} / {pagination.totalPages}
             </span>
             <button
-              onClick={() => setPagination(p => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
-              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => setFilters(f => ({ ...f, page: Math.min(pagination.totalPages, f.page + 1) }))}
+              disabled={filters.page >= pagination.totalPages}
               className="px-3 py-1.5 border border-slate-200 rounded-lg text-[13px] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center font-bold"
             >
               Sau <ChevronRight size={14} className="ml-1" />
