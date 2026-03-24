@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useRouter } from "next/navigation";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 
 /* ============================================================
    CONSTANTS
@@ -95,6 +96,7 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
   const [titleInput, setTitleInput] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [orderDetailCode, setOrderDetailCode] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -263,9 +265,12 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
                   <div><span style={{ color: "#9ca3af" }}>Trạng thái: </span><span style={{ fontWeight: 500 }}>{detail.linkedOrder.status}</span></div>
                   <div><span style={{ color: "#9ca3af" }}>COD: </span><span style={{ fontWeight: 500 }}>{(detail.linkedOrder.codAmount || 0).toLocaleString("vi-VN")}đ</span></div>
                 </div>
-                <a href={`/orders/${detail.linkedOrder.requestCode}`} style={{ fontSize: "12px", color: "#2563eb", fontWeight: 600, marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                <button
+                  onClick={() => setOrderDetailCode(detail.linkedOrder.requestCode)}
+                  style={{ fontSize: "12px", color: "#2563eb", fontWeight: 600, marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                >
                   Xem chi tiết đơn <ExternalLink size={11} />
-                </a>
+                </button>
               </div>
             )}
 
@@ -368,6 +373,12 @@ function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, 
           </>
         )}
       </div>
+      <OrderDetailDialog
+        requestCode={orderDetailCode}
+        open={!!orderDetailCode}
+        onClose={() => setOrderDetailCode(null)}
+        userRole={userRole}
+      />
     </>,
     document.body
   );
@@ -389,6 +400,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [hideDone, setHideDone] = useState(false);
   const [selectedTodo, setSelectedTodo] = useState<any>(null);
+  const [orderDetailCode, setOrderDetailCode] = useState<string | null>(null);
 
   // Quick add
   const [quickTitle, setQuickTitle] = useState("");
@@ -689,7 +701,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
                       </td>
                       <td style={{ padding: "8px 10px" }}>
                         {t.linkedOrder ? (
-                          <a href={`/orders/${t.linkedOrder.requestCode}`} style={{ color: "#2563eb", fontWeight: 600, textDecoration: "none" }}>{t.linkedOrder.requestCode}</a>
+                          <button onClick={() => setOrderDetailCode(t.linkedOrder.requestCode)} style={{ background: "none", border: "none", padding: 0, color: "#2563eb", fontWeight: 600, cursor: "pointer", fontSize: "inherit" }}>{t.linkedOrder.requestCode}</button>
                         ) : <span style={{ color: "#d1d5db" }}>—</span>}
                       </td>
                       <td style={{ padding: "8px 10px" }}>
@@ -882,6 +894,14 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
           <style>{`@keyframes confirmPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
         </>
       )}
+
+      {/* Order Detail Dialog (from table) */}
+      <OrderDetailDialog
+        requestCode={orderDetailCode}
+        open={!!orderDetailCode}
+        onClose={() => setOrderDetailCode(null)}
+        userRole={userRole}
+      />
 
       {/* New Todo Dialog */}
       <AddTodoDialog
