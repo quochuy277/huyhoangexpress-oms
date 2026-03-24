@@ -21,7 +21,8 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d[''''plugins''''][:3], indent=2\\)\\)\")",
       "Bash(xargs grep:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(npx prisma:*)"
     ]
   }
 }
