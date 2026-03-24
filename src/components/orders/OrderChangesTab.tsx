@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import {
   ChevronLeft,
   ChevronRight,
@@ -104,7 +105,7 @@ interface UploadBatch {
 // Component
 // ============================================================
 
-export function OrderChangesTab() {
+export function OrderChangesTab({ userRole }: { userRole: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -117,6 +118,7 @@ export function OrderChangesTab() {
   const [carrierFilter, setCarrierFilter] = useState("");
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatCards, setShowStatCards] = useState(false);
+  const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
   const page = parseInt(searchParams.get("changePage") || "1", 10);
   const sortBy = searchParams.get("changeSortBy") || "detectedAt";
@@ -524,15 +526,7 @@ export function OrderChangesTab() {
                       {/* Mã Yêu Cầu */}
                       <td className="px-3 py-2.5">
                         <button
-                          onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.set("tab", "changes");
-                            router.push(
-                              `/orders/${log.requestCode}?from=${encodeURIComponent(
-                                `${pathname}?${params.toString()}`
-                              )}`
-                            );
-                          }}
+                          onClick={() => setDetailRequestCode(log.requestCode)}
                           className="font-mono text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
                         >
                           {log.requestCode}
@@ -645,6 +639,14 @@ export function OrderChangesTab() {
           </div>
         )}
       </div>
+
+      {/* Order Detail Dialog */}
+      <OrderDetailDialog
+        requestCode={detailRequestCode || ""}
+        open={!!detailRequestCode}
+        onClose={() => setDetailRequestCode(null)}
+        userRole={userRole}
+      />
     </div>
   );
 }

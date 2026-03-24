@@ -242,7 +242,7 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
             </div>
           }
         >
-          <OrderChangesTab />
+          <OrderChangesTab userRole={userRole} />
         </Suspense>
       )}
 
