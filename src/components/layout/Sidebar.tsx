@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,8 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  Pin,
+  PinOff,
   X,
 } from "lucide-react";
 
@@ -51,14 +53,20 @@ interface SidebarProps {
 
 export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // pinned = user explicitly chose to keep sidebar expanded (persisted)
+  const [pinned, setPinned] = useState(false);
+  // hovered = mouse is over the sidebar area (transient)
+  const [hovered, setHovered] = useState(false);
+
+  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem("sidebar_collapsed");
-    if (saved) {
-      setCollapsed(JSON.parse(saved));
+    const saved = localStorage.getItem("sidebar_pinned");
+    if (saved === "true") {
+      setPinned(true);
     }
   }, []);
 
@@ -67,11 +75,27 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
     onMobileClose?.();
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleCollapse = () => {
-    const newVal = !collapsed;
-    setCollapsed(newVal);
-    localStorage.setItem("sidebar_collapsed", JSON.stringify(newVal));
+  const togglePin = () => {
+    const newVal = !pinned;
+    setPinned(newVal);
+    localStorage.setItem("sidebar_pinned", JSON.stringify(newVal));
+    if (newVal) setHovered(false); // no need for hover state when pinned
   };
+
+  const handleMouseEnter = () => {
+    if (pinned) return; // already expanded
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    setHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (pinned) return;
+    // Small delay to prevent flicker
+    hoverTimeout.current = setTimeout(() => setHovered(false), 150);
+  };
+
+  // Determine if sidebar content should show expanded
+  const isExpanded = pinned || hovered;
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.requiredPermission) return true;
@@ -87,15 +111,13 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
       <div
         className={cn(
           "flex items-center h-16 px-4 border-b border-slate-800 overflow-hidden shrink-0",
-          !isMobile && collapsed ? "justify-center cursor-pointer hover:bg-slate-800 transition-colors" : ""
+          !isMobile && !isExpanded ? "justify-center" : ""
         )}
-        onClick={() => !isMobile && collapsed && toggleCollapse()}
-        title={!isMobile && collapsed ? "Mở rộng" : undefined}
       >
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0">
           <Package className="w-5 h-5 text-white" />
         </div>
-        {(isMobile || !collapsed) && (
+        {(isMobile || isExpanded) && (
           <div className="ml-3 overflow-hidden flex-1">
             <p className="text-white font-bold text-sm leading-tight truncate">
               HuyHoang Express
@@ -113,8 +135,6 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
         )}
       </div>
 
-
-
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         {visibleItems.map((item) => {
@@ -125,7 +145,7 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
             <Link
               key={item.href}
               href={item.href}
-              title={!isMobile && collapsed ? item.label : undefined}
+              title={!isMobile && !isExpanded ? item.label : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group",
                 isActive
@@ -139,29 +159,34 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
                   !isActive && "group-hover:scale-110"
                 )}
               />
-              {(isMobile || !collapsed) && (
-                <span className="truncate">{item.label}</span>
+              {(isMobile || isExpanded) && (
+                <span className="truncate whitespace-nowrap">{item.label}</span>
               )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Collapse/Expand button - desktop only */}
+      {/* Pin/Unpin button - desktop only */}
       {!isMobile && (
         <div className="px-2 pb-4 shrink-0">
           <button
-            onClick={toggleCollapse}
+            onClick={togglePin}
             className="flex items-center justify-center w-full gap-2 py-2.5 px-3 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all text-sm"
-            title={collapsed ? "Mở rộng" : "Thu gọn"}
+            title={pinned ? "Bỏ ghim (thu gọn)" : "Ghim mở rộng"}
           >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
+            {pinned ? (
               <>
-                <ChevronLeft className="w-4 h-4" />
-                <span>Thu gọn</span>
+                <PinOff className="w-4 h-4" />
+                {isExpanded && <span>Bỏ ghim</span>}
               </>
+            ) : isExpanded ? (
+              <>
+                <Pin className="w-4 h-4" />
+                <span>Ghim mở rộng</span>
+              </>
+            ) : (
+              <ChevronRight className="w-4 h-4" />
             )}
           </button>
         </div>
@@ -172,10 +197,21 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
   return (
     <>
       {/* Desktop sidebar */}
+      {/* Spacer div only when not pinned (sidebar is fixed/overlay) */}
+      {!pinned && (
+        <div className="hidden md:block shrink-0 w-16" />
+      )}
+
+      {/* Actual sidebar - fixed when collapsed (overlay on hover), relative when pinned */}
       <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={cn(
-          "hidden md:flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 relative shrink-0",
-          collapsed ? "w-16" : "w-64"
+          "hidden md:flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 shrink-0",
+          pinned
+            ? "relative w-64"
+            : "fixed left-0 top-0 z-40",
+          !pinned && (hovered ? "w-64 shadow-2xl shadow-black/30" : "w-16")
         )}
       >
         {sidebarContent(false)}
