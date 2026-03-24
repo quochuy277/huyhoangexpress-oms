@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { CheckSquare, Loader2, X } from "lucide-react";
+import { useTodoUsers } from "@/hooks/useTodoUsers";
 
 interface AddTodoDialogProps {
   open: boolean;
@@ -16,14 +17,7 @@ interface AddTodoDialogProps {
 }
 
 export function AddTodoDialog({
-  open,
-  onClose,
-  defaultTitle,
-  defaultDescription,
-  defaultPriority,
-  linkedOrderId,
-  source,
-  userRole,
+  open, onClose, defaultTitle, defaultDescription, defaultPriority, linkedOrderId, source, userRole,
 }: AddTodoDialogProps) {
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
@@ -33,17 +27,16 @@ export function AddTodoDialog({
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [mounted, setMounted] = useState(false);
   const [assigneeId, setAssigneeId] = useState("");
-  const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
   const [resolvedRole, setResolvedRole] = useState(userRole || "");
 
   const canAssign = resolvedRole === "ADMIN" || resolvedRole === "MANAGER";
+  const { users } = useTodoUsers(canAssign);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Fetch role & users when dialog opens
+  // Reset fields when dialog opens
   useEffect(() => {
     if (!open) return;
-    // Reset fields
     setTitle(defaultTitle);
     setDescription(defaultDescription);
     setPriority(defaultPriority);
@@ -51,30 +44,15 @@ export function AddTodoDialog({
     setAssigneeId("");
     setToast(null);
 
-    // Auto-detect role if not provided, then fetch users
-    const init = async () => {
-      let role = userRole || "";
-      if (!role) {
-        try {
-          const res = await fetch("/api/auth/me");
-          if (res.ok) {
-            const data = await res.json();
-            role = data.role || "";
-            setResolvedRole(role);
-          }
-        } catch { /* ignore */ }
-      } else {
-        setResolvedRole(role);
-      }
-      if (role === "ADMIN" || role === "MANAGER") {
-        try {
-          const res = await fetch("/api/todos/users");
-          const data = await res.json();
-          setUsers(data.users || []);
-        } catch { /* ignore */ }
-      }
-    };
-    init();
+    // Auto-detect role if not provided
+    if (!userRole) {
+      fetch("/api/auth/me")
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.role) setResolvedRole(data.role); })
+        .catch(() => {});
+    } else {
+      setResolvedRole(userRole);
+    }
   }, [open, defaultTitle, defaultDescription, defaultPriority, userRole]);
 
   const handleSubmit = async () => {
@@ -99,10 +77,7 @@ export function AddTodoDialog({
 
       if (res.ok) {
         setToast({ type: "success", msg: "Đã tạo công việc thành công" });
-        setTimeout(() => {
-          onClose();
-          setToast(null);
-        }, 1200);
+        setTimeout(() => { onClose(); setToast(null); }, 1000);
       } else {
         const data = await res.json().catch(() => ({}));
         setToast({ type: "error", msg: data.error || "Có lỗi xảy ra" });
@@ -114,256 +89,106 @@ export function AddTodoDialog({
     }
   };
 
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
   if (!open || !mounted) return null;
+
+  const inputClass = "w-full bg-white border-[1.5px] border-gray-300 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 
   const dialog = (
     <>
-      {/* Dark backdrop overlay */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9998,
-          backgroundColor: "rgba(0,0,0,0.5)",
-        }}
-      />
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClose} />
 
-      {/* Dialog container */}
-      <div
-        style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          zIndex: 9999,
-          width: "480px",
-          maxWidth: "calc(100vw - 32px)",
-          background: "#FFFFFF",
-          border: "1.5px solid #2563EB",
-          borderRadius: "12px",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-          padding: "24px",
-        }}
-      >
+      {/* Dialog */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-[480px] max-w-[calc(100vw-32px)] bg-white border-[1.5px] border-blue-600 rounded-xl shadow-xl p-5 sm:p-6 animate-[dialogIn_0.2s_ease-out]">
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid #e5e7eb",
-            paddingBottom: "16px",
-            marginBottom: "20px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <CheckSquare style={{ width: "20px", height: "20px", color: "#2563EB" }} />
-            <span style={{ fontSize: "18px", fontWeight: 600, color: "#1a1a1a" }}>
-              Thêm vào Công Việc
-            </span>
+        <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-5">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="text-blue-600" size={20} />
+            <span className="text-lg font-semibold text-slate-800">Thêm vào Công Việc</span>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "4px",
-              borderRadius: "6px",
-              color: "#666",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "color 0.2s, background 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "#1a1a1a";
-              e.currentTarget.style.background = "#f3f4f6";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "#666";
-              e.currentTarget.style.background = "none";
-            }}
+            className="text-gray-400 hover:text-slate-800 hover:bg-gray-100 rounded-md p-1 transition-colors bg-transparent border-none cursor-pointer"
           >
-            <X style={{ width: "18px", height: "18px" }} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Form fields */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* Field 1: Tiêu đề */}
+        {/* Form */}
+        <div className="flex flex-col gap-4">
+          {/* Title */}
           <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
-              Tiêu đề công việc <span style={{ color: "#ef4444" }}>*</span>
+            <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+              Tiêu đề công việc <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="Nhập tiêu đề..."
-              style={{
-                width: "100%",
-                background: "#FFFFFF",
-                border: "1.5px solid #d1d5db",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                fontSize: "14px",
-                color: "#1a1a1a",
-                outline: "none",
-                boxSizing: "border-box",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#2563EB";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              className={inputClass}
+              autoFocus
             />
           </div>
 
-          {/* Field 2: Mô tả */}
+          {/* Description */}
           <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
-              Mô tả
-            </label>
+            <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Mô tả</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Mô tả chi tiết..."
               rows={3}
-              style={{
-                width: "100%",
-                background: "#FFFFFF",
-                border: "1.5px solid #d1d5db",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                fontSize: "14px",
-                color: "#1a1a1a",
-                outline: "none",
-                resize: "none",
-                boxSizing: "border-box",
-                fontFamily: "inherit",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#2563EB";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              className={`${inputClass} resize-none font-[inherit]`}
             />
           </div>
 
-          {/* Field 3: Mức ưu tiên */}
-          <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
-              Mức ưu tiên
-            </label>
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value as typeof priority)}
-              style={{
-                width: "100%",
-                background: "#FFFFFF",
-                border: "1.5px solid #d1d5db",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                fontSize: "14px",
-                color: "#1a1a1a",
-                outline: "none",
-                boxSizing: "border-box",
-                cursor: "pointer",
-                appearance: "auto",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#2563EB";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            >
-              <option value="LOW">Thấp</option>
-              <option value="MEDIUM">Trung bình</option>
-              <option value="HIGH">Cao</option>
-              <option value="URGENT">Khẩn cấp</option>
-            </select>
+          {/* Priority & Due date in grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Mức ưu tiên</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as typeof priority)}
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="LOW">Thấp</option>
+                <option value="MEDIUM">Trung bình</option>
+                <option value="HIGH">Cao</option>
+                <option value="URGENT">Khẩn cấp</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Thời hạn</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className={inputClass}
+              />
+            </div>
           </div>
 
-          {/* Field 4: Thời hạn */}
-          <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
-              Thời hạn
-            </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              style={{
-                width: "100%",
-                background: "#FFFFFF",
-                border: "1.5px solid #d1d5db",
-                borderRadius: "8px",
-                padding: "10px 12px",
-                fontSize: "14px",
-                color: "#1a1a1a",
-                outline: "none",
-                boxSizing: "border-box",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#2563EB";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            />
-          </div>
-
-          {/* Field 5: Gán nhân viên (Admin/Manager only) */}
+          {/* Assignee (Admin/Manager only) */}
           {canAssign && users.length > 0 && (
             <div>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
-                Gán cho nhân viên
-              </label>
+              <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Gán cho nhân viên</label>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "#FFFFFF",
-                  border: "1.5px solid #d1d5db",
-                  borderRadius: "8px",
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  color: "#1a1a1a",
-                  outline: "none",
-                  boxSizing: "border-box" as const,
-                  cursor: "pointer",
-                  appearance: "auto" as const,
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#2563EB";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "#d1d5db";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
+                className={`${inputClass} cursor-pointer`}
               >
                 <option value="">Tôi (mặc định)</option>
-                {users.map(u => (
+                {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                 ))}
               </select>
@@ -372,80 +197,35 @@ export function AddTodoDialog({
 
           {/* Toast */}
           {toast && (
-            <div
-              style={{
-                fontSize: "13px",
-                padding: "10px 14px",
-                borderRadius: "8px",
-                fontWeight: 500,
-                background: toast.type === "success" ? "#f0fdf4" : "#fef2f2",
-                color: toast.type === "success" ? "#16a34a" : "#dc2626",
-                border: `1px solid ${toast.type === "success" ? "#bbf7d0" : "#fecaca"}`,
-              }}
-            >
-              {toast.type === "success" ? "✅ " : "❌ "}
-              {toast.msg}
+            <div className={`text-[13px] px-3.5 py-2.5 rounded-lg font-medium ${
+              toast.type === "success"
+                ? "bg-green-50 text-green-600 border border-green-200"
+                : "bg-red-50 text-red-600 border border-red-200"
+            }`}>
+              {toast.type === "success" ? "✅ " : "❌ "}{toast.msg}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "12px",
-            marginTop: "24px",
-            borderTop: "1px solid #e5e7eb",
-            paddingTop: "16px",
-          }}
-        >
+        <div className="flex justify-end gap-3 mt-6 border-t border-gray-200 pt-4">
           <button
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "1px solid #d1d5db",
-              color: "#374151",
-              padding: "8px 20px",
-              borderRadius: "8px",
-              fontSize: "14px",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            className="bg-transparent border border-gray-300 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors"
           >
             Hủy
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || !title.trim()}
-            style={{
-              background: "#2563EB",
-              color: "#FFFFFF",
-              border: "none",
-              padding: "8px 20px",
-              borderRadius: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: isSubmitting || !title.trim() ? "not-allowed" : "pointer",
-              opacity: isSubmitting || !title.trim() ? 0.6 : 1,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              if (!isSubmitting && title.trim()) e.currentTarget.style.background = "#1d4ed8";
-            }}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#2563EB")}
+            className="bg-blue-600 text-white border-none px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            {isSubmitting && <Loader2 style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite" }} />}
+            {isSubmitting && <Loader2 size={16} className="animate-spin" />}
             {isSubmitting ? "Đang tạo..." : "Tạo công việc"}
           </button>
         </div>
       </div>
+      <style>{`@keyframes dialogIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
     </>
   );
 
