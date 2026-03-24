@@ -207,54 +207,183 @@ export default function ManagementTab({ canEdit }: Props) {
         </div>
       </div>
 
-      {/* Detail Panel */}
-      {detailUser && detailData && (
-        <div style={{ ...cardStyle, borderColor: "#2563EB", borderWidth: "1.5px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <div style={{ fontSize: "14px", fontWeight: 700, color: "#1e293b" }}>
-              Chi tiết: {detailUser.name} — Tháng {month.split("-")[1]}/{month.split("-")[0]}
+      {/* Detail Panel — Full view like MyAttendanceTab */}
+      {detailUser && detailData && (() => {
+        const att: any[] = detailData.attendance || [];
+        const loginHist: any[] = detailData.loginHistory || [];
+
+        // Compute stats
+        const present = att.filter((a: any) => a.status === "PRESENT").length;
+        const halfDay = att.filter((a: any) => a.status === "HALF_DAY").length;
+        const absent = att.filter((a: any) => a.status === "ABSENT").length;
+        const onLeave = att.filter((a: any) => a.status === "ON_LEAVE").length;
+        const lateCount = att.filter((a: any) => a.isLate).length;
+        const totalMinutes = att.reduce((s: number, a: any) => s + (a.totalMinutes || 0), 0);
+        const equivalent = present + halfDay * 0.5;
+        const workedDays = att.filter((a: any) => (a.totalMinutes || 0) > 0).length;
+        const avgMinutes = workedDays > 0 ? Math.round(totalMinutes / workedDays) : 0;
+
+        // Calendar
+        const [cYear, cMon] = month.split("-").map(Number);
+        const firstDow = new Date(cYear, cMon - 1, 1).getDay();
+        const daysInMon = new Date(cYear, cMon, 0).getDate();
+        const calDays: (number | null)[] = Array(firstDow === 0 ? 6 : firstDow - 1).fill(null);
+        for (let i = 1; i <= daysInMon; i++) calDays.push(i);
+        while (calDays.length % 7 !== 0) calDays.push(null);
+        const getAtt = (day: number) => att.find((a: any) => new Date(a.date).getUTCDate() === day);
+
+        const LOGOUT_REASONS: Record<string, string> = {
+          manual: "Thủ công", auto_midnight: "Auto (0h)", idle_timeout: "Không hoạt động",
+          session_expired: "Hết phiên", browser_closed: "Tắt trình duyệt",
+        };
+
+        return (
+          <div style={{ ...cardStyle, borderColor: "#2563EB", borderWidth: "1.5px" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>
+                📋 Chi tiết: {detailUser.name} — Tháng {month.split("-")[1]}/{month.split("-")[0]}
+              </div>
+              <button onClick={() => { setDetailUser(null); setDetailData(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280" }}><X size={16} /></button>
             </div>
-            <button onClick={() => { setDetailUser(null); setDetailData(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280" }}><X size={16} /></button>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-              <thead>
-                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
-                  {["Ngày", "Đăng Nhập", "Đăng Xuất", "Tổng Giờ", "Trạng Thái", "Ghi Chú", canEdit ? "Sửa" : ""].filter(Boolean).map(h => (
-                    <th key={h} style={{ padding: "7px 8px", textAlign: "left", fontWeight: 600, color: "#475569" }}>{h}</th>
+
+            {/* Stats cards + Calendar row */}
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
+              {/* Calendar */}
+              <div style={{ flex: "2 1 380px", background: "#f8fafc", borderRadius: "10px", padding: "14px", border: "1px solid #e5e7eb" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "2px", textAlign: "center" }}>
+                  {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map(d => (
+                    <div key={d} style={{ fontSize: "11px", fontWeight: 600, color: "#9ca3af", padding: "4px" }}>{d}</div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(detailData.attendance || []).map((a: any) => {
-                  const cfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.ABSENT;
-                  return (
-                    <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "7px 8px", fontWeight: 500 }}>{String(new Date(a.date).getUTCDate()).padStart(2, '0')}/{String(new Date(a.date).getUTCMonth() + 1).padStart(2, '0')}</td>
-                      <td style={{ padding: "7px 8px" }}>{a.firstLogin ? format(new Date(a.firstLogin), "HH:mm") : "—"}{a.isLate && <span style={{ color: "#d97706", marginLeft: "3px" }}>⚠</span>}</td>
-                      <td style={{ padding: "7px 8px" }}>{a.lastLogout ? format(new Date(a.lastLogout), "HH:mm") : "—"}</td>
-                      <td style={{ padding: "7px 8px", fontWeight: 500 }}>{formatDuration(a.totalMinutes)}</td>
-                      <td style={{ padding: "7px 8px" }}>
-                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "4px", fontWeight: 600, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
-                        {a.isManualEdit && <span style={{ marginLeft: "4px", fontSize: "10px" }}>✏️</span>}
-                      </td>
-                      <td style={{ padding: "7px 8px", color: "#6b7280", fontSize: "11px" }}>{a.editNote || ""}</td>
-                      {canEdit && (
+                  {calDays.map((day, i) => {
+                    if (!day) return <div key={`e${i}`} />;
+                    const a = getAtt(day);
+                    const isToday = new Date().getDate() === day && new Date().getMonth() + 1 === cMon && new Date().getFullYear() === cYear;
+                    const isFuture = new Date(cYear, cMon - 1, day) > new Date();
+                    const cfg = a ? STATUS_CONFIG[a.status] : null;
+                    return (
+                      <div key={day} style={{
+                        padding: "6px 2px", borderRadius: "8px", fontSize: "12px", position: "relative",
+                        background: isToday ? "#eff6ff" : cfg ? cfg.bg + "60" : isFuture ? "#f9fafb" : "#fff",
+                        border: isToday ? "1.5px solid #2563EB" : "1px solid #f1f5f9",
+                      }}>
+                        <div style={{ fontWeight: isToday ? 700 : 500, color: cfg ? cfg.color : "#9ca3af" }}>{day}</div>
+                        {a && <div style={{ fontSize: "9px", color: cfg?.color, fontWeight: 500, marginTop: "1px" }}>{formatDuration(a.totalMinutes)}</div>}
+                        {a?.isLate && <span style={{ position: "absolute", top: "1px", right: "3px", fontSize: "8px" }}>⚠</span>}
+                        {a?.isManualEdit && <span style={{ position: "absolute", top: "1px", left: "3px", fontSize: "8px" }}>✏️</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Legend */}
+                <div style={{ display: "flex", gap: "12px", marginTop: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                  {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                    <div key={k} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: v.color }}>
+                      <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: v.color }} />{v.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: "1 1 180px" }}>
+                {[
+                  { label: "Tổng ngày công", value: `${equivalent}`, sub: `${present} + 0.5×${halfDay}`, color: "#16a34a", bg: "#f0fdf4" },
+                  { label: "Tổng giờ online", value: formatDuration(totalMinutes), sub: `TB: ${formatDuration(avgMinutes)}/ngày`, color: "#2563EB", bg: "#eff6ff" },
+                  { label: "Đi muộn", value: `${lateCount}`, sub: "", color: "#d97706", bg: "#fffbeb" },
+                  { label: "Vắng / Nghỉ phép", value: `${absent} / ${onLeave}`, sub: "", color: "#dc2626", bg: "#fef2f2" },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: s.bg, border: `1px solid ${s.color}20`, borderRadius: "10px", padding: "10px 14px" }}>
+                    <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>{s.label}</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: s.color, marginTop: "1px" }}>{s.value}</div>
+                    {s.sub && <div style={{ fontSize: "10px", color: "#9ca3af" }}>{s.sub}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Daily attendance table */}
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", marginBottom: "8px" }}>📅 Bảng chấm công chi tiết</div>
+            <div style={{ overflowX: "auto", marginBottom: "16px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
+                    {["Ngày", "Đăng Nhập", "Đăng Xuất", "Tổng Giờ", "Trạng Thái", "Ghi Chú", canEdit ? "Sửa" : ""].filter(Boolean).map(h => (
+                      <th key={h} style={{ padding: "7px 8px", textAlign: "left", fontWeight: 600, color: "#475569" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {att.map((a: any) => {
+                    const cfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.ABSENT;
+                    return (
+                      <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "7px 8px", fontWeight: 500 }}>{String(new Date(a.date).getUTCDate()).padStart(2, '0')}/{String(new Date(a.date).getUTCMonth() + 1).padStart(2, '0')}</td>
+                        <td style={{ padding: "7px 8px" }}>{a.firstLogin ? format(new Date(a.firstLogin), "HH:mm") : "—"}{a.isLate && <span style={{ color: "#d97706", marginLeft: "3px" }}>⚠</span>}</td>
+                        <td style={{ padding: "7px 8px" }}>{a.lastLogout ? format(new Date(a.lastLogout), "HH:mm") : "—"}</td>
+                        <td style={{ padding: "7px 8px", fontWeight: 500 }}>{formatDuration(a.totalMinutes)}</td>
                         <td style={{ padding: "7px 8px" }}>
-                          <button
-                            onClick={() => setEditDialog({ id: a.id, date: a.date, currentStatus: a.status, newStatus: a.status, note: "" })}
-                            style={{ fontSize: "11px", color: "#d97706", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: "6px", padding: "2px 8px", cursor: "pointer" }}
-                          >Sửa</button>
+                          <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "4px", fontWeight: 600, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                          {a.isManualEdit && <span style={{ marginLeft: "4px", fontSize: "10px" }}>✏️</span>}
                         </td>
-                      )}
+                        <td style={{ padding: "7px 8px", color: "#6b7280", fontSize: "11px" }}>{a.editNote || ""}</td>
+                        {canEdit && (
+                          <td style={{ padding: "7px 8px" }}>
+                            <button
+                              onClick={() => setEditDialog({ id: a.id, date: a.date, currentStatus: a.status, newStatus: a.status, note: "" })}
+                              style={{ fontSize: "11px", color: "#d97706", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: "6px", padding: "2px 8px", cursor: "pointer" }}
+                            >Sửa</button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Login History */}
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", marginBottom: "8px" }}>🖥️ Lịch sử đăng nhập</div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e5e7eb" }}>
+                    {["#", "Ngày", "Đăng Nhập", "Đăng Xuất", "Thời Gian", "Thiết Bị", "IP", "Lý Do Xuất"].map(h => (
+                      <th key={h} style={{ padding: "7px 8px", textAlign: "left", fontWeight: 600, color: "#475569" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loginHist.length === 0 ? (
+                    <tr><td colSpan={8} style={{ textAlign: "center", padding: "20px", color: "#9ca3af" }}>Chưa có lịch sử</td></tr>
+                  ) : loginHist.map((r: any, i: number) => (
+                    <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                      <td style={{ padding: "7px 8px", color: "#9ca3af" }}>{i + 1}</td>
+                      <td style={{ padding: "7px 8px", fontWeight: 500 }}>{format(new Date(r.loginTime), "dd/MM/yyyy")}</td>
+                      <td style={{ padding: "7px 8px" }}>{format(new Date(r.loginTime), "HH:mm")}</td>
+                      <td style={{ padding: "7px 8px" }}>{r.logoutTime ? format(new Date(r.logoutTime), "HH:mm") : <span style={{ color: "#22c55e", fontWeight: 600 }}>Online</span>}</td>
+                      <td style={{ padding: "7px 8px", fontWeight: 500 }}>{r.duration != null ? formatDuration(r.duration) : "—"}</td>
+                      <td style={{ padding: "7px 8px", color: "#6b7280" }}>{r.deviceType || "—"}</td>
+                      <td style={{ padding: "7px 8px", color: "#6b7280", fontSize: "11px" }}>{r.ipAddress || "—"}</td>
+                      <td style={{ padding: "7px 8px" }}>
+                        {r.logoutReason ? (
+                          <span style={{
+                            fontSize: "11px", padding: "2px 8px", borderRadius: "4px", fontWeight: 500,
+                            background: r.logoutReason === "manual" ? "#f3f4f6" : r.logoutReason === "idle_timeout" ? "#fef3c7" : "#dbeafe",
+                            color: r.logoutReason === "manual" ? "#4b5563" : r.logoutReason === "idle_timeout" ? "#92400e" : "#1e40af",
+                          }}>
+                            {LOGOUT_REASONS[r.logoutReason] || r.logoutReason}
+                          </span>
+                        ) : "—"}
+                      </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Section D: Leave Management */}
       <div style={cardStyle}>
