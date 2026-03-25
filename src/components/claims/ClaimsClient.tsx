@@ -1115,6 +1115,40 @@ export default function ClaimsClient({ onCountChange, externalDetailClaimId, onE
   // Auto-detect
   const [detecting, setDetecting] = useState(false);
 
+  // Export
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({
+        search: filters.search,
+        showCompleted: String(filters.showCompleted),
+      });
+      if (filters.issueType.length) params.set("issueType", filters.issueType.join(","));
+      if (filters.status) params.set("claimStatus", filters.status);
+
+      const res = await fetch(`/api/claims/export?${params}`);
+      if (!res.ok) throw new Error("Export failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
+      a.download = filenameMatch?.[1] || "don-co-van-de.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Lỗi khi xuất file Excel. Vui lòng thử lại.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const fetchClaims = useCallback(async () => {
     setLoading(true);
     lastFetchRef.current = Date.now();
@@ -1340,6 +1374,18 @@ export default function ClaimsClient({ onCountChange, externalDetailClaimId, onE
           >
             {detecting ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
             Quét tự động
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            style={{
+              display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px",
+              border: "1px solid #d1d5db", borderRadius: "8px", background: "#fff",
+              fontSize: "13px", fontWeight: 500, cursor: "pointer", color: "#374151",
+            }}
+          >
+            {exporting ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
+            Xuất Excel
           </button>
           <button
             onClick={() => setShowAddDialog(true)}

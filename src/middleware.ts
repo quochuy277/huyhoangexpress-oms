@@ -17,8 +17,19 @@ const ROUTE_PERMISSIONS: Record<string, keyof PermissionSet> = {
 
 export default auth((req: NextRequest & { auth: { user?: { role?: string; permissions?: PermissionSet } } | null }) => {
   const { pathname } = req.nextUrl;
+  const hostname = req.nextUrl.hostname;
   const session = req.auth;
   const isLoggedIn = !!session?.user;
+
+  // Handle login subdomain
+  if (hostname === "login.huyhoang.express") {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL("https://huyhoang.express/orders"));
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.rewrite(url);
+  }
 
   // Public routes
   const isPublicPage = pathname === "/" || pathname.startsWith("/login");

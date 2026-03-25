@@ -27,7 +27,10 @@
       "Bash(grep -r ClaimDetailPanel /e/AAA_CODE/Order_Manager/src --include=*.tsx --include=*.ts)",
       "Bash(xargs wc:*)",
       "Bash(npx next:*)",
-      "Bash(cat 'D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\layout.tsx')"
+      "Bash(cat 'D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\layout.tsx')",
+      "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(auth\\\\\\)/)",
+      "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(landing\\\\\\)/)",
+      "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(auth\\\\\\)/login/)"
     ]
   }
 }
