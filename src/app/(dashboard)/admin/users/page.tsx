@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Users, Shield, Plus, Pencil, Key, Trash2, Loader2, X, CheckSquare, Eye, EyeOff } from "lucide-react";
+import { Users, Shield, Plus, Pencil, Key, Trash2, Loader2, X, CheckSquare, Eye, EyeOff, LogOut, ChevronDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PERMISSION_CATEGORIES, PERMISSION_KEYS } from "@/lib/permissions";
 
@@ -233,6 +233,8 @@ function UsersTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [passwordUser, setPasswordUser] = useState<UserRow | null>(null);
   const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
+  const [forceLogoutTarget, setForceLogoutTarget] = useState<{ mode: "all" | "except_admin" | "user"; user?: UserRow } | null>(null);
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -252,14 +254,55 @@ function UsersTab() {
     <div className="space-y-4">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <p style={{ fontSize: "13px", color: "#6b7280" }}>{users.length} nhân viên</p>
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{ ...primaryBtnStyle, padding: "8px 18px" }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "#1d4ed8"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "#2563EB"}
-        >
-          <Plus className="w-4 h-4" /> Thêm nhân viên
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {/* Force Logout Dropdown */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowLogoutMenu(!showLogoutMenu)}
+              style={{ ...dangerBtnStyle, padding: "8px 14px", fontSize: "13px" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#b91c1c"}
+              onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
+            >
+              <LogOut className="w-4 h-4" /> Buộc đăng xuất <ChevronDown className="w-3 h-3" />
+            </button>
+            {showLogoutMenu && (
+              <>
+                <div onClick={() => setShowLogoutMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
+                <div style={{
+                  position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 51,
+                  background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)", minWidth: "200px", overflow: "hidden",
+                }}>
+                  <button
+                    onClick={() => { setForceLogoutTarget({ mode: "all" }); setShowLogoutMenu(false); }}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "#dc2626", textAlign: "left", transition: "background 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <LogOut className="w-4 h-4" /> Tất cả người dùng
+                  </button>
+                  <div style={{ height: "1px", background: "#f3f4f6" }} />
+                  <button
+                    onClick={() => { setForceLogoutTarget({ mode: "except_admin" }); setShowLogoutMenu(false); }}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "#d97706", textAlign: "left", transition: "background 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fffbeb"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <LogOut className="w-4 h-4" /> Tất cả trừ Admin
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setShowAdd(true)}
+            style={{ ...primaryBtnStyle, padding: "8px 18px" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "#1d4ed8"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "#2563EB"}
+          >
+            <Plus className="w-4 h-4" /> Thêm nhân viên
+          </button>
+        </div>
       </div>
 
       <div style={{ background: "#FFFFFF", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
@@ -313,6 +356,10 @@ function UsersTab() {
                         onMouseEnter={e => e.currentTarget.style.background = "#fffbeb"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       ><Key className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setForceLogoutTarget({ mode: "user", user: u })} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#7c3aed", transition: "background 0.2s" }} title="Buộc đăng xuất"
+                        onMouseEnter={e => e.currentTarget.style.background = "#f5f3ff"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      ><LogOut className="w-3.5 h-3.5" /></button>
                       <button onClick={() => setDeleteUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#dc2626", transition: "background 0.2s" }} title="Khóa tài khoản"
                         onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -329,6 +376,7 @@ function UsersTab() {
       {(showAdd || editUser) && <UserFormDialog user={editUser} groups={groups} onClose={() => { setShowAdd(false); setEditUser(null); }} onSaved={fetchData} />}
       {passwordUser && <PasswordDialog user={passwordUser} onClose={() => setPasswordUser(null)} />}
       {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={fetchData} />}
+      {forceLogoutTarget && <ForceLogoutDialog target={forceLogoutTarget} onClose={() => setForceLogoutTarget(null)} />}
     </div>
   );
 }
@@ -548,6 +596,114 @@ function DeleteUserDialog({ user, onClose, onDeleted }: { user: UserRow; onClose
             onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = "#b91c1c"; }}
             onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
           >{deleting ? "Đang xử lý..." : "Khóa tài khoản"}</button>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+/* ============================================================
+   Force Logout Dialog — 460px, createPortal
+   ============================================================ */
+function ForceLogoutDialog({ target, onClose }: {
+  target: { mode: "all" | "except_admin" | "user"; user?: UserRow };
+  onClose: () => void;
+}) {
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const getTitle = () => {
+    if (target.mode === "user") return `Buộc đăng xuất — ${target.user?.name}`;
+    if (target.mode === "except_admin") return "Buộc đăng xuất (trừ Admin)";
+    return "Buộc đăng xuất tất cả";
+  };
+
+  const getMessage = () => {
+    if (target.mode === "user") return <>Bạn có chắc muốn buộc đăng xuất <b style={{ color: "#1a1a1a" }}>{target.user?.name}</b>? Phiên đăng nhập hiện tại của nhân viên này sẽ bị đóng.</>;
+    if (target.mode === "except_admin") return <>Tất cả nhân viên (trừ tài khoản Admin hiện tại) sẽ bị đăng xuất. Mọi phiên đăng nhập đang hoạt động sẽ bị đóng.</>;
+    return <><b style={{ color: "#dc2626" }}>Cảnh báo:</b> Tất cả mọi người (bao gồm cả bạn) sẽ bị đăng xuất. Bạn sẽ cần đăng nhập lại.</>;
+  };
+
+  const handleForceLogout = async () => {
+    setProcessing(true);
+    setResult(null);
+    try {
+      const body: any = {};
+      if (target.mode === "user" && target.user) {
+        body.userId = target.user.id;
+      } else {
+        body.mode = target.mode;
+      }
+
+      const res = await fetch("/api/admin/force-logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setResult({ ok: true, message: data.message || `Đã đăng xuất ${data.count} phiên` });
+        setTimeout(onClose, 2000);
+      } else {
+        setResult({ ok: false, message: data.error || "Có lỗi xảy ra" });
+      }
+    } catch {
+      setResult({ ok: false, message: "Lỗi kết nối" });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return createPortal(
+    <>
+      <div onClick={onClose} style={overlayStyle} />
+      <div style={{ ...dialogBase, width: "460px" }}>
+        <div style={headerStyle}>
+          <span style={{ ...titleStyle, color: target.mode === "all" ? "#dc2626" : "#d97706" }}>{getTitle()}</span>
+          <button onClick={onClose} style={closeBtnBase} onMouseEnter={closeHoverIn} onMouseLeave={closeHoverOut}>
+            <X style={{ width: "18px", height: "18px" }} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.6 }}>{getMessage()}</p>
+
+          {target.mode === "all" && (
+            <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#fef2f2", border: "1px solid #fecaca", fontSize: "12px", color: "#dc2626" }}>
+              ⚠ Lưu ý: Bạn cũng sẽ bị đăng xuất và cần đăng nhập lại.
+            </div>
+          )}
+
+          {result && (
+            <p style={{
+              fontSize: "13px",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              background: result.ok ? "#f0fdf4" : "#fef2f2",
+              color: result.ok ? "#16a34a" : "#dc2626",
+              border: `1px solid ${result.ok ? "#bbf7d0" : "#fecaca"}`,
+            }}>{result.message}</p>
+          )}
+        </div>
+
+        <div style={footerStyle}>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
+          <button
+            onClick={handleForceLogout}
+            disabled={processing || result?.ok === true}
+            style={{
+              ...dangerBtnStyle,
+              opacity: processing || result?.ok === true ? 0.6 : 1,
+              cursor: processing || result?.ok === true ? "not-allowed" : "pointer",
+            }}
+            onMouseEnter={e => { if (!processing) e.currentTarget.style.background = "#b91c1c"; }}
+            onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
+          >
+            {processing && <Loader2 className="w-4 h-4 animate-spin" />}
+            {processing ? "Đang xử lý..." : "Xác nhận đăng xuất"}
+          </button>
         </div>
       </div>
     </>,

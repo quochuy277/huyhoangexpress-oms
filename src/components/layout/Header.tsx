@@ -52,16 +52,16 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const { data: overdueData } = useQuery({
     queryKey: ["header-overdue-count"],
     queryFn: () => fetch("/api/todos/overdue-count").then(r => r.json()),
-    refetchInterval: 60000,
-    staleTime: 30000,
+    refetchInterval: 180000,
+    staleTime: 60000,
   });
   const overdueCount = overdueData?.count || 0;
 
   const { data: announcementData } = useQuery({
     queryKey: ["header-announcement-count"],
     queryFn: () => fetch("/api/announcements/unread-count").then(r => r.json()),
-    refetchInterval: 60000,
-    staleTime: 30000,
+    refetchInterval: 180000,
+    staleTime: 60000,
   });
   const announcementCount = announcementData?.count || 0;
 

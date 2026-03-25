@@ -75,6 +75,20 @@ export async function POST(req: NextRequest) {
       sessionCreated: !activeSession || closedCount > 0,
     });
   } catch (error) {
+    // Check if this is because admin force-logged us out
+    try {
+      const forceLogoutSetting = await prisma.systemSetting.findUnique({
+        where: { key: "force_logout_at" },
+      });
+      if (forceLogoutSetting) {
+        const forceLogoutTime = new Date(forceLogoutSetting.value);
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        if (forceLogoutTime > tenMinutesAgo) {
+          return NextResponse.json({ ok: false, forceLogout: true });
+        }
+      }
+    } catch { /* ignore */ }
+
     console.error("Heartbeat error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

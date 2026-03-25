@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { signOut } from "next-auth/react";
 
-const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced for Supabase free tier)
 
 export default function HeartbeatProvider() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -10,7 +11,14 @@ export default function HeartbeatProvider() {
   useEffect(() => {
     const sendHeartbeat = async () => {
       try {
-        await fetch("/api/attendance/heartbeat", { method: "POST" });
+        const res = await fetch("/api/attendance/heartbeat", { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.forceLogout) {
+            // Admin force-logged us out — redirect to login
+            signOut({ callbackUrl: "/login" });
+          }
+        }
       } catch {
         // Silently ignore network errors
       }
@@ -40,3 +48,4 @@ export default function HeartbeatProvider() {
 
   return null; // This component renders nothing
 }
+
