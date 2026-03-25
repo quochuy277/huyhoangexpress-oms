@@ -1,29 +1,106 @@
-# Antigravity Kit Architecture
+# ARCHITECTURE.md — HuyHoang Express OMS
 
-> Comprehensive AI Agent Capability Expansion Toolkit
+> AI Agent Capability Toolkit + Project Architecture
 
 ---
 
 ## 📋 Overview
 
-Antigravity Kit is a modular system consisting of:
+**Antigravity Kit** provides:
+- **20 Specialist Agents** — Role-based AI personas
+- **36 Skills** — Domain-specific knowledge modules
+- **11 Workflows** — Slash command procedures
 
-- **20 Specialist Agents** - Role-based AI personas
-- **36 Skills** - Domain-specific knowledge modules
-- **11 Workflows** - Slash command procedures
+**HuyHoang Express OMS** is a logistics order management system built with Next.js 16, Prisma, and Supabase.
 
 ---
 
-## 🏗️ Directory Structure
+## 🏗️ Project Architecture
+
+### Directory Structure
 
 ```plaintext
-.agent/
-├── ARCHITECTURE.md          # This file
-├── agents/                  # 20 Specialist Agents
-├── skills/                  # 36 Skills
-├── workflows/               # 11 Slash Commands
-├── rules/                   # Global Rules
-└── scripts/                 # Master Validation Scripts
+Order_manager/
+├── .agent/                    # AI Agent configs
+│   ├── ARCHITECTURE.md        # This file
+│   ├── agents/                # 20 Specialist Agents
+│   ├── skills/                # 36 Skills
+│   ├── workflows/             # 11 Slash Commands
+│   ├── rules/GEMINI.md        # Project rules
+│   └── scripts/               # Validation scripts
+├── prisma/
+│   ├── schema.prisma          # DB schema (30+ models)
+│   ├── migrations/            # Migration history
+│   └── seed.ts                # Seed data
+├── src/
+│   ├── app/
+│   │   ├── (auth)/            # Login pages
+│   │   ├── (dashboard)/       # Protected dashboard routes
+│   │   │   ├── orders/        # Quản lý đơn hàng
+│   │   │   ├── delayed/       # Chăm sóc đơn hoãn
+│   │   │   ├── returns/       # Theo dõi đơn hoàn
+│   │   │   ├── claims/        # Khiếu nại / bồi hoàn
+│   │   │   ├── crm/           # Quản lý shop
+│   │   │   ├── finance/       # Tài chính
+│   │   │   ├── attendance/    # Chấm công
+│   │   │   ├── todos/         # Công việc (Kanban)
+│   │   │   ├── admin/         # Quản trị
+│   │   │   └── overview/      # Dashboard tổng quan
+│   │   ├── (landing)/         # Public landing page
+│   │   ├── api/               # 18 API route groups
+│   │   └── globals.css        # TailwindCSS v4 entry
+│   ├── components/
+│   │   ├── ui/                # Radix-based primitives
+│   │   ├── shared/            # Cross-module components
+│   │   ├── layout/            # Sidebar, Header
+│   │   ├── orders/            # Order components
+│   │   ├── delayed/           # Delayed order components
+│   │   ├── returns/           # Return tracking
+│   │   ├── claims/            # Claims management
+│   │   ├── crm/               # CRM components
+│   │   ├── finance/           # Finance components
+│   │   ├── attendance/        # Attendance UI
+│   │   ├── todos/             # Kanban board
+│   │   ├── dashboard/         # Dashboard widgets
+│   │   └── tracking/          # Package tracking
+│   ├── lib/                   # Business logic & utilities
+│   ├── hooks/                 # Custom React hooks
+│   ├── stores/                # Zustand stores
+│   ├── types/                 # TypeScript type definitions
+│   └── __tests__/             # Vitest unit tests
+├── CODEBASE.md                # File dependency map
+├── package.json               # Dependencies
+├── next.config.ts             # Next.js config (security headers)
+├── vitest.config.ts           # Test config
+└── tsconfig.json              # TypeScript config
+```
+
+### Data Flow
+
+```plaintext
+Excel File → Upload API → excel-parser.ts → change-detector.ts
+    → Prisma (Order, UploadHistory, OrderChangeLog)
+    → Dashboard/Pages (via TanStack Query)
+```
+
+### Order Lifecycle
+
+```plaintext
+PROCESSING → IN_TRANSIT → DELIVERING → DELIVERED → RECONCILED
+                              ↓
+                    DELIVERY_DELAYED → RETURN_CONFIRMED
+                              ↓
+                    RETURNING_FULL → RETURNED_FULL
+                    RETURN_DELAYED → RETURNED_PARTIAL
+```
+
+### Auth Flow
+
+```plaintext
+Login → NextAuth v5 → Session (role + permissions)
+    → Middleware (route guard)
+    → API routes (apiHandler auth check)
+    → Components (conditional rendering)
 ```
 
 ---
@@ -55,11 +132,22 @@ Specialist AI personas for different domains.
 | `code-archaeologist`     | Legacy code, refactoring   | clean-code, code-review-checklist                        |
 | `explorer-agent`         | Codebase analysis          | -                                                        |
 
+### 🎯 Recommended Agents for This Project
+
+| Task | Agent | Why |
+|------|-------|-----|
+| UI Components & Pages | `frontend-specialist` | TailwindCSS v4, React 19, responsive design |
+| API Routes & Logic | `backend-specialist` | Next.js API routes, Excel parsing, business rules |
+| Schema & Queries | `database-architect` | Prisma 6, PostgreSQL, index optimization |
+| Bug Investigation | `debugger` | Systematic root cause analysis |
+| Auth & Security | `security-auditor` | RBAC, XSS prevention, input validation |
+| Feature Planning | `project-planner` | Multi-file changes, architecture decisions |
+
 ---
 
 ## 🧩 Skills (36)
 
-Modular knowledge domains that agents can load on-demand. based on task context.
+Modular knowledge domains that agents load on-demand.
 
 ### Frontend & UI
 
@@ -69,37 +157,19 @@ Modular knowledge domains that agents can load on-demand. based on task context.
 | `web-design-guidelines` | Web UI audit - 100+ rules for accessibility, UX, performance (Vercel) |
 | `tailwind-patterns`     | Tailwind CSS v4 utilities                                             |
 | `frontend-design`       | UI/UX patterns, design systems                                        |
-| `ui-ux-pro-max`         | 50 styles, 21 palettes, 50 fonts                                      |
 
 ### Backend & API
 
 | Skill                   | Description                    |
 | ----------------------- | ------------------------------ |
 | `api-patterns`          | REST, GraphQL, tRPC            |
-| `nestjs-expert`         | NestJS modules, DI, decorators |
 | `nodejs-best-practices` | Node.js async, modules         |
-| `python-patterns`       | Python standards, FastAPI      |
 
 ### Database
 
 | Skill             | Description                 |
 | ----------------- | --------------------------- |
 | `database-design` | Schema design, optimization |
-| `prisma-expert`   | Prisma ORM, migrations      |
-
-### TypeScript/JavaScript
-
-| Skill               | Description                         |
-| ------------------- | ----------------------------------- |
-| `typescript-expert` | Type-level programming, performance |
-
-### Cloud & Infrastructure
-
-| Skill                   | Description               |
-| ----------------------- | ------------------------- |
-| `docker-expert`         | Containerization, Compose |
-| `deployment-procedures` | CI/CD, deploy workflows   |
-| `server-management`     | Infrastructure management |
 
 ### Testing & Quality
 
@@ -109,7 +179,6 @@ Modular knowledge domains that agents can load on-demand. based on task context.
 | `webapp-testing`        | E2E, Playwright          |
 | `tdd-workflow`          | Test-driven development  |
 | `code-review-checklist` | Code review standards    |
-| `lint-and-validate`     | Linting, validation      |
 
 ### Security
 
@@ -127,44 +196,17 @@ Modular knowledge domains that agents can load on-demand. based on task context.
 | `plan-writing`  | Task planning, breakdown   |
 | `brainstorming` | Socratic questioning       |
 
-### Mobile
-
-| Skill           | Description           |
-| --------------- | --------------------- |
-| `mobile-design` | Mobile UI/UX patterns |
-
-### Game Development
-
-| Skill              | Description           |
-| ------------------ | --------------------- |
-| `game-development` | Game logic, mechanics |
-
-### SEO & Growth
-
-| Skill              | Description                   |
-| ------------------ | ----------------------------- |
-| `seo-fundamentals` | SEO, E-E-A-T, Core Web Vitals |
-| `geo-fundamentals` | GenAI optimization            |
-
-### Shell/CLI
-
-| Skill                | Description               |
-| -------------------- | ------------------------- |
-| `bash-linux`         | Linux commands, scripting |
-| `powershell-windows` | Windows PowerShell        |
-
 ### Other
 
 | Skill                     | Description               |
 | ------------------------- | ------------------------- |
 | `clean-code`              | Coding standards (Global) |
-| `behavioral-modes`        | Agent personas            |
-| `parallel-agents`         | Multi-agent patterns      |
-| `mcp-builder`             | Model Context Protocol    |
-| `documentation-templates` | Doc formats               |
-| `i18n-localization`       | Internationalization      |
 | `performance-profiling`   | Web Vitals, optimization  |
 | `systematic-debugging`    | Troubleshooting           |
+| `powershell-windows`      | Windows PowerShell        |
+| `deployment-procedures`   | CI/CD, deploy workflows   |
+| `documentation-templates` | Doc formats               |
+| `seo-fundamentals`        | SEO, E-E-A-T              |
 
 ---
 
@@ -198,68 +240,6 @@ User Request → Skill Description Match → Load SKILL.md
                                     Read scripts/
 ```
 
-### Skill Structure
-
-```plaintext
-skill-name/
-├── SKILL.md           # (Required) Metadata & instructions
-├── scripts/           # (Optional) Python/Bash scripts
-├── references/        # (Optional) Templates, docs
-└── assets/            # (Optional) Images, logos
-```
-
-### Enhanced Skills (with scripts/references)
-
-| Skill               | Files | Coverage                            |
-| ------------------- | ----- | ----------------------------------- |
-| `ui-ux-pro-max`     | 27    | 50 styles, 21 palettes, 50 fonts    |
-| `app-builder`       | 20    | Full-stack scaffolding              |
-
----
-
-## � Scripts (2)
-
-Master validation scripts that orchestrate skill-level scripts.
-
-### Master Scripts
-
-| Script          | Purpose                                 | When to Use              |
-| --------------- | --------------------------------------- | ------------------------ |
-| `checklist.py`  | Priority-based validation (Core checks) | Development, pre-commit  |
-| `verify_all.py` | Comprehensive verification (All checks) | Pre-deployment, releases |
-
-### Usage
-
-```bash
-# Quick validation during development
-python .agent/scripts/checklist.py .
-
-# Full verification before deployment
-python .agent/scripts/verify_all.py . --url http://localhost:3000
-```
-
-### What They Check
-
-**checklist.py** (Core checks):
-
-- Security (vulnerabilities, secrets)
-- Code Quality (lint, types)
-- Schema Validation
-- Test Suite
-- UX Audit
-- SEO Check
-
-**verify_all.py** (Full suite):
-
-- Everything in checklist.py PLUS:
-- Lighthouse (Core Web Vitals)
-- Playwright E2E
-- Bundle Analysis
-- Mobile Audit
-- i18n Check
-
-For details, see [scripts/README.md](scripts/README.md)
-
 ---
 
 ## 📊 Statistics
@@ -270,7 +250,9 @@ For details, see [scripts/README.md](scripts/README.md)
 | **Total Skills**    | 36                            |
 | **Total Workflows** | 11                            |
 | **Total Scripts**   | 2 (master) + 18 (skill-level) |
-| **Coverage**        | ~90% web/mobile development   |
+| **Prisma Models**   | 30+                           |
+| **API Route Groups**| 18                            |
+| **Component Groups**| 14                            |
 
 ---
 
@@ -280,9 +262,10 @@ For details, see [scripts/README.md](scripts/README.md)
 | -------- | --------------------- | ------------------------------------- |
 | Web App  | `frontend-specialist` | react-best-practices, frontend-design |
 | API      | `backend-specialist`  | api-patterns, nodejs-best-practices   |
-| Mobile   | `mobile-developer`    | mobile-design                         |
-| Database | `database-architect`  | database-design, prisma-expert        |
+| Database | `database-architect`  | database-design                       |
 | Security | `security-auditor`    | vulnerability-scanner                 |
 | Testing  | `test-engineer`       | testing-patterns, webapp-testing      |
 | Debug    | `debugger`            | systematic-debugging                  |
 | Plan     | `project-planner`     | brainstorming, plan-writing           |
+
+---

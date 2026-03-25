@@ -90,3 +90,37 @@
 **Kết quả:** Build thành công, không có TypeScript errors hay compilation warnings mới.
 
 ---
+
+### 2. Cập nhật PROJECT_RULE.md cho đúng thực tế
+
+**Yêu cầu:** Đọc lại PROJECT_RULE.md, so sánh với codebase thực tế, đề xuất và thực hiện điều chỉnh.
+
+**Phát hiện sai lệch giữa rule và thực tế:**
+
+| # | Rule cũ viết | Thực tế trong code | Điều chỉnh |
+|---|-------------|-------------------|------------|
+| 1 | Next.js 14+ | Next.js 16.1.6, React 19 | Cập nhật version |
+| 2 | "activate `execute-matrix` skill" | Skill không tồn tại | Thay bằng workflow: brainstorming → writing-plans → systematic-debugging → verification |
+| 3 | shadcn/ui là ưu tiên số 1 | Chỉ có 2 components (dialog, table), phần lớn UI custom Tailwind | Bỏ rule "shadcn first", chuyển sang Tailwind + Radix primitives |
+| 4 | Zustand cho client state | Install nhưng chưa dùng (stores/index.ts trống) | Ghi nhận "future use", không bắt buộc |
+| 5 | TanStack Query cho tất cả | Chỉ dùng ở CRM module | Phân biệt rõ: TanStack cho complex modules, custom hooks cho simple CRUD |
+| 6 | Folder structure thiếu crm/, overview/ | Cả hai đều tồn tại trong code | Thêm vào cấu trúc |
+| 7 | Thiếu nhiều API routes | Có announcements, documents, links, leave-requests, profile, settings | Thêm đầy đủ |
+| 8 | RBAC thiếu CRM, Leave, Documents, Announcements | Hệ thống permissions có đầy đủ 35+ permissions | Thêm vào bảng RBAC |
+| 9 | Thiếu lib files | Có permissions.ts, rate-limiter.ts, sanitize.ts, logger.ts, v.v. | Liệt kê đầy đủ |
+| 10 | Thiếu rules mới | Không có rules về responsive, debounce, optimistic updates | Thêm vào Code Standards & Performance Rules |
+
+**File đã sửa:** `PROJECT_RULE.md` — viết lại hoàn toàn
+
+**Thay đổi chính:**
+- Tech Stack: cập nhật versions, phân biệt rõ khi nào dùng TanStack Query vs custom hooks
+- Workflow: thay `execute-matrix` bằng 4 skills thực tế (brainstorming, writing-plans, systematic-debugging, verification)
+- Folder structure: thêm crm/, overview/, claims/new/, orders/[requestCode]/, tất cả API routes, tất cả lib files
+- Permission System: thêm bảng đầy đủ 12 module với 35+ permissions từ `lib/permissions.ts`
+- RBAC: thêm CRM, Nghỉ phép, Thông báo, Tài liệu — ghi chú Permission Groups override
+- Code Standards: thêm rules mới (component <300 dòng, custom hooks, Tailwind only, responsive bắt buộc)
+- Performance Rules: thêm debounce search, optimistic updates, module-level cache
+
+**Kết quả:** PROJECT_RULE.md phản ánh đúng 100% trạng thái hiện tại của codebase.
+
+---

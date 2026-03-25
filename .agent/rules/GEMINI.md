@@ -2,9 +2,39 @@
 trigger: always_on
 ---
 
-# GEMINI.md - Antigravity Kit
+# GEMINI.md - HuyHoang Express OMS
 
-> This file defines how the AI behaves in this workspace.
+> Project-specific rules for the Order Management System (Quản lý đơn hàng).
+
+---
+
+## 📋 PROJECT CONTEXT
+
+| Attribute | Value |
+|-----------|-------|
+| **Project** | HuyHoang Express OMS — Hệ thống quản lý đơn hàng vận chuyển |
+| **Stack** | Next.js 16 (App Router, Turbopack) + Prisma 6 + PostgreSQL (Supabase) + TailwindCSS v4 |
+| **Auth** | NextAuth v5 (beta) + bcryptjs + PermissionGroup-based RBAC |
+| **State** | Zustand + TanStack React Query v5 |
+| **Testing** | Vitest 4 + vitest-mock-extended |
+| **UI** | Radix UI Dialog + Lucide Icons + Recharts + class-variance-authority + TipTap Editor |
+| **Deploy** | Vercel |
+| **DB** | Supabase PostgreSQL with `DATABASE_URL` + `DIRECT_URL` |
+| **Language** | TypeScript strict, Vietnamese business domain |
+
+### Business Modules
+
+| Module | Path | Description |
+|--------|------|-------------|
+| **Orders** | `/orders` | Quản lý đơn hàng chính (Excel import, CRUD, tracking) |
+| **Delayed** | `/delayed` | Chăm sóc đơn hoãn (DELIVERY_DELAYED, RETURN_CONFIRMED) |
+| **Returns** | `/returns` | Theo dõi đơn hoàn (warehouse tracking, customer confirm) |
+| **Claims** | `/claims` | Khiếu nại / bồi hoàn (issue tracking, compensation) |
+| **CRM** | `/crm` | Quản lý shop (ShopProfile, ShopProspect pipeline) |
+| **Finance** | `/finance` | Tài chính (Cashbook, Expenses, Budgets, Revenue) |
+| **Attendance** | `/attendance` | Chấm công (auto-tracking from LoginHistory) |
+| **Todos** | `/todos` | Công việc (Kanban board, linked to orders) |
+| **Admin** | `/admin` | Quản trị (Users, PermissionGroups, Announcements) |
 
 ---
 
@@ -48,16 +78,25 @@ Agent activated → Check frontmatter "skills:" → Read SKILL.md (INDEX) → Re
 
 > 🔴 **MANDATORY:** You MUST follow the protocol defined in `@[skills/intelligent-routing]`.
 
+### Primary Agents for This Project
+
+| Domain | Agent | When |
+|--------|-------|------|
+| **UI/Components** | `frontend-specialist` | React components, pages, responsive design, TailwindCSS |
+| **API/Logic** | `backend-specialist` | API routes, business logic, Excel parser, data processing |
+| **Database** | `database-architect` | Prisma schema, migrations, queries, indexes |
+| **Debugging** | `debugger` | Bug investigation, error tracing |
+| **Security** | `security-auditor` | Auth, permissions, XSS, input validation |
+| **Planning** | `project-planner` | New features, multi-file changes |
+
 ### Auto-Selection Protocol
 
-1. **Analyze (Silent)**: Detect domains (Frontend, Backend, Security, etc.) from user request.
+1. **Analyze (Silent)**: Detect domains from user request.
 2. **Select Agent(s)**: Choose the most appropriate specialist(s).
 3. **Inform User**: Concisely state which expertise is being applied.
 4. **Apply**: Generate response using the selected agent's persona and rules.
 
 ### Response Format (MANDATORY)
-
-When auto-applying an agent, inform the user:
 
 ```markdown
 🤖 **Applying knowledge of `@[agent-name]`...**
@@ -65,15 +104,7 @@ When auto-applying an agent, inform the user:
 [Continue with specialized response]
 ```
 
-**Rules:**
-
-1. **Silent Analysis**: No verbose meta-commentary ("I am analyzing...").
-2. **Respect Overrides**: If user mentions `@agent`, use it.
-3. **Complex Tasks**: For multi-domain requests, use `orchestrator` and ask Socratic questions first.
-
 ### ⚠️ AGENT ROUTING CHECKLIST (MANDATORY BEFORE EVERY CODE/DESIGN RESPONSE)
-
-**Before ANY code or design work, you MUST complete this mental checklist:**
 
 | Step | Check | If Unchecked |
 |------|-------|--------------|
@@ -81,15 +112,6 @@ When auto-applying an agent, inform the user:
 | 2 | Did I READ the agent's `.md` file (or recall its rules)? | → STOP. Open `.agent/agents/{agent}.md` |
 | 3 | Did I announce `🤖 Applying knowledge of @[agent]...`? | → STOP. Add announcement before response. |
 | 4 | Did I load required skills from agent's frontmatter? | → STOP. Check `skills:` field and read them. |
-
-**Failure Conditions:**
-
-- ❌ Writing code without identifying an agent = **PROTOCOL VIOLATION**
-- ❌ Skipping the announcement = **USER CANNOT VERIFY AGENT WAS USED**
-- ❌ Ignoring agent-specific rules (e.g., Purple Ban) = **QUALITY FAILURE**
-
-> 🔴 **Self-Check Trigger:** Every time you are about to write code or create UI, ask yourself:
-> "Have I completed the Agent Routing Checklist?" If NO → Complete it first.
 
 ---
 
@@ -122,12 +144,13 @@ When user's prompt is NOT in English:
 
 ### 🗺️ System Map Read
 
-> 🔴 **MANDATORY:** Read `ARCHITECTURE.md` at session start to understand Agents, Skills, and Scripts.
+> 🔴 **MANDATORY:** Read `ARCHITECTURE.md` at session start to understand project structure.
 
 **Path Awareness:**
 
-- Agents: `.agent/` (Project)
-- Skills: `.agent/skills/` (Project)
+- Agents: `.agent/agents/` (20 agents)
+- Skills: `.agent/skills/` (36 skills)
+- Workflows: `.agent/workflows/` (11 commands)
 - Runtime Scripts: `.agent/skills/<skill>/scripts/`
 
 ### 🧠 Read → Understand → Apply
@@ -137,33 +160,70 @@ When user's prompt is NOT in English:
 ✅ CORRECT: Read → Understand WHY → Apply PRINCIPLES → Code
 ```
 
-**Before coding, answer:**
-
-1. What is the GOAL of this agent/skill?
-2. What PRINCIPLES must I apply?
-3. How does this DIFFER from generic output?
-
 ---
 
 ## TIER 1: CODE RULES (When Writing Code)
 
+### 🏗️ Project-Specific Conventions
+
+#### Prisma & Database
+- **Schema**: `prisma/schema.prisma` — source of truth for all models
+- **Migrations**: Use `npx prisma migrate dev --name snake_case_name`
+- **Client**: Import from `@/lib/prisma` (singleton pattern)
+- **IDs**: Use `cuid()` for all primary keys
+- **Timestamps**: Always include `createdAt` + `updatedAt`
+- **Indexes**: Add `@@index` for frequently queried fields
+- **Decimal**: Use `Decimal` type for all monetary fields
+
+#### NextAuth v5 & Permissions
+- **Auth config**: `src/lib/auth.config.ts` (edge-compatible) + `src/lib/auth.ts` (full)
+- **Session**: Contains `user.role`, `user.permissions` (PermissionSet)
+- **Middleware**: `src/middleware.ts` — route-level permission checks
+- **API auth**: Use `auth()` from `@/lib/auth` in API routes
+- **Permission check**: Always verify via `PermissionGroup` fields, not just Role
+
+#### API Routes
+- **Pattern**: `src/app/api/{module}/route.ts` — RESTful
+- **Error handling**: Use `apiHandler` wrapper from `@/lib/api-handler.ts`
+- **Validation**: Use Zod schemas from `@/lib/validations.ts`
+- **Sanitization**: Use `sanitize()` from `@/lib/sanitize.ts` for user input (DOMPurify)
+
+#### Vietnamese Timezone (UTC+7)
+- **Storage**: All dates stored as UTC in database
+- **Import**: Excel dates are Vietnam time → subtract 7 hours before storing
+- **Display**: Use `Intl.DateTimeFormat` with `timeZone: 'Asia/Ho_Chi_Minh'`
+- **NEVER**: Use `new Date().toLocaleString()` without explicit timezone
+
+#### Excel Import/Export
+- **Library**: `xlsx` (SheetJS)
+- **Parser**: `src/lib/excel-parser.ts` — handles column mapping, date conversion
+- **Change Detection**: `src/lib/change-detector.ts` — tracks field changes between uploads
+- **Upload History**: Every import creates `UploadHistory` + `OrderChangeLog` records
+
+#### Components
+- **UI primitives**: `src/components/ui/` (custom, Radix-based)
+- **Feature components**: `src/components/{module}/` (orders, claims, crm, etc.)
+- **Shared**: `src/components/shared/` — reusable across modules
+- **Layout**: `src/components/layout/` — Sidebar, Header
+- **State**: Use `@tanstack/react-query` for server state, `zustand` for client-only state
+
+#### Styling
+- **TailwindCSS v4** with `@tailwindcss/postcss`
+- **Utilities**: `clsx` + `tailwind-merge` via `cn()` from `@/lib/utils`
+- **CVA**: Use `class-variance-authority` for component variants
+- **Global styles**: `src/app/globals.css`
+
 ### 📱 Project Type Routing
 
-| Project Type                           | Primary Agent         | Skills                        |
-| -------------------------------------- | --------------------- | ----------------------------- |
-| **MOBILE** (iOS, Android, RN, Flutter) | `mobile-developer`    | mobile-design                 |
-| **WEB** (Next.js, React web)           | `frontend-specialist` | frontend-design               |
-| **BACKEND** (API, server, DB)          | `backend-specialist`  | api-patterns, database-design |
-
-> 🔴 **Mobile + frontend-specialist = WRONG.** Mobile = mobile-developer ONLY.
+| Domain | Primary Agent | Skills |
+|--------|--------------|--------|
+| **WEB UI** (Components, Pages) | `frontend-specialist` | frontend-design, react-best-practices, tailwind-patterns |
+| **BACKEND** (API, Logic, DB) | `backend-specialist` | api-patterns, nodejs-best-practices, database-design |
+| **DATABASE** (Schema, Migrations) | `database-architect` | database-design |
 
 ### 🛑 Socratic Gate
 
 **For complex requests, STOP and ASK first:**
-
-### 🛑 GLOBAL SOCRATIC GATE (TIER 0)
-
-**MANDATORY: Every user request must pass through the Socratic Gate before ANY tool use or implementation.**
 
 | Request Type            | Strategy       | Required Action                                                   |
 | ----------------------- | -------------- | ----------------------------------------------------------------- |
@@ -176,13 +236,12 @@ When user's prompt is NOT in English:
 **Protocol:**
 
 1. **Never Assume:** If even 1% is unclear, ASK.
-2. **Handle Spec-heavy Requests:** When user gives a list (Answers 1, 2, 3...), do NOT skip the gate. Instead, ask about **Trade-offs** or **Edge Cases** (e.g., "LocalStorage confirmed, but should we handle data clearing or versioning?") before starting.
-3. **Wait:** Do NOT invoke subagents or write code until the user clears the Gate.
-4. **Reference:** Full protocol in `@[skills/brainstorming]`.
+2. **Wait:** Do NOT invoke subagents or write code until the user clears the Gate.
+3. **Reference:** Full protocol in `@[skills/brainstorming]`.
 
 ### 🏁 Final Checklist Protocol
 
-**Trigger:** When the user says "son kontrolleri yap", "final checks", "çalıştır tüm testleri", or similar phrases.
+**Trigger:** When the user says "final checks", "kiểm tra cuối", or similar phrases.
 
 | Task Stage       | Command                                            | Purpose                        |
 | ---------------- | -------------------------------------------------- | ------------------------------ |
@@ -192,11 +251,6 @@ When user's prompt is NOT in English:
 **Priority Execution Order:**
 
 1. **Security** → 2. **Lint** → 3. **Schema** → 4. **Tests** → 5. **UX** → 6. **Seo** → 7. **Lighthouse/E2E**
-
-**Rules:**
-
-- **Completion:** A task is NOT finished until `checklist.py` returns success.
-- **Reporting:** If it fails, fix the **Critical** blockers first (Security/Lint).
 
 **Available Scripts (12 total):**
 
@@ -211,7 +265,6 @@ When user's prompt is NOT in English:
 | `accessibility_checker.py` | frontend-design       | After UI change     |
 | `seo_checker.py`           | seo-fundamentals      | After page change   |
 | `bundle_analyzer.py`       | performance-profiling | Before deploy       |
-| `mobile_audit.py`          | mobile-design         | After mobile change |
 | `lighthouse_audit.py`      | performance-profiling | Before deploy       |
 | `playwright_runner.py`     | webapp-testing        | Before deploy       |
 
@@ -225,15 +278,6 @@ When user's prompt is NOT in English:
 | **ask**  | -                 | Focus on understanding. Ask questions.       |
 | **edit** | `orchestrator`    | Execute. Check `{task-slug}.md` first.       |
 
-**Plan Mode (4-Phase):**
-
-1. ANALYSIS → Research, questions
-2. PLANNING → `{task-slug}.md`, task breakdown
-3. SOLUTIONING → Architecture, design (NO CODE!)
-4. IMPLEMENTATION → Code + tests
-
-> 🔴 **Edit mode:** If multi-file or structural change → Offer to create `{task-slug}.md`. For single-file fixes → Proceed directly.
-
 ---
 
 ## TIER 2: DESIGN RULES (Reference)
@@ -242,15 +286,7 @@ When user's prompt is NOT in English:
 
 | Task         | Read                            |
 | ------------ | ------------------------------- |
-| Web UI/UX    | `.agent/frontend-specialist.md` |
-| Mobile UI/UX | `.agent/mobile-developer.md`    |
-
-**These agents contain:**
-
-- Purple Ban (no violet/purple colors)
-- Template Ban (no standard layouts)
-- Anti-cliché rules
-- Deep Design Thinking protocol
+| Web UI/UX    | `.agent/agents/frontend-specialist.md` |
 
 > 🔴 **For design work:** Open and READ the agent file. Rules are there.
 
@@ -260,14 +296,23 @@ When user's prompt is NOT in English:
 
 ### Agents & Skills
 
-- **Masters**: `orchestrator`, `project-planner`, `security-auditor` (Cyber/Audit), `backend-specialist` (API/DB), `frontend-specialist` (UI/UX), `mobile-developer`, `debugger`, `game-developer`
-- **Key Skills**: `clean-code`, `brainstorming`, `app-builder`, `frontend-design`, `mobile-design`, `plan-writing`, `behavioral-modes`
+- **Masters**: `orchestrator`, `project-planner`, `security-auditor`, `backend-specialist`, `frontend-specialist`, `debugger`, `database-architect`
+- **Key Skills**: `clean-code`, `brainstorming`, `frontend-design`, `api-patterns`, `database-design`, `react-best-practices`, `plan-writing`
+
+### Key Project Files
+
+- **Auth**: `src/lib/auth.ts`, `src/lib/auth.config.ts`, `src/lib/permissions.ts`
+- **DB**: `prisma/schema.prisma`, `src/lib/prisma.ts`
+- **Core Logic**: `src/lib/excel-parser.ts`, `src/lib/change-detector.ts`, `src/lib/delay-analyzer.ts`, `src/lib/status-mapper.ts`
+- **Middleware**: `src/middleware.ts`
+- **API Handler**: `src/lib/api-handler.ts`
+- **Validation**: `src/lib/validations.ts`, `src/lib/sanitize.ts`
 
 ### Key Scripts
 
 - **Verify**: `.agent/scripts/verify_all.py`, `.agent/scripts/checklist.py`
 - **Scanners**: `security_scan.py`, `dependency_analyzer.py`
-- **Audits**: `ux_audit.py`, `mobile_audit.py`, `lighthouse_audit.py`, `seo_checker.py`
+- **Audits**: `ux_audit.py`, `lighthouse_audit.py`, `seo_checker.py`
 - **Test**: `playwright_runner.py`, `test_runner.py`
 
 ---
