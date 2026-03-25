@@ -4,21 +4,41 @@ const FINAL_STATUSES = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"];
 
 /**
  * Auto-complete existing claims whose orders have reached a final delivery status.
+ * Rule 1: Only SLOW_JOURNEY claims are auto-completed by delivery status
+ *         (SUSPICIOUS, DAMAGED, LOST, OTHER are excluded — require manual handling).
+ * Rule 2: Claims of ANY issueType with claimStatus RESOLVED or CUSTOMER_COMPENSATED
+ *         are also auto-completed.
  * Returns count of auto-completed claims.
  */
 export async function autoCompleteResolvedClaims(): Promise<number> {
-  const claimsToComplete = await prisma.claimOrder.findMany({
+  // Rule 1: SLOW_JOURNEY + final delivery status
+  const byDeliveryStatus = await prisma.claimOrder.findMany({
     where: {
       isCompleted: false,
-      issueType: { notIn: ["DAMAGED", "LOST"] as any[] },
+      issueType: "SLOW_JOURNEY" as any,
       order: { deliveryStatus: { in: FINAL_STATUSES as any[] } },
     },
     select: { id: true },
   });
 
-  if (claimsToComplete.length === 0) return 0;
+  // Rule 2: Any issueType + already resolved/compensated
+  const byClaimStatus = await prisma.claimOrder.findMany({
+    where: {
+      isCompleted: false,
+      claimStatus: { in: ["RESOLVED", "CUSTOMER_COMPENSATED"] as any[] },
+    },
+    select: { id: true },
+  });
 
-  const ids = claimsToComplete.map(c => c.id);
+  // Merge unique IDs
+  const idSet = new Set([
+    ...byDeliveryStatus.map(c => c.id),
+    ...byClaimStatus.map(c => c.id),
+  ]);
+
+  if (idSet.size === 0) return 0;
+
+  const ids = [...idSet];
   const now = new Date();
 
   await prisma.$transaction([
@@ -37,7 +57,7 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
         toStatus: "RESOLVED" as any,
         changedBy: "Hệ thống",
         changedAt: now,
-        note: "Tự động hoàn tất: đơn đã đối soát/trả hàng",
+        note: "Tự động hoàn tất",
       })),
     }),
   ]);
