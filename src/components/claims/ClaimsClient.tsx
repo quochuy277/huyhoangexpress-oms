@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   Search, Plus, Download, X, ChevronLeft, ChevronRight,
@@ -1086,14 +1087,33 @@ interface ClaimsClientProps {
   onExternalDetailConsumed?: () => void;
 }
 
-export default function ClaimsClient({ onCountChange, externalDetailClaimId, onExternalDetailConsumed }: ClaimsClientProps = {}) {
+function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDetailConsumed }: ClaimsClientProps = {}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [claims, setClaims] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const initialPage = Number(searchParams.get('claimPage')) || 1;
   const [filters, setFilters] = useState<ClaimFilters>({
-    page: 1, pageSize: 20, search: "", issueType: [],
+    page: initialPage, pageSize: 20, search: "", issueType: [],
     status: "", showCompleted: false, sortBy: "deadline", sortDir: "asc",
   });
+
+  // Sync page changes to URL
+  const prevPageRef = useRef(initialPage);
+  useEffect(() => {
+    if (filters.page !== prevPageRef.current) {
+      prevPageRef.current = filters.page;
+      const params = new URLSearchParams(searchParams.toString());
+      if (filters.page <= 1) {
+        params.delete('claimPage');
+      } else {
+        params.set('claimPage', String(filters.page));
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+  }, [filters.page, searchParams, router, pathname]);
   // Controlled input value for search (debounced before applying to filters)
   const [searchInput, setSearchInput] = useState("");
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -1950,3 +1970,5 @@ export default function ClaimsClient({ onCountChange, externalDetailClaimId, onE
     </div>
   );
 }
+
+export default memo(ClaimsClientInner);

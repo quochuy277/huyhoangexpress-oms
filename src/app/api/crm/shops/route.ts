@@ -64,88 +64,91 @@ export async function GET(request: NextRequest) {
       ? { shopName: { in: assignedShopNames } }
       : {};
 
-    // Get all unique shopNames from Orders
-    const allShops = await prisma.order.groupBy({
-      by: ["shopName"],
-      where: {
-        shopName: { not: "" },
-        ...(search ? { shopName: { contains: search, mode: "insensitive" as const } } : {}),
-        ...shopNameFilter,
-      },
-      _count: { id: true },
-      _max: { createdTime: true },
-      _min: { createdTime: true },
-    });
-
-    // Current month orders
+    // Run all data-fetching queries in parallel
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthlyOrders = await prisma.order.groupBy({
-      by: ["shopName"],
-      where: {
-        shopName: { not: "" },
-        createdTime: { gte: startOfMonth },
-        ...shopNameFilter,
-      },
-      _count: { id: true },
-      _sum: { revenue: true },
-    });
-    const monthlyMap = new Map(monthlyOrders.map((s) => [s.shopName, { count: s._count.id, revenue: s._sum.revenue }]));
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
-    // Returned orders count
-    const returnedOrders = await prisma.order.groupBy({
-      by: ["shopName"],
-      where: {
-        shopName: { not: "" },
-        deliveryStatus: { in: ["RETURNING_FULL", "RETURNED_FULL", "RETURNED_PARTIAL", "RETURN_DELAYED", "RETURN_CONFIRMED"] },
-        ...shopNameFilter,
-      },
-      _count: { id: true },
-    });
-    const returnedMap = new Map(returnedOrders.map((s) => [s.shopName, s._count.id]));
-
-    // Recent + prev for trend
-    const recentOrders = await prisma.order.groupBy({
-      by: ["shopName"],
-      where: {
-        shopName: { not: "" },
-        createdTime: { gte: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000) },
-        ...shopNameFilter,
-      },
-      _count: { id: true },
-    });
-    const recentMap = new Map(recentOrders.map((s) => [s.shopName, s._count.id]));
-
-    const prevOrders = await prisma.order.groupBy({
-      by: ["shopName"],
-      where: {
-        shopName: { not: "" },
-        createdTime: {
-          gte: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000),
-          lt: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
+    const [allShops, monthlyOrders, returnedOrders, recentOrders, prevOrders, profiles] = await Promise.all([
+      // Get all unique shopNames from Orders
+      prisma.order.groupBy({
+        by: ["shopName"],
+        where: {
+          shopName: { not: "" },
+          ...(search ? { shopName: { contains: search, mode: "insensitive" as const } } : {}),
+          ...shopNameFilter,
         },
-        ...shopNameFilter,
-      },
-      _count: { id: true },
-    });
-    const prevMap = new Map(prevOrders.map((s) => [s.shopName, s._count.id]));
-
-    // Shop profiles for classification overrides & assignments
-    const profiles = await prisma.shopProfile.findMany({
-      where: assignedShopNames !== null ? { shopName: { in: assignedShopNames } } : {},
-      include: {
-        assignments: {
-          include: {
-            user: { select: { id: true, name: true } },
+        _count: { id: true },
+        _max: { createdTime: true },
+        _min: { createdTime: true },
+      }),
+      // Current month orders
+      prisma.order.groupBy({
+        by: ["shopName"],
+        where: {
+          shopName: { not: "" },
+          createdTime: { gte: startOfMonth },
+          ...shopNameFilter,
+        },
+        _count: { id: true },
+        _sum: { revenue: true },
+      }),
+      // Returned orders count
+      prisma.order.groupBy({
+        by: ["shopName"],
+        where: {
+          shopName: { not: "" },
+          deliveryStatus: { in: ["RETURNING_FULL", "RETURNED_FULL", "RETURNED_PARTIAL", "RETURN_DELAYED", "RETURN_CONFIRMED"] },
+          ...shopNameFilter,
+        },
+        _count: { id: true },
+      }),
+      // Recent 14 days for trend
+      prisma.order.groupBy({
+        by: ["shopName"],
+        where: {
+          shopName: { not: "" },
+          createdTime: { gte: fourteenDaysAgo },
+          ...shopNameFilter,
+        },
+        _count: { id: true },
+      }),
+      // Previous 14 days for trend (14-28 days ago)
+      prisma.order.groupBy({
+        by: ["shopName"],
+        where: {
+          shopName: { not: "" },
+          createdTime: {
+            gte: twentyEightDaysAgo,
+            lt: fourteenDaysAgo,
+          },
+          ...shopNameFilter,
+        },
+        _count: { id: true },
+      }),
+      // Shop profiles for classification overrides & assignments
+      prisma.shopProfile.findMany({
+        where: assignedShopNames !== null ? { shopName: { in: assignedShopNames } } : {},
+        include: {
+          assignments: {
+            include: {
+              user: { select: { id: true, name: true } },
+            },
+          },
+          careLogs: {
+            where: { isAutoLog: false },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true },
           },
         },
-        careLogs: {
-          where: { isAutoLog: false },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { createdAt: true },
-        },
-      },
-    });
+      }),
+    ]);
+
+    const monthlyMap = new Map(monthlyOrders.map((s) => [s.shopName, { count: s._count.id, revenue: s._sum.revenue }]));
+    const returnedMap = new Map(returnedOrders.map((s) => [s.shopName, s._count.id]));
+    const recentMap = new Map(recentOrders.map((s) => [s.shopName, s._count.id]));
+    const prevMap = new Map(prevOrders.map((s) => [s.shopName, s._count.id]));
     const profileMap = new Map(profiles.map((p) => [p.shopName, p]));
 
     // Build shop list with computed data

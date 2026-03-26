@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { formatVND, formatDate } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
@@ -46,7 +46,7 @@ interface OrderTableProps {
   setSelectedRows: (rows: string[]) => void;
 }
 
-export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTableProps) {
+function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -432,6 +432,8 @@ export function OrderTable({ userRole, selectedRows, setSelectedRows }: OrderTab
     </div>
   );
 }
+
+export const OrderTable = memo(OrderTableInner);
 
 function NoteCell({ requestCode, initialNote }: { requestCode: string; initialNote: string | null }) {
   const [isEditing, setIsEditing] = useState(false);

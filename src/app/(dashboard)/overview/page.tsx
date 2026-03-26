@@ -4,9 +4,15 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AlertCardsRow } from "@/components/dashboard/AlertCardsRow";
 import { FinanceCardsRow } from "@/components/dashboard/FinanceCardsRow";
-import { TrendAndStatusRow } from "@/components/dashboard/TrendAndStatusRow";
-import { CarrierAndShopsRow } from "@/components/dashboard/CarrierAndShopsRow";
 import { ActivityAndRatesRow } from "@/components/dashboard/ActivityAndRatesRow";
+import dynamic from "next/dynamic";
+
+const TrendAndStatusRow = dynamic(() => import("@/components/dashboard/TrendAndStatusRow").then(m => ({ default: m.TrendAndStatusRow })), {
+  loading: () => <div className="h-64 animate-pulse bg-muted rounded" />,
+});
+const CarrierAndShopsRow = dynamic(() => import("@/components/dashboard/CarrierAndShopsRow").then(m => ({ default: m.CarrierAndShopsRow })), {
+  loading: () => <div className="h-64 animate-pulse bg-muted rounded" />,
+});
 
 export const metadata: Metadata = {
   title: "Tổng quan | Care Đơn",

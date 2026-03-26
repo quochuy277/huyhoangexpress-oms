@@ -16,17 +16,18 @@ export async function GET(req: NextRequest) {
 
     const users = await prisma.user.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, role: true },
+      select: {
+        id: true, name: true, role: true,
+        attendances: {
+          where: { date: { gte: from, lte: to } },
+          orderBy: { date: "asc" },
+        },
+      },
       orderBy: { name: "asc" },
     });
 
-    const allAttendance = await prisma.attendance.findMany({
-      where: { date: { gte: from, lte: to } },
-      orderBy: { date: "asc" },
-    });
-
     const team = users.map(u => {
-      const records = allAttendance.filter(a => a.userId === u.id);
+      const records = u.attendances;
       const present = records.filter(a => a.status === "PRESENT").length;
       const halfDay = records.filter(a => a.status === "HALF_DAY").length;
       const absent = records.filter(a => a.status === "ABSENT").length;
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
       const avgHoursPerDay = workDays > 0 ? (totalMinutes / 60 / workDays) : 0;
 
       return {
-        user: u,
+        user: { id: u.id, name: u.name, role: u.role },
         stats: {
           present, halfDay, absent, onLeave, lateCount,
           totalMinutes, totalHours: Math.round(totalMinutes / 60 * 10) / 10,

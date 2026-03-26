@@ -16,31 +16,51 @@ export async function GET(req: NextRequest) {
     if (shopNames.length === 0) return NextResponse.json({ chartData: [] });
 
     const now = new Date();
-    let from: Date, bucketFn: (d: Date) => string;
+    let from: Date;
+    let truncInterval: string;
+    let bucketFn: (d: Date) => string;
 
     if (granularity === "week") {
       from = subWeeks(now, 12);
+      truncInterval = "week";
       bucketFn = (d: Date) => format(startOfWeek(d, { weekStartsOn: 1 }), "dd/MM");
     } else if (granularity === "month") {
       from = subMonths(now, 6);
+      truncInterval = "month";
       bucketFn = (d: Date) => format(startOfMonth(d), "MM/yyyy");
     } else {
       from = subDays(now, 30);
+      truncInterval = "day";
       bucketFn = (d: Date) => format(d, "dd/MM");
     }
 
-    const orders = await prisma.order.findMany({
-      where: { creatorShopName: { in: shopNames }, createdTime: { gte: from, lte: now } },
-      select: { creatorShopName: true, createdTime: true },
-    });
+    // Use $queryRawUnsafe for DATE_TRUNC since the interval must be a SQL literal
+    const rows = await prisma.$queryRawUnsafe<
+      { period: Date; shop: string; count: bigint }[]
+    >(
+      `SELECT
+        DATE_TRUNC($1, "createdTime") AS period,
+        COALESCE("creatorShopName", 'Khác') AS shop,
+        COUNT(*)::bigint AS count
+      FROM "Order"
+      WHERE "creatorShopName" = ANY($2::text[])
+        AND "createdTime" >= $3
+        AND "createdTime" <= $4
+      GROUP BY period, shop
+      ORDER BY period`,
+      truncInterval,
+      shopNames,
+      from,
+      now,
+    );
 
+    // Format period dates to match original display format
     const buckets: Record<string, Record<string, number>> = {};
-    orders.forEach(o => {
-      if (!o.createdTime) return;
-      const bucket = bucketFn(o.createdTime);
-      const shop = o.creatorShopName || "Khác";
+    rows.forEach(row => {
+      const bucket = bucketFn(new Date(row.period));
+      const shop = row.shop;
       if (!buckets[bucket]) buckets[bucket] = {};
-      buckets[bucket][shop] = (buckets[bucket][shop] || 0) + 1;
+      buckets[bucket][shop] = Number(row.count);
     });
 
     const chartData = Object.entries(buckets)

@@ -17,19 +17,20 @@ export async function GET(req: NextRequest) {
 
     const users = await prisma.user.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: {
+        id: true, name: true,
+        attendances: {
+          where: { date: { gte: from, lte: to } },
+        },
+      },
       orderBy: { name: "asc" },
-    });
-
-    const allAttendance = await prisma.attendance.findMany({
-      where: { date: { gte: from, lte: to } },
     });
 
     // Build CSV with BOM for Excel
     const BOM = "\uFEFF";
     const headers = ["Nhân Viên", "Ngày Công", "Nửa Ngày", "Quy Đổi Công", "Vắng", "Nghỉ Phép", "Đi Muộn", "Tổng Giờ", "TB Giờ/Ngày"];
     const rows = users.map(u => {
-      const records = allAttendance.filter(a => a.userId === u.id);
+      const records = u.attendances;
       const present = records.filter(a => a.status === "PRESENT").length;
       const halfDay = records.filter(a => a.status === "HALF_DAY").length;
       const absent = records.filter(a => a.status === "ABSENT").length;

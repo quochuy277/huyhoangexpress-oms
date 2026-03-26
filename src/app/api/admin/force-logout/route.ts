@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Calculate duration for each session individually
-    const updatePromises = activeSessions.map(s => {
+    // Calculate duration for each session and batch in a single transaction
+    const durationUpdates = activeSessions.map(s => {
       const logoutRef = s.lastHeartbeat || now;
       const duration = Math.floor((logoutRef.getTime() - s.loginTime.getTime()) / 60000);
       return prisma.loginHistory.update({
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         data: { duration: Math.max(0, duration) },
       });
     });
-    await Promise.all(updatePromises);
+    await prisma.$transaction(durationUpdates);
 
     // Recalculate attendance for affected users
     const affectedUserIds = [...new Set(activeSessions.map(s => s.userId))];

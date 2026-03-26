@@ -42,7 +42,17 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [currentPage, setCurrentPage] = useState(1);
+  const currentPage = Number(searchParams.get('partialPage')) || 1;
+  const setCurrentPage = (page: number | ((prev: number) => number)) => {
+    const resolved = typeof page === 'function' ? page(currentPage) : page;
+    const params = new URLSearchParams(searchParams.toString());
+    if (resolved <= 1) {
+      params.delete('partialPage');
+    } else {
+      params.set('partialPage', String(resolved));
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
   const [sortKey, setSortKey] = useState<string>("daysReturning");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [todoOrder, setTodoOrder] = useState<ReturnOrder | null>(null);
@@ -90,8 +100,8 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  if (currentPage > totalPages) setCurrentPage(1);
-  const pageData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const safePage = currentPage > totalPages ? 1 : currentPage;
+  const pageData = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const requestSort = (key: string) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -144,7 +154,7 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
                 return (
                   <TableRow key={o.requestCode} className="border-b border-slate-100 hover:bg-slate-50/50">
                     <TableCell className="text-center font-medium text-slate-500 text-[12px] px-1">
-                      {(currentPage - 1) * pageSize + idx + 1}
+                      {(safePage - 1) * pageSize + idx + 1}
                     </TableCell>
                     <TableCell className="font-bold text-slate-800 text-[11px] px-2 truncate" title={o.requestCode}>
                       <div className="flex flex-col gap-0.5">
@@ -214,14 +224,14 @@ export function PartialReturnTab({ data, filters, pageSize, onWarehouseConfirm }
       {totalPages > 1 && (
         <div className="bg-slate-50 border-t border-slate-200 p-3 flex items-center justify-between shrink-0">
           <span className="text-[13px] text-slate-500 font-medium">
-            Trang <b className="text-slate-700">{currentPage}</b> / {totalPages} <span className="opacity-50">|</span> {filtered.length} đơn
+            Trang <b className="text-slate-700">{safePage}</b> / {totalPages} <span className="opacity-50">|</span> {filtered.length} đơn
           </span>
           <div className="flex gap-2">
-            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
+            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
               className="px-3 py-1.5 flex items-center gap-1 border border-slate-200 rounded text-[13px] font-medium bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm transition-all">
               <ChevronLeft className="w-3.5 h-3.5" /> Trước
             </button>
-            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
               className="px-3 py-1.5 flex items-center gap-1 border border-slate-200 rounded text-[13px] font-medium bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm transition-all">
               Sau <ChevronRight className="w-3.5 h-3.5" />
             </button>

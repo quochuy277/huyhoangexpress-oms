@@ -51,30 +51,43 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    let created = 0;
-    let skipped = 0;
+    // Batch fetch existing profiles
+    const existingProfiles = await prisma.shopProfile.findMany({
+      where: { shopName: { in: shopNames } },
+    });
+    const existingNames = new Set(existingProfiles.map((p) => p.shopName));
 
-    for (const shopName of shopNames) {
-      // Ensure ShopProfile exists
-      let profile = await prisma.shopProfile.findUnique({ where: { shopName } });
-      if (!profile) {
-        profile = await prisma.shopProfile.create({ data: { shopName } });
-      }
-
-      // Try to create assignment (skip if duplicate)
-      try {
-        await prisma.shopAssignment.create({
-          data: {
-            shopId: profile.id,
-            userId,
-            assignedBy: session.user.id,
-          },
-        });
-        created++;
-      } catch {
-        skipped++; // Duplicate
-      }
+    // Batch create missing profiles
+    const missingNames = shopNames.filter((name) => !existingNames.has(name));
+    if (missingNames.length > 0) {
+      await prisma.shopProfile.createMany({
+        data: missingNames.map((shopName) => ({ shopName })),
+        skipDuplicates: true,
+      });
     }
+
+    // Re-fetch all profiles to get IDs (including newly created ones)
+    const allProfiles = await prisma.shopProfile.findMany({
+      where: { shopName: { in: shopNames } },
+    });
+    const profileMap = new Map(allProfiles.map((p) => [p.shopName, p.id]));
+
+    // Batch create assignments
+    const assignmentData = shopNames
+      .map((shopName) => ({
+        shopId: profileMap.get(shopName)!,
+        userId,
+        assignedBy: session.user.id,
+      }))
+      .filter((d) => d.shopId); // safety filter
+
+    const result = await prisma.shopAssignment.createMany({
+      data: assignmentData,
+      skipDuplicates: true,
+    });
+
+    const created = result.count;
+    const skipped = assignmentData.length - created;
 
     return NextResponse.json({
       success: true,

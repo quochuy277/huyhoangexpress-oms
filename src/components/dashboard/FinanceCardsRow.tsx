@@ -3,9 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { formatVND } from "@/lib/utils";
+import { memo } from "react";
 import { CreditCard, TrendingDown, ArrowUpRight, TrendingUp } from "lucide-react";
 
-export function FinanceCardsRow() {
+function FinanceCardsRowInner() {
   const router = useRouter();
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -117,3 +118,5 @@ export function FinanceCardsRow() {
     </div>
   );
 }
+
+export const FinanceCardsRow = memo(FinanceCardsRowInner);

@@ -36,37 +36,64 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20")));
+  const take = Math.min(500, Math.max(1, parseInt(url.searchParams.get("take") || "50")));
   const actionFilter = url.searchParams.get("action") || "";
   const staffFilter = url.searchParams.get("staff") || "";
   const search = url.searchParams.get("search") || "";
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
 
-  try {
-    // Fetch ALL status history entries with their related order info
-    const statusHistories = await prisma.claimStatusHistory.findMany({
-      include: {
-        claimOrder: {
-          include: {
-            order: { select: { requestCode: true } },
-          },
-        },
-      },
-      orderBy: { changedAt: "desc" },
-    });
+  // Build date filters for DB-level filtering
+  const dateFilter: { changedAt?: { gte?: Date; lte?: Date } } = {};
+  if (dateFrom) {
+    dateFilter.changedAt = { ...dateFilter.changedAt, gte: new Date(dateFrom) };
+  }
+  if (dateTo) {
+    const toDate = new Date(dateTo);
+    toDate.setHours(23, 59, 59, 999);
+    dateFilter.changedAt = { ...dateFilter.changedAt, lte: toDate };
+  }
 
-    // Fetch ALL change log entries (excluding claimStatus since it's in statusHistory)
-    const changeLogs = await prisma.claimChangeLog.findMany({
-      where: { fieldName: { not: "claimStatus" } },
-      include: {
-        claimOrder: {
-          include: {
-            order: { select: { requestCode: true } },
+  try {
+    // Fetch status history entries with DB-level date filtering and limits
+    const [statusHistories, changeLogs, statusCount, changeLogCount] = await Promise.all([
+      prisma.claimStatusHistory.findMany({
+        where: dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : undefined,
+        include: {
+          claimOrder: {
+            include: {
+              order: { select: { requestCode: true } },
+            },
           },
         },
-      },
-      orderBy: { changedAt: "desc" },
-    });
+        orderBy: { changedAt: "desc" },
+        take: take * page, // Fetch enough for current page depth
+      }),
+      prisma.claimChangeLog.findMany({
+        where: {
+          fieldName: { not: "claimStatus" },
+          ...(dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : {}),
+        },
+        include: {
+          claimOrder: {
+            include: {
+              order: { select: { requestCode: true } },
+            },
+          },
+        },
+        orderBy: { changedAt: "desc" },
+        take: take * page, // Fetch enough for current page depth
+      }),
+      prisma.claimStatusHistory.count({
+        where: dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : undefined,
+      }),
+      prisma.claimChangeLog.count({
+        where: {
+          fieldName: { not: "claimStatus" },
+          ...(dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : {}),
+        },
+      }),
+    ]);
 
     // Transform into unified activities
     type Activity = {
@@ -177,7 +204,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       activities: paged,
       staffNames,
-      pagination: { page, pageSize, total, totalPages },
+      pagination: { page, pageSize, total, totalPages, dbTotal: statusCount + changeLogCount },
     });
   } catch (e) {
     console.error("History error:", e);

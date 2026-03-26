@@ -24,18 +24,22 @@ export async function PATCH(
       },
     });
 
-    // Update attendance records for the leave dates to ON_LEAVE
+    // Update attendance records for the leave dates to ON_LEAVE (batched)
     const from = new Date(request.dateFrom);
     const to = new Date(request.dateTo);
+    const upserts = [];
     for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
       const date = new Date(d);
       date.setHours(0, 0, 0, 0);
-      await prisma.attendance.upsert({
-        where: { userId_date: { userId: request.userId, date } },
-        create: { userId: request.userId, date, status: "ON_LEAVE" },
-        update: { status: "ON_LEAVE" },
-      });
+      upserts.push(
+        prisma.attendance.upsert({
+          where: { userId_date: { userId: request.userId, date } },
+          create: { userId: request.userId, date, status: "ON_LEAVE" },
+          update: { status: "ON_LEAVE" },
+        })
+      );
     }
+    await prisma.$transaction(upserts);
 
     return NextResponse.json({ success: true });
   } catch (error) {

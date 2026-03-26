@@ -12,24 +12,35 @@ export async function GET(req: NextRequest) {
     const range = parsePeriodFromURL(url);
     const from = range.from, to = range.to;
 
-    const orders = await prisma.order.findMany({
-      where: { revenue: { lt: 0 }, createdTime: { gte: from, lte: to } },
-      select: {
-        requestCode: true, carrierName: true, creatorShopName: true, status: true, deliveryStatus: true,
-        totalFee: true, carrierFee: true, revenue: true, codAmount: true, regionGroup: true,
-      },
-      orderBy: { revenue: "asc" },
-    });
+    const negWhere = { revenue: { lt: 0 } as const, createdTime: { gte: from, lte: to } };
 
-    const totalLoss = orders.reduce((s, o) => s + Number(o.revenue ?? 0), 0);
+    // Run aggregate, groupBy, and order list in parallel
+    const [lossAgg, carrierGroups, orders] = await Promise.all([
+      prisma.order.aggregate({
+        where: negWhere,
+        _sum: { revenue: true },
+        _count: true,
+      }),
+      prisma.order.groupBy({
+        by: ["carrierName"],
+        where: negWhere,
+        _count: true,
+      }),
+      prisma.order.findMany({
+        where: negWhere,
+        select: {
+          requestCode: true, carrierName: true, creatorShopName: true, status: true, deliveryStatus: true,
+          totalFee: true, carrierFee: true, revenue: true, codAmount: true, regionGroup: true,
+        },
+        orderBy: { revenue: "asc" },
+      }),
+    ]);
 
-    // Most frequent carrier
-    const carrierCount: Record<string, number> = {};
-    orders.forEach(o => {
-      const c = o.carrierName || "Khác";
-      carrierCount[c] = (carrierCount[c] || 0) + 1;
-    });
-    const topCarrier = Object.entries(carrierCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+    const totalLoss = Number(lossAgg._sum.revenue ?? 0);
+
+    // Most frequent carrier from groupBy (sort by count descending)
+    const sortedCarriers = [...carrierGroups].sort((a, b) => b._count - a._count);
+    const topCarrier = sortedCarriers.length > 0 ? (sortedCarriers[0].carrierName ?? "Khác") : "—";
 
     // Most common reason
     const returnCount = orders.filter(o => o.deliveryStatus === "RETURNED_FULL" || o.deliveryStatus === "RETURNED_PARTIAL").length;
@@ -37,7 +48,7 @@ export async function GET(req: NextRequest) {
     const topReason = returnCount >= feeOverCount ? "Đơn hoàn" : "Phí vượt";
 
     return NextResponse.json({
-      summary: { totalOrders: orders.length, totalLoss, topCarrier, topReason },
+      summary: { totalOrders: lossAgg._count, totalLoss, topCarrier, topReason },
       orders,
     });
   } catch (error) {

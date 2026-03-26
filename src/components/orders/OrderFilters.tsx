@@ -2,7 +2,7 @@
 
 import { Search, X, Download, Loader2, Settings2 } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useState, useTransition, useEffect } from "react";
+import { useCallback, useState, useTransition, useEffect, memo } from "react";
 import type { DeliveryStatus } from "@prisma/client";
 import { STATUS_CATEGORIES } from "@/lib/status-mapper";
 
@@ -31,7 +31,7 @@ interface OrderFiltersProps {
   hideExport?: boolean;
 }
 
-export function OrderFilters({ hideExport }: OrderFiltersProps) {
+function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -245,3 +245,5 @@ export function OrderFilters({ hideExport }: OrderFiltersProps) {
     </div>
   );
 }
+
+export const OrderFilters = memo(OrderFiltersInner);

@@ -8,8 +8,13 @@ import {
   Search, ChevronLeft, ChevronRight, Eye, TrendingUp, TrendingDown, Minus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ShopDetailPanel } from "./ShopDetailPanel";
 import { CareLogDialog } from "./CareLogDialog";
+import dynamic from "next/dynamic";
+
+const ShopDetailPanel = dynamic(() => import("./ShopDetailPanel").then(m => ({ default: m.ShopDetailPanel })), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-muted rounded" />,
+});
 
 interface ShopManagementTabProps {
   userRole: string;

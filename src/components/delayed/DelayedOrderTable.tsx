@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { ChevronLeft, ChevronRight, AlertTriangle, Info, CheckSquare, Flag, Truck } from "lucide-react";
 import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { CopyOrderButton } from "./CopyOrderButton";
@@ -23,7 +23,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 
 
-export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
+function DelayedOrderTableInner({ data }: { data: ProcessedDelayedOrder[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -37,7 +37,7 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
-  const sortedData = [...data].sort((a, b) => {
+  const sortedData = useMemo(() => [...data].sort((a, b) => {
     let va = a[sortKey] as any;
     let vb = b[sortKey] as any;
 
@@ -50,22 +50,24 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
     if (va < vb) return sortDir === "asc" ? -1 : 1;
     if (va > vb) return sortDir === "asc" ? 1 : -1;
     return 0;
-  });
+  }), [data, sortKey, sortDir]);
 
   const totalPages = Math.ceil(sortedData.length / PAGE_SIZE);
   if (currentPage > totalPages && totalPages > 0) setCurrentPage(1);
 
   const pageData = sortedData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const requestSort = (key: keyof ProcessedDelayedOrder | "stt") => {
+  const requestSort = useCallback((key: keyof ProcessedDelayedOrder | "stt") => {
     if (key === "stt") return;
-    if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
+    setSortKey((prev) => {
+      if (prev === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prev;
+      }
       setSortDir("desc");
-    }
-  };
+      return key;
+    });
+  }, []);
 
   const TheadCol = ({ label, sortName, width }: { label: string; sortName: keyof ProcessedDelayedOrder | "stt"; width?: string }) => (
     <TableHead
@@ -343,3 +345,5 @@ export function DelayedOrderTable({ data }: { data: ProcessedDelayedOrder[] }) {
     </div>
   );
 }
+
+export const DelayedOrderTable = memo(DelayedOrderTableInner);

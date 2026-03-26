@@ -245,6 +245,8 @@ model Order {
   @@index([deliveryStatus, createdTime])
   @@index([shopName, deliveryStatus])
   @@index([deliveredDate])
+  @@index([revenue])
+  @@index([creatorShopName, createdTime])
 }
 
 enum DeliveryStatus {
@@ -362,6 +364,7 @@ model ClaimStatusHistory {
   note          String?
 
   @@index([claimOrderId])
+  @@index([changedAt])
 }
 
 model ClaimChangeLog {
@@ -375,6 +378,7 @@ model ClaimChangeLog {
   changedAt     DateTime   @default(now())
 
   @@index([claimOrderId])
+  @@index([fieldName])
 }
 
 enum IssueType {
@@ -487,6 +491,7 @@ model Attendance {
   @@unique([userId, date])
   @@index([date])
   @@index([userId, date])
+  @@index([status])
 }
 
 enum AttendanceStatus {

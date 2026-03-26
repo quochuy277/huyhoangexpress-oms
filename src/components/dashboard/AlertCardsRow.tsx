@@ -2,9 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { memo } from "react";
 import { Package, AlertCircle, RotateCcw, FileWarning } from "lucide-react";
 
-export function AlertCardsRow() {
+function AlertCardsRowInner() {
   const router = useRouter();
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -103,3 +104,5 @@ export function AlertCardsRow() {
     </div>
   );
 }
+
+export const AlertCardsRow = memo(AlertCardsRowInner);

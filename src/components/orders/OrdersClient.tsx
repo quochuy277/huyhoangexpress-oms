@@ -221,8 +221,27 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
           <div className="flex-1 min-h-0 relative">
             <Suspense
               fallback={
-                <div className="absolute inset-0 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-center text-slate-400">
-                  Đang tải...
+                <div className="absolute inset-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-pulse">
+                  {/* Table header skeleton */}
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4">
+                    <div className="h-4 w-8 bg-slate-200 rounded" />
+                    <div className="h-4 w-28 bg-slate-200 rounded" />
+                    <div className="h-4 w-24 bg-slate-200 rounded" />
+                    <div className="h-4 w-32 bg-slate-200 rounded flex-1" />
+                    <div className="h-4 w-20 bg-slate-200 rounded" />
+                    <div className="h-4 w-16 bg-slate-200 rounded" />
+                  </div>
+                  {/* Table rows skeleton */}
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="px-4 py-3 border-b border-slate-50 flex items-center gap-4">
+                      <div className="h-3 w-8 bg-slate-100 rounded" />
+                      <div className="h-3 w-28 bg-slate-100 rounded" />
+                      <div className="h-3 w-24 bg-slate-100 rounded" />
+                      <div className="h-3 w-32 bg-slate-100 rounded flex-1" />
+                      <div className="h-5 w-20 bg-slate-100 rounded-full" />
+                      <div className="h-3 w-16 bg-slate-100 rounded" />
+                    </div>
+                  ))}
                 </div>
               }
             >
@@ -237,8 +256,22 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
       ) : (
         <Suspense
           fallback={
-            <div className="flex-1 flex items-center justify-center text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" /> Đang tải...
+            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-pulse">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <div className="h-5 w-40 bg-slate-200 rounded" />
+                <div className="flex gap-2">
+                  <div className="h-8 w-20 bg-slate-100 rounded-lg" />
+                  <div className="h-8 w-20 bg-slate-100 rounded-lg" />
+                </div>
+              </div>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 border-b border-slate-50 flex items-center gap-4">
+                  <div className="h-3 w-24 bg-slate-100 rounded" />
+                  <div className="h-3 w-32 bg-slate-100 rounded flex-1" />
+                  <div className="h-5 w-20 bg-slate-100 rounded-full" />
+                  <div className="h-3 w-20 bg-slate-100 rounded" />
+                </div>
+              ))}
             </div>
           }
         >

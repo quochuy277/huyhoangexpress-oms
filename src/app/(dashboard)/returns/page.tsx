@@ -37,15 +37,16 @@ export default function ReturnsPage() {
 
   // Sync state to URL when tab or filters change
   const updateUrl = useCallback((tab: TabKey, f: ReturnFilters) => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
-    if (f.search) params.set("search", f.search);
-    if (f.shopName) params.set("shop", f.shopName);
-    if (f.daysRange) params.set("days", f.daysRange);
-    if (f.hasNotes) params.set("notes", f.hasNotes);
-    if (f.confirmAsked) params.set("confirm", f.confirmAsked);
+    // Set or clear filter params
+    if (f.search) params.set("search", f.search); else params.delete("search");
+    if (f.shopName) params.set("shop", f.shopName); else params.delete("shop");
+    if (f.daysRange) params.set("days", f.daysRange); else params.delete("days");
+    if (f.hasNotes) params.set("notes", f.hasNotes); else params.delete("notes");
+    if (f.confirmAsked) params.set("confirm", f.confirmAsked); else params.delete("confirm");
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router]);
+  }, [pathname, router, searchParams]);
 
   const handleSetActiveTab = useCallback((tab: TabKey) => {
     setActiveTab(tab);
@@ -260,8 +261,25 @@ export default function ReturnsPage() {
       {/* Table Content */}
       <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col" style={{ minHeight: "400px" }}>
         {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-slate-500 text-sm">Đang tải dữ liệu...</div>
+          <div className="flex-1 flex flex-col animate-pulse">
+            {/* Table header skeleton */}
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4">
+              <div className="h-4 w-8 bg-slate-200 rounded" />
+              <div className="h-4 w-28 bg-slate-200 rounded" />
+              <div className="h-4 w-24 bg-slate-200 rounded" />
+              <div className="h-4 w-32 bg-slate-200 rounded flex-1" />
+              <div className="h-4 w-20 bg-slate-200 rounded" />
+            </div>
+            {/* Table rows skeleton */}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 border-b border-slate-50 flex items-center gap-4">
+                <div className="h-3 w-8 bg-slate-100 rounded" />
+                <div className="h-3 w-28 bg-slate-100 rounded" />
+                <div className="h-3 w-24 bg-slate-100 rounded" />
+                <div className="h-3 w-32 bg-slate-100 rounded flex-1" />
+                <div className="h-5 w-20 bg-slate-100 rounded-full" />
+              </div>
+            ))}
           </div>
         ) : (
           <>

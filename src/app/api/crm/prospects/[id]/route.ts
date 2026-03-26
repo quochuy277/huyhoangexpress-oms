@@ -25,6 +25,7 @@ export async function GET(
         assignee: { select: { id: true, name: true } },
         contactLogs: {
           orderBy: { createdAt: "desc" },
+          take: 20,
           include: {},
         },
       },

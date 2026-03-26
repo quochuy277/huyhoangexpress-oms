@@ -108,20 +108,21 @@ export async function GET() {
           createdTime: { gte: startOfMonth },
         },
       }),
-      prisma.claimOrder.findMany({
+      prisma.claimOrder.aggregate({
         where: { detectedDate: { gte: startOfMonth, lte: new Date() } },
-        select: { customerCompensation: true, carrierCompensation: true },
+        _sum: { customerCompensation: true, carrierCompensation: true },
       }),
-      prisma.expense.findMany({
+      prisma.expense.aggregate({
         where: { date: { gte: startOfMonth, lte: new Date() } },
+        _sum: { amount: true },
       }),
       deliveryRatesPromise,
     ]);
 
-    const customerComp = claims.reduce((s: number, c: any) => s + Number(c.customerCompensation ?? 0), 0);
-    const carrierComp = claims.reduce((s: number, c: any) => s + Number(c.carrierCompensation ?? 0), 0);
+    const customerComp = Number(claims._sum.customerCompensation ?? 0);
+    const carrierComp = Number(claims._sum.carrierCompensation ?? 0);
     const claimDiff = carrierComp - customerComp;
-    const totalOperatingExpenses = expenses.reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
+    const totalOperatingExpenses = Number(expenses._sum.amount ?? 0);
 
     responseData.revenue = {
       current: (financeCurrent as any)._sum?.revenue ?? 0,

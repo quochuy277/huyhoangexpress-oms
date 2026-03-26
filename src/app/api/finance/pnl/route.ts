@@ -27,23 +27,26 @@ export async function GET(req: NextRequest) {
       label = month;
     }
 
-    // Auto revenue from orders
+    // Auto revenue from orders using aggregate
     const REVENUE_STATUSES: DeliveryStatus[] = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"] as DeliveryStatus[];
-    const orders = await prisma.order.findMany({
-      where: { deliveryStatus: { in: REVENUE_STATUSES }, createdTime: { gte: from, lte: to } },
-      select: { totalFee: true, carrierFee: true },
-    });
-    const totalFeeFromShop = orders.reduce((s, o) => s + Number(o.totalFee ?? 0), 0);
-    const totalCarrierFee = orders.reduce((s, o) => s + Number(o.carrierFee ?? 0), 0);
+    const [orderAgg, claimAgg] = await Promise.all([
+      prisma.order.aggregate({
+        where: { deliveryStatus: { in: REVENUE_STATUSES }, createdTime: { gte: from, lte: to } },
+        _sum: { totalFee: true, carrierFee: true },
+      }),
+      prisma.claimOrder.aggregate({
+        where: { detectedDate: { gte: from, lte: to } },
+        _sum: { customerCompensation: true, carrierCompensation: true },
+      }),
+    ]);
+
+    const totalFeeFromShop = Number(orderAgg._sum.totalFee ?? 0);
+    const totalCarrierFee = Number(orderAgg._sum.carrierFee ?? 0);
     const netRevenue = totalFeeFromShop - totalCarrierFee;
 
-    // Auto claims data
-    const claims = await prisma.claimOrder.findMany({
-      where: { detectedDate: { gte: from, lte: to } },
-      select: { customerCompensation: true, carrierCompensation: true },
-    });
-    const customerComp = claims.reduce((s, c) => s + Number(c.customerCompensation ?? 0), 0);
-    const carrierComp = claims.reduce((s, c) => s + Number(c.carrierCompensation ?? 0), 0);
+    // Auto claims data from aggregate
+    const customerComp = Number(claimAgg._sum.customerCompensation ?? 0);
+    const carrierComp = Number(claimAgg._sum.carrierCompensation ?? 0);
     const claimDiff = carrierComp - customerComp; // negative if we pay more than carrier pays us
 
     const grossProfit = netRevenue + claimDiff;

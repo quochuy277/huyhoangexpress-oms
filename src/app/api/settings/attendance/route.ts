@@ -38,13 +38,15 @@ export async function PUT(req: NextRequest) {
     const updates = Object.entries(body).filter(([k]) => validKeys.includes(k));
     const userName = session.user.name || "Unknown";
 
-    for (const [key, value] of updates) {
-      await prisma.systemSetting.upsert({
-        where: { key: `attendance_${key}` },
-        create: { key: `attendance_${key}`, value: String(value), updatedBy: userName },
-        update: { value: String(value), updatedBy: userName },
-      });
-    }
+    await prisma.$transaction(
+      updates.map(([key, value]) =>
+        prisma.systemSetting.upsert({
+          where: { key: `attendance_${key}` },
+          create: { key: `attendance_${key}`, value: String(value), updatedBy: userName },
+          update: { value: String(value), updatedBy: userName },
+        })
+      )
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
