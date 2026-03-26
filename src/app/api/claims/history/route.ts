@@ -1,34 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // Helper: map ClaimChangeLog fieldName → action label
-function getActionFromField(fieldName: string, newValue: string | null): { action: string; dotColor: string } {
+function getActionFromField(fieldName: string, newValue: string | null): { action: string; dotColor: string; actionType: string } {
   switch (fieldName) {
     case "claimStatus":
-      return { action: "Chuyển trạng thái", dotColor: "yellow" };
+      return { action: "Chuyển trạng thái", dotColor: "yellow", actionType: "Chuyển trạng thái" };
     case "issueType":
-      return { action: "Cập nhật loại vấn đề", dotColor: "blue" };
+      return { action: "Cập nhật loại vấn đề", dotColor: "blue", actionType: "Cập nhật loại vấn đề" };
     case "issueDescription":
-      return { action: "Cập nhật nội dung VĐ", dotColor: "blue" };
+      return { action: "Cập nhật nội dung VĐ", dotColor: "blue", actionType: "Cập nhật nội dung VĐ" };
     case "processingContent":
-      return { action: "Cập nhật nội dung xử lý", dotColor: "yellow" };
+      return { action: "Cập nhật nội dung xử lý", dotColor: "yellow", actionType: "Cập nhật nội dung xử lý" };
     case "carrierCompensation":
-      return { action: "Nhập tiền NVC đền bù", dotColor: "green" };
+      return { action: "Nhập tiền NVC đền bù", dotColor: "green", actionType: "Nhập tiền NVC đền bù" };
     case "customerCompensation":
-      return { action: "Nhập tiền đền bù KH", dotColor: "green" };
+      return { action: "Nhập tiền đền bù KH", dotColor: "green", actionType: "Nhập tiền đền bù KH" };
     case "deadline":
-      return { action: "Cập nhật thời hạn", dotColor: "blue" };
+      return { action: "Cập nhật thời hạn", dotColor: "blue", actionType: "Cập nhật thời hạn" };
     case "isCompleted":
       return newValue === "true"
-        ? { action: "Đánh dấu hoàn tất", dotColor: "green" }
-        : { action: "Hủy hoàn tất", dotColor: "red" };
+        ? { action: "Đánh dấu hoàn tất", dotColor: "green", actionType: "Đánh dấu hoàn tất" }
+        : { action: "Hủy hoàn tất", dotColor: "red", actionType: "Hủy hoàn tất" };
     default:
-      return { action: "Cập nhật", dotColor: "yellow" };
+      return { action: "Cập nhật", dotColor: "yellow", actionType: "Cập nhật" };
   }
 }
 
-// GET — Claims activity history (all actions across all claims)
+// Map action filter → allowed fieldNames for ClaimChangeLog
+const ACTION_FILTER_FIELDS: Record<string, string[]> = {
+  update: ["issueType", "issueDescription", "processingContent", "deadline"],
+  compensation: ["carrierCompensation", "customerCompensation"],
+  complete: ["isCompleted"],
+};
+
+// GET — Claims activity history with DB-level filtering & pagination
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
@@ -36,64 +44,119 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20")));
-  const take = Math.min(500, Math.max(1, parseInt(url.searchParams.get("take") || "50")));
   const actionFilter = url.searchParams.get("action") || "";
   const staffFilter = url.searchParams.get("staff") || "";
   const search = url.searchParams.get("search") || "";
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
 
-  // Build date filters for DB-level filtering
-  const dateFilter: { changedAt?: { gte?: Date; lte?: Date } } = {};
-  if (dateFrom) {
-    dateFilter.changedAt = { ...dateFilter.changedAt, gte: new Date(dateFrom) };
-  }
-  if (dateTo) {
-    const toDate = new Date(dateTo);
-    toDate.setHours(23, 59, 59, 999);
-    dateFilter.changedAt = { ...dateFilter.changedAt, lte: toDate };
-  }
-
   try {
-    // Fetch status history entries with DB-level date filtering and limits
-    const [statusHistories, changeLogs, statusCount, changeLogCount] = await Promise.all([
+    // Build shared date filter
+    const dateWhere: Prisma.ClaimStatusHistoryWhereInput = {};
+    const clDateWhere: Prisma.ClaimChangeLogWhereInput = {};
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      dateWhere.changedAt = { ...dateWhere.changedAt as any, gte: from };
+      clDateWhere.changedAt = { ...clDateWhere.changedAt as any, gte: from };
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      dateWhere.changedAt = { ...dateWhere.changedAt as any, lte: toDate };
+      clDateWhere.changedAt = { ...clDateWhere.changedAt as any, lte: toDate };
+    }
+
+    // Build staff filter at DB level
+    if (staffFilter) {
+      dateWhere.changedBy = staffFilter;
+      clDateWhere.changedBy = staffFilter;
+    }
+
+    // Build search filter at DB level (search by requestCode or staff name)
+    if (search) {
+      dateWhere.OR = [
+        { changedBy: { contains: search, mode: "insensitive" } },
+        { claimOrder: { order: { requestCode: { contains: search, mode: "insensitive" } } } },
+      ];
+      clDateWhere.OR = [
+        { changedBy: { contains: search, mode: "insensitive" } },
+        { claimOrder: { order: { requestCode: { contains: search, mode: "insensitive" } } } },
+      ];
+    }
+
+    // Determine which sources to query based on action filter
+    const includeStatusHistory = !actionFilter || ["new", "status", "auto"].includes(actionFilter);
+    const includeChangeLogs = !actionFilter || ["update", "compensation", "complete"].includes(actionFilter);
+
+    // Add fieldName filter for change logs based on action type
+    if (actionFilter && ACTION_FILTER_FIELDS[actionFilter]) {
+      clDateWhere.fieldName = { in: ACTION_FILTER_FIELDS[actionFilter] };
+    }
+
+    // For status history: filter by fromStatus for "new" vs "status"
+    if (actionFilter === "new") {
+      dateWhere.fromStatus = null;
+    } else if (actionFilter === "status") {
+      dateWhere.fromStatus = { not: null };
+    }
+
+    // Build select for claimOrder to avoid over-fetching
+    const claimOrderSelect = {
+      id: true,
+      issueType: true,
+      order: { select: { requestCode: true } },
+    };
+
+    // Count + fetch in parallel, using skip/take for true DB pagination
+    // We need to merge two sources, so we use a strategy:
+    // 1. Count both sources
+    // 2. Fetch both with generous limit, merge, sort, then paginate in memory
+    //    BUT with DB-level filters already applied, the dataset is much smaller
+
+    const MAX_FETCH = pageSize * page; // Only fetch what we need up to current page
+
+    const promises: Promise<any>[] = [];
+
+    if (includeStatusHistory) {
+      promises.push(
+        prisma.claimStatusHistory.findMany({
+          where: dateWhere,
+          include: { claimOrder: { select: claimOrderSelect } },
+          orderBy: { changedAt: "desc" },
+          take: MAX_FETCH,
+        }),
+        prisma.claimStatusHistory.count({ where: dateWhere }),
+      );
+    } else {
+      promises.push(Promise.resolve([]), Promise.resolve(0));
+    }
+
+    if (includeChangeLogs) {
+      promises.push(
+        prisma.claimChangeLog.findMany({
+          where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
+          include: { claimOrder: { select: claimOrderSelect } },
+          orderBy: { changedAt: "desc" },
+          take: MAX_FETCH,
+        }),
+        prisma.claimChangeLog.count({
+          where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
+        }),
+      );
+    } else {
+      promises.push(Promise.resolve([]), Promise.resolve(0));
+    }
+
+    // Fetch staff names in parallel (only distinct changedBy)
+    promises.push(
       prisma.claimStatusHistory.findMany({
-        where: dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : undefined,
-        include: {
-          claimOrder: {
-            include: {
-              order: { select: { requestCode: true } },
-            },
-          },
-        },
-        orderBy: { changedAt: "desc" },
-        take: take * page, // Fetch enough for current page depth
+        select: { changedBy: true },
+        distinct: ["changedBy"],
+        orderBy: { changedBy: "asc" },
       }),
-      prisma.claimChangeLog.findMany({
-        where: {
-          fieldName: { not: "claimStatus" },
-          ...(dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : {}),
-        },
-        include: {
-          claimOrder: {
-            include: {
-              order: { select: { requestCode: true } },
-            },
-          },
-        },
-        orderBy: { changedAt: "desc" },
-        take: take * page, // Fetch enough for current page depth
-      }),
-      prisma.claimStatusHistory.count({
-        where: dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : undefined,
-      }),
-      prisma.claimChangeLog.count({
-        where: {
-          fieldName: { not: "claimStatus" },
-          ...(dateFilter.changedAt ? { changedAt: dateFilter.changedAt } : {}),
-        },
-      }),
-    ]);
+    );
+
+    const [statusHistories, statusCount, changeLogs, changeLogCount, staffList] = await Promise.all(promises);
 
     // Transform into unified activities
     type Activity = {
@@ -110,7 +173,6 @@ export async function GET(req: NextRequest) {
 
     const activities: Activity[] = [];
 
-    // Add status history entries
     for (const sh of statusHistories) {
       const requestCode = sh.claimOrder?.order?.requestCode || "—";
       const isNew = sh.fromStatus === null;
@@ -129,10 +191,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Add change log entries
     for (const cl of changeLogs) {
       const requestCode = cl.claimOrder?.order?.requestCode || "—";
-      const { action, dotColor } = getActionFromField(cl.fieldName, cl.newValue);
+      const { action, dotColor, actionType } = getActionFromField(cl.fieldName, cl.newValue);
       activities.push({
         id: cl.id,
         claimId: cl.claimOrder?.id || "",
@@ -142,64 +203,22 @@ export async function GET(req: NextRequest) {
         action,
         detail: `${cl.oldValue || "—"} → ${cl.newValue || "—"}`,
         dotColor,
-        actionType: action,
+        actionType,
       });
     }
 
-    // Sort by timestamp descending
+    // Sort merged results by timestamp descending
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    // Apply filters
-    let filtered = activities;
-
-    // Search filter (requestCode or staff)
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (a) => a.requestCode.toLowerCase().includes(q) || a.staff.toLowerCase().includes(q)
-      );
-    }
-
-    // Staff filter
-    if (staffFilter) {
-      filtered = filtered.filter((a) => a.staff === staffFilter);
-    }
-
-    // Date range filter
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      filtered = filtered.filter((a) => a.timestamp >= from);
-    }
-    if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59, 999);
-      filtered = filtered.filter((a) => a.timestamp <= to);
-    }
-
-    // Action type filter
-    if (actionFilter) {
-      const actionMap: Record<string, string[]> = {
-        new: ["Thêm đơn có vấn đề", "Tự động phát hiện"],
-        status: ["Chuyển trạng thái"],
-        update: ["Cập nhật nội dung xử lý", "Cập nhật loại vấn đề", "Cập nhật nội dung VĐ", "Cập nhật thời hạn", "Cập nhật"],
-        compensation: ["Nhập tiền NVC đền bù", "Nhập tiền đền bù KH"],
-        complete: ["Đánh dấu hoàn tất", "Hủy hoàn tất"],
-        auto: ["Tự động phát hiện"],
-      };
-      const allowedActions = actionMap[actionFilter] || [];
-      if (allowedActions.length > 0) {
-        filtered = filtered.filter((a) => allowedActions.includes(a.actionType));
-      }
-    }
-
-    const total = filtered.length;
+    // Paginate the merged result
+    const total = activities.length;
     const totalPages = Math.ceil(total / pageSize);
-    const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+    const paged = activities.slice((page - 1) * pageSize, page * pageSize);
 
-    // Get unique staff names
-    const staffSet = new Set<string>();
-    activities.forEach((a) => { if (a.staff) staffSet.add(a.staff); });
-    const staffNames = Array.from(staffSet).sort().map((name) => ({ name }));
+    // Staff names from distinct query
+    const staffNames = (staffList || [])
+      .map((s: any) => ({ name: s.changedBy }))
+      .filter((s: any) => s.name);
 
     return NextResponse.json({
       activities: paged,

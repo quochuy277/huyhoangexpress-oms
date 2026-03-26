@@ -351,6 +351,8 @@ model ClaimOrder {
   @@index([claimStatus])
   @@index([deadline])
   @@index([isCompleted])
+  @@index([isCompleted, claimStatus])
+  @@index([detectedDate])
 }
 
 model ClaimStatusHistory {
@@ -379,6 +381,8 @@ model ClaimChangeLog {
 
   @@index([claimOrderId])
   @@index([fieldName])
+  @@index([changedAt])
+  @@index([fieldName, changedAt])
 }
 
 enum IssueType {
@@ -595,12 +599,13 @@ model ImportantLink {
 
 model CashbookEntry {
   id              String        @id @default(cuid())
+  compositeKey    String        @unique          // receiptCode::groupType
   transactionTime DateTime
   receiptCode     String
   groupType       CashbookGroup
   content         String
-  amount          Decimal 
-  balance         Decimal 
+  amount          Decimal
+  balance         Decimal
   rawCod          Decimal?
   shippingFee     Decimal?
   shopName        String?

@@ -88,7 +88,6 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
             isAdmin={isAdmin}
             onOpenClaim={(claimId) => {
               setExternalDetailClaimId(claimId);
-              setActiveTab("claims");
             }}
           />
         </div>

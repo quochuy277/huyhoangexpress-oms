@@ -12,58 +12,109 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const range = parsePeriodFromURL(url);
     const from = range.from, to = range.to;
+    const timeFilter = { transactionTime: { gte: from, lte: to } };
 
-    const entries = await prisma.cashbookEntry.findMany({
-      where: { transactionTime: { gte: from, lte: to } },
-      orderBy: { transactionTime: "desc" },
+    // Use aggregation queries instead of fetching all entries into memory
+    const [
+      codAgg,
+      shopPayoutAgg,
+      topUpAgg,
+      latestEntry,
+      groupAgg,
+    ] = await Promise.all([
+      prisma.cashbookEntry.aggregate({
+        where: { ...timeFilter, groupType: "COD" },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.cashbookEntry.aggregate({
+        where: { ...timeFilter, groupType: "SHOP_PAYOUT" },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.cashbookEntry.aggregate({
+        where: { ...timeFilter, groupType: "TOP_UP" },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.cashbookEntry.findFirst({
+        where: timeFilter,
+        orderBy: { transactionTime: "desc" },
+        select: { balance: true, transactionTime: true },
+      }),
+      prisma.cashbookEntry.groupBy({
+        by: ["groupType"],
+        where: timeFilter,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const summary = {
+      codTotal: Number(codAgg._sum.amount || 0),
+      codCount: codAgg._count,
+      shopPayoutTotal: Number(shopPayoutAgg._sum.amount || 0),
+      shopPayoutCount: shopPayoutAgg._count,
+      topUpTotal: Number(topUpAgg._sum.amount || 0),
+      topUpCount: topUpAgg._count,
+      latestBalance: latestEntry ? Number(latestEntry.balance) : 0,
+      latestDate: latestEntry?.transactionTime || null,
+    };
+
+    const groupDistribution = groupAgg.map(g => ({
+      group: g.groupType,
+      amount: Math.abs(Number(g._sum.amount || 0)),
+    }));
+
+    // Daily chart — fetch only needed fields, limit to reasonable range
+    const dailyEntries = await prisma.cashbookEntry.findMany({
+      where: timeFilter,
+      orderBy: { transactionTime: "asc" },
+      select: { transactionTime: true, groupType: true, amount: true, balance: true },
     });
 
-    // Summary cards
-    const codTotal = entries.filter(e => e.groupType === "COD").reduce((s, e) => s + Number(e.amount), 0);
-    const codCount = entries.filter(e => e.groupType === "COD").length;
-    const shopPayoutTotal = entries.filter(e => e.groupType === "SHOP_PAYOUT").reduce((s, e) => s + Number(e.amount), 0);
-    const shopPayoutCount = entries.filter(e => e.groupType === "SHOP_PAYOUT").length;
-    const topUpTotal = entries.filter(e => e.groupType === "TOP_UP").reduce((s, e) => s + Number(e.amount), 0);
-    const topUpCount = entries.filter(e => e.groupType === "TOP_UP").length;
-    const latestBalance = entries.length > 0 ? Number(entries[0].balance) : 0;
-    const latestDate = entries.length > 0 ? entries[0].transactionTime : null;
-
-    // Daily cashflow chart
     const dailyMap: Record<string, { codIn: number; shopOut: number; balance: number }> = {};
-    entries.forEach(e => {
+    dailyEntries.forEach(e => {
       const day = format(e.transactionTime, "dd/MM");
       if (!dailyMap[day]) dailyMap[day] = { codIn: 0, shopOut: 0, balance: Number(e.balance) };
       if (e.groupType === "COD") dailyMap[day].codIn += Number(e.amount);
       if (e.groupType === "SHOP_PAYOUT") dailyMap[day].shopOut += Math.abs(Number(e.amount));
       dailyMap[day].balance = Number(e.balance);
     });
-    const dailyChart = Object.entries(dailyMap).map(([date, v]) => ({ date, ...v })).reverse();
+    const dailyChart = Object.entries(dailyMap).map(([date, v]) => ({ date, ...v }));
 
-    // Group distribution
-    const groupMap: Record<string, number> = {};
-    entries.forEach(e => { groupMap[e.groupType] = (groupMap[e.groupType] || 0) + Math.abs(Number(e.amount)); });
-    const groupDistribution = Object.entries(groupMap).map(([group, amount]) => ({ group, amount }));
+    // Shop payout summary — use groupBy for aggregation
+    const [shopPayouts, shopFees] = await Promise.all([
+      prisma.cashbookEntry.groupBy({
+        by: ["shopName"],
+        where: { ...timeFilter, groupType: "SHOP_PAYOUT" },
+        _sum: { amount: true },
+        _count: true,
+        _max: { transactionTime: true },
+      }),
+      prisma.cashbookEntry.groupBy({
+        by: ["shopName"],
+        where: { ...timeFilter, groupType: "RECONCILIATION_FEE" },
+        _sum: { amount: true },
+      }),
+    ]);
 
-    // Shop payout summary
-    const shopMap: Record<string, { count: number; total: number; lastDate: Date | null }> = {};
-    entries.filter(e => e.groupType === "SHOP_PAYOUT").forEach(e => {
-      const s = e.shopName || "Không rõ";
-      if (!shopMap[s]) shopMap[s] = { count: 0, total: 0, lastDate: null };
-      shopMap[s].count++;
-      shopMap[s].total += Math.abs(Number(e.amount));
-      if (!shopMap[s].lastDate || e.transactionTime > shopMap[s].lastDate!) shopMap[s].lastDate = e.transactionTime;
-    });
     const feeMap: Record<string, number> = {};
-    entries.filter(e => e.groupType === "RECONCILIATION_FEE").forEach(e => {
-      const s = e.shopName || "Không rõ";
-      feeMap[s] = (feeMap[s] || 0) + Math.abs(Number(e.amount));
+    shopFees.forEach(f => {
+      feeMap[f.shopName || "Không rõ"] = Math.abs(Number(f._sum.amount || 0));
     });
-    const shopPayoutSummary = Object.entries(shopMap)
-      .map(([shop, v]) => ({ shop, ...v, fee: feeMap[shop] || 0 }))
+
+    const shopPayoutSummary = shopPayouts
+      .map(s => ({
+        shop: s.shopName || "Không rõ",
+        count: s._count,
+        total: Math.abs(Number(s._sum.amount || 0)),
+        fee: feeMap[s.shopName || "Không rõ"] || 0,
+        lastDate: s._max.transactionTime,
+      }))
       .sort((a, b) => b.total - a.total);
 
     return NextResponse.json({
-      summary: { codTotal, codCount, shopPayoutTotal, shopPayoutCount, topUpTotal, topUpCount, latestBalance, latestDate },
+      summary,
       dailyChart,
       groupDistribution,
       shopPayoutSummary,

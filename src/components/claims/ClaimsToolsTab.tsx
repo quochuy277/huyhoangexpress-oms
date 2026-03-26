@@ -13,7 +13,7 @@ import { format } from "date-fns";
    ============================================================ */
 const cardStyle: React.CSSProperties = {
   background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: "12px",
-  padding: "20px 24px", flex: 1, minWidth: 0,
+  padding: "16px", flex: 1, minWidth: 0,
 };
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "8px 12px", border: "1px solid #d1d5db",
@@ -206,9 +206,27 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div className="claims-tools-tab" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .claims-tools-cards { flex-direction: column !important; }
+          .claims-tools-cards > div { min-width: 0 !important; }
+          .claims-tools-doc-row { flex-wrap: wrap !important; gap: 8px !important; }
+          .claims-tools-doc-actions { width: 100% !important; justify-content: flex-end !important; margin-top: 4px !important; }
+          .claims-tools-filters { gap: 6px !important; }
+          .claims-tools-filters > * { flex: 1 1 calc(50% - 6px) !important; min-width: 0 !important; }
+          .claims-tools-filters > div:first-child { flex: 1 1 100% !important; }
+          .claims-tools-history-table { display: none !important; }
+          .claims-tools-history-cards { display: flex !important; }
+          .claims-tools-pagination { flex-direction: column !important; gap: 8px !important; align-items: stretch !important; }
+          .claims-tools-pagination > div { justify-content: center !important; }
+          .claims-tools-header-btn span.btn-label { display: none !important; }
+          .claims-tools-link-admin { flex-wrap: wrap !important; }
+        }
+      `}</style>
+
       {/* Section A: Tài liệu & Đường dẫn */}
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+      <div className="claims-tools-cards" style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
         {/* Card 1: Tài liệu */}
         <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
@@ -216,8 +234,8 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               <FileText size={18} color="#2563EB" /> Tài liệu
             </div>
             {isAdmin && (
-              <button onClick={() => setUploadDialog(true)} style={btnPrimary}>
-                <Upload size={14} /> Tải lên tài liệu
+              <button onClick={() => setUploadDialog(true)} style={btnPrimary} className="claims-tools-header-btn">
+                <Upload size={14} /> <span className="btn-label">Tải lên tài liệu</span>
               </button>
             )}
           </div>
@@ -228,7 +246,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
               {docs.map((doc, i) => (
-                <div key={doc.id} style={{
+                <div key={doc.id} className="claims-tools-doc-row" style={{
                   display: "flex", alignItems: "center", gap: "12px", padding: "10px 12px",
                   borderRadius: "8px", transition: "background 0.15s",
                   background: i % 2 === 0 ? "#f9fafb" : "#fff",
@@ -240,7 +258,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
                       {format(new Date(doc.createdAt), "dd/MM/yyyy")} · {formatFileSize(doc.fileSize)} · {doc.uploadedBy}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                  <div className="claims-tools-doc-actions" style={{ display: "flex", gap: "4px", alignItems: "center" }}>
                     <a
                       href={`/api/documents/${doc.id}/download`}
                       style={{ ...btnSecondary, textDecoration: "none", color: "#2563EB", borderColor: "#bfdbfe", background: "#eff6ff", padding: "5px 10px" }}
@@ -271,8 +289,8 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               <Link2 size={18} color="#2563EB" /> Đường dẫn quan trọng
             </div>
             {isAdmin && (
-              <button onClick={() => setLinkDialog({ title: "", url: "", description: "" })} style={btnPrimary}>
-                <Plus size={14} /> Thêm đường dẫn
+              <button onClick={() => setLinkDialog({ title: "", url: "", description: "" })} style={btnPrimary} className="claims-tools-header-btn">
+                <Plus size={14} /> <span className="btn-label">Thêm đường dẫn</span>
               </button>
             )}
           </div>
@@ -302,7 +320,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
                     )}
                   </div>
                   {isAdmin && (
-                    <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                    <div className="claims-tools-link-admin" style={{ display: "flex", gap: "4px", alignItems: "center" }}>
                       <button onClick={() => setLinkDialog({ id: link.id, title: link.title, url: link.url, description: link.description || "" })} style={{ ...btnSecondary, padding: "5px 8px" }} title="Sửa">
                         <Pencil size={12} />
                       </button>
@@ -327,7 +345,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
         </div>
 
         {/* Filters */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap", alignItems: "center" }}>
+        <div className="claims-tools-filters" style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "0 0 200px" }}>
             <Search size={14} style={{ position: "absolute", left: "10px", top: "9px", color: "#9ca3af" }} />
             <input
@@ -368,8 +386,8 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
           />
         </div>
 
-        {/* Table */}
-        <div style={{ overflowX: "auto" }}>
+        {/* Desktop Table */}
+        <div className="claims-tools-history-table" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e5e7eb" }}>
@@ -421,9 +439,54 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
           </table>
         </div>
 
+        {/* Mobile Cards (shown only on mobile) */}
+        <div className="claims-tools-history-cards" style={{ display: "none", flexDirection: "column", gap: "8px" }}>
+          {historyLoading ? (
+            <div style={{ textAlign: "center", padding: "30px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={18} /></div>
+          ) : activities.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "30px", color: "#9ca3af" }}>Chưa có lịch sử xử lý</div>
+          ) : activities.map((a: any, i: number) => (
+            <div key={a.id + i} style={{
+              padding: "12px", borderRadius: "10px", background: i % 2 === 0 ? "#fff" : "#f9fafb",
+              border: "1px solid #f1f5f9",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{
+                    width: "7px", height: "7px", borderRadius: "50%",
+                    background: ACTION_COLORS[a.dotColor] || "#6b7280", flexShrink: 0,
+                  }} />
+                  <span style={{ fontWeight: 600, color: "#1e293b", fontSize: "12px" }}>{a.action || "—"}</span>
+                </span>
+                <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+                  {a.timestamp ? format(new Date(a.timestamp), "dd/MM HH:mm") : "—"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                {a.claimId && onOpenClaim ? (
+                  <button
+                    onClick={() => onOpenClaim(a.claimId)}
+                    style={{ background: "none", border: "none", padding: 0, color: "#2563EB", fontWeight: 600, cursor: "pointer", fontSize: "12px", textDecoration: "underline" }}
+                  >
+                    {a.requestCode || "—"}
+                  </button>
+                ) : (
+                  <span style={{ color: "#2563EB", fontWeight: 600, fontSize: "12px" }}>{a.requestCode || "—"}</span>
+                )}
+                <span style={{ fontSize: "11px", color: "#6b7280" }}>{a.staff || "—"}</span>
+              </div>
+              {a.detail && (
+                <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px", lineHeight: "1.4", wordBreak: "break-word" }}>
+                  {a.detail}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
         {/* Pagination */}
         {historyPagination.totalPages > 0 && (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", fontSize: "12px", color: "#6b7280" }}>
+          <div className="claims-tools-pagination" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", fontSize: "12px", color: "#6b7280" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span>Hiển thị</span>
               <select

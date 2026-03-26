@@ -27,35 +27,35 @@ export async function GET() {
     // Use two separate groupBy queries instead of loading all orders
     const [recentGroups, previousGroups, shopFirstOrders] = await Promise.all([
       prisma.order.groupBy({
-        by: ["creatorShopName"],
+        by: ["shopName"],
         where: { createdTime: { gte: periodA_start, lte: today } },
         _count: true,
       }),
       prisma.order.groupBy({
-        by: ["creatorShopName"],
+        by: ["shopName"],
         where: { createdTime: { gte: periodB_start, lte: periodB_end } },
         _count: true,
       }),
       prisma.order.groupBy({
-        by: ["creatorShopName"],
+        by: ["shopName"],
         _min: { createdTime: true },
       }),
     ]);
 
     const firstOrderMap: Record<string, Date> = {};
     shopFirstOrders.forEach(s => {
-      if (s.creatorShopName && s._min.createdTime) firstOrderMap[s.creatorShopName] = s._min.createdTime;
+      if (s.shopName && s._min.createdTime) firstOrderMap[s.shopName] = s._min.createdTime;
     });
 
     // Build combined shop counts from the two groupBy results
     const shopCounts: Record<string, { recent: number; previous: number }> = {};
     recentGroups.forEach(g => {
-      const s = g.creatorShopName || "Không rõ";
+      const s = g.shopName || "Không rõ";
       if (!shopCounts[s]) shopCounts[s] = { recent: 0, previous: 0 };
       shopCounts[s].recent = g._count;
     });
     previousGroups.forEach(g => {
-      const s = g.creatorShopName || "Không rõ";
+      const s = g.shopName || "Không rõ";
       if (!shopCounts[s]) shopCounts[s] = { recent: 0, previous: 0 };
       shopCounts[s].previous = g._count;
     });

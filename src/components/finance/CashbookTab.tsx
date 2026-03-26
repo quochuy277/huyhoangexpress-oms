@@ -101,7 +101,11 @@ export default function CashbookTab() {
             <input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
           </label>
           {uploadResult && !uploadResult.error && (
-            <div style={{ fontSize: 13, color: "#10b981" }}>✅ Đã tải lên: {uploadResult.newRows} giao dịch mới, {uploadResult.duplicateRows} trùng lặp bỏ qua</div>
+            <div style={{ fontSize: 13, color: "#10b981" }}>
+              ✅ Đã tải lên: {uploadResult.newRows} giao dịch mới
+              {uploadResult.replacedRows > 0 && <>, {uploadResult.replacedRows} đã cập nhật</>}
+              {uploadResult.duplicateRows > 0 && <>, {uploadResult.duplicateRows} trùng lặp</>}
+            </div>
           )}
           {uploadResult?.error && <div style={{ fontSize: 13, color: "#ef4444" }}>❌ {uploadResult.error}</div>}
         </div>

@@ -444,14 +444,19 @@ function ClaimDetailPanel({
 
     setSaving(true);
     try {
-      await fetch(`/api/claims/${claimId}`, {
+      const res = await fetch(`/api/claims/${claimId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(changes),
       });
+      const result = await res.json();
+      if (result.claim) {
+        setData(result.claim); // Use returned data directly — no re-fetch needed
+      } else {
+        fetchDetail(); // Fallback
+      }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      fetchDetail(); // Reload data → triggers useEffect → resets edits
       onUpdate?.();
     } finally {
       setSaving(false);

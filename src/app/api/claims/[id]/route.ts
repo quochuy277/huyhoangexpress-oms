@@ -17,13 +17,33 @@ export async function GET(
     const claim = await prisma.claimOrder.findUnique({
       where: { id },
       include: {
-        order: true,
+        order: {
+          select: {
+            requestCode: true,
+            carrierOrderCode: true,
+            carrierName: true,
+            shopName: true,
+            status: true,
+            deliveryStatus: true,
+            codAmount: true,
+            totalFee: true,
+            pickupTime: true,
+            regionGroup: true,
+            internalNotes: true,
+            staffNotes: true,
+            receiverPhone: true,
+            receiverName: true,
+            receiverAddress: true,
+          },
+        },
         createdBy: { select: { name: true } },
         statusHistory: {
           orderBy: { changedAt: "desc" },
+          take: 50,
         },
         changeLogs: {
           orderBy: { changedAt: "desc" },
+          take: 50,
         },
       },
     });
@@ -193,7 +213,28 @@ export async function PATCH(
             : {}),
         },
         include: {
-          order: { select: { requestCode: true } },
+          order: {
+            select: {
+              requestCode: true,
+              carrierOrderCode: true,
+              carrierName: true,
+              shopName: true,
+              status: true,
+              deliveryStatus: true,
+              codAmount: true,
+              totalFee: true,
+              pickupTime: true,
+              regionGroup: true,
+              internalNotes: true,
+              staffNotes: true,
+              receiverPhone: true,
+              receiverName: true,
+              receiverAddress: true,
+            },
+          },
+          createdBy: { select: { name: true } },
+          statusHistory: { orderBy: { changedAt: "desc" }, take: 50 },
+          changeLogs: { orderBy: { changedAt: "desc" }, take: 50 },
         },
       });
 

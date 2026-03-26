@@ -26,6 +26,10 @@ const PERIOD_OPTIONS = [
 
 const formatVND = (n: number) => n.toLocaleString("vi-VN") + "đ";
 
+// Cache compensation data by period to avoid re-fetching on period switch
+const compensationCache = new Map<string, { data: any; ts: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export default function ClaimsCompensationTab() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
@@ -34,11 +38,20 @@ export default function ClaimsCompensationTab() {
   const [shopSearch, setShopSearch] = useState("");
 
   const fetchData = useCallback(async () => {
+    // Check cache first
+    const cached = compensationCache.get(period);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      setData(cached.data);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`/api/claims/compensation?period=${period}`);
       const d = await res.json();
       setData(d);
+      compensationCache.set(period, { data: d, ts: Date.now() });
     } finally { setLoading(false); }
   }, [period]);
 

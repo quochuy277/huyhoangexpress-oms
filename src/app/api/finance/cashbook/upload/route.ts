@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { requireFinanceAccess } from "@/lib/finance-auth";
-import type { Prisma } from "@prisma/client";
 import { CashbookGroup } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -15,6 +14,20 @@ const GROUP_MAP: Record<string, CashbookGroup> = {
   "Đền bù": CashbookGroup.COMPENSATION,
   "Phí hợp tác": CashbookGroup.COOPERATION_FEE,
 };
+
+interface ParsedEntry {
+  compositeKey: string;
+  transactionTime: Date;
+  receiptCode: string;
+  groupType: CashbookGroup;
+  content: string;
+  amount: number;
+  balance: number;
+  rawCod: number | null;
+  shippingFee: number | null;
+  shopName: string | null;
+  uploadedBy: string;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,8 +62,8 @@ export async function POST(req: NextRequest) {
     let dateFrom: Date | null = null;
     let dateTo: Date | null = null;
 
-    // 1. Parse all rows into entries array (in memory)
-    const entries: Prisma.CashbookEntryCreateManyInput[] = [];
+    // 1. Parse all rows into entries
+    const entries: ParsedEntry[] = [];
 
     for (const row of rows) {
       const timeStr = row["Thời gian tính nợ"] || row["Thời gian"] || "";
@@ -75,6 +88,9 @@ export async function POST(req: NextRequest) {
 
       const groupType = GROUP_MAP[groupStr] || CashbookGroup.OTHER;
 
+      // compositeKey = receiptCode::groupType
+      const compositeKey = `${receiptCode}::${groupType}`;
+
       let rawCod: number | null = null;
       let shippingFee: number | null = null;
       let shopName: string | null = null;
@@ -92,6 +108,7 @@ export async function POST(req: NextRequest) {
       }
 
       entries.push({
+        compositeKey,
         transactionTime,
         receiptCode,
         groupType,
@@ -105,17 +122,42 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Bulk insert using createMany (batches of 500)
+    // 2. Batch upsert: delete existing keys then insert
     const BATCH_SIZE = 500;
     let newRows = 0;
+    let replacedRows = 0;
 
     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
       const batch = entries.slice(i, i + BATCH_SIZE);
-      const result = await prisma.cashbookEntry.createMany({
-        data: batch,
-        skipDuplicates: true,
+      const keys = batch.map(e => e.compositeKey);
+
+      // Use transaction for atomicity: delete old → insert new
+      const result = await prisma.$transaction(async (tx) => {
+        const deleted = await tx.cashbookEntry.deleteMany({
+          where: { compositeKey: { in: keys } },
+        });
+
+        const inserted = await tx.cashbookEntry.createMany({
+          data: batch.map(e => ({
+            compositeKey: e.compositeKey,
+            transactionTime: e.transactionTime,
+            receiptCode: e.receiptCode,
+            groupType: e.groupType,
+            content: e.content,
+            amount: e.amount,
+            balance: e.balance,
+            rawCod: e.rawCod,
+            shippingFee: e.shippingFee,
+            shopName: e.shopName,
+            uploadedBy: e.uploadedBy,
+          })),
+        });
+
+        return { deleted: deleted.count, inserted: inserted.count };
       });
-      newRows += result.count;
+
+      replacedRows += result.deleted;
+      newRows += result.inserted;
     }
 
     // 3. Record upload
@@ -123,8 +165,8 @@ export async function POST(req: NextRequest) {
       data: {
         fileName: file.name,
         rowCount: rows.length,
-        newRows,
-        duplicateRows: entries.length - newRows,
+        newRows: newRows - replacedRows,
+        duplicateRows: replacedRows,
         dateFrom,
         dateTo,
         uploadedBy,
@@ -132,9 +174,9 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      newRows,
-      duplicateRows: entries.length - newRows,
-      total: rows.length,
+      newRows: newRows - replacedRows,
+      replacedRows,
+      total: entries.length,
       dateFrom,
       dateTo,
     });
