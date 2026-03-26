@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLastDelayDate, getMostRecentTimestampFromNotes } from "@/lib/delay-analyzer";
+import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,8 +13,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const tab = searchParams.get("tab") || "partial";
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+    const search = searchParams.get("search") || "";
 
-    let where: any = {};
+    let where: Prisma.OrderWhereInput = {};
 
     if (tab === "partial") {
       where = {
@@ -41,42 +45,66 @@ export async function GET(req: NextRequest) {
           },
         ],
       };
-    } const rawOrders = await prisma.order.findMany({
-      where,
-      select: {
-        id: true,
-        requestCode: true,
-        carrierOrderCode: true,
-        shopName: true,
-        status: true,
-        deliveryStatus: true,
-        deliveredDate: true,
-        lastUpdated: true,
-        publicNotes: true,
-        partialOrderType: true,
-        partialOrderCode: true,
-        staffNotes: true,
-        warehouseArrivalDate: true,
-        customerConfirmAsked: true,
-        confirmedAskedBy: true,
-        confirmedAskedAt: true,
-        customerConfirmed: true,
-        customerConfirmedBy: true,
-        customerConfirmedAt: true,
-        codAmount: true,
-        receiverName: true,
-        receiverPhone: true,
-        claimOrder: { select: { issueType: true } },
-      },
-    });
+    }
 
-    // Compute lastDelayDate and daysReturning for each order (mostly used by Tab 2)
+    // Add search filter
+    if (search) {
+      where = {
+        ...where,
+        AND: [
+          {
+            OR: [
+              { requestCode: { contains: search, mode: "insensitive" } },
+              { shopName: { contains: search, mode: "insensitive" } },
+              { receiverName: { contains: search, mode: "insensitive" } },
+              { receiverPhone: { contains: search } },
+              { carrierOrderCode: { contains: search, mode: "insensitive" } },
+            ],
+          },
+        ],
+      };
+    }
+
+    const select = {
+      id: true,
+      requestCode: true,
+      carrierOrderCode: true,
+      shopName: true,
+      status: true,
+      deliveryStatus: true,
+      deliveredDate: true,
+      lastUpdated: true,
+      publicNotes: true,
+      partialOrderType: true,
+      partialOrderCode: true,
+      staffNotes: true,
+      warehouseArrivalDate: true,
+      customerConfirmAsked: true,
+      confirmedAskedBy: true,
+      confirmedAskedAt: true,
+      customerConfirmed: true,
+      customerConfirmedBy: true,
+      customerConfirmedAt: true,
+      codAmount: true,
+      receiverName: true,
+      receiverPhone: true,
+      claimOrder: { select: { issueType: true } },
+    } as const;
+
+    const [rawOrders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        select,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { lastUpdated: "desc" },
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    // Compute lastDelayDate and daysReturning for each order
     const orders = rawOrders.map((o: any) => {
       const lastDelayDate = getLastDelayDate(o.publicNotes);
-      // Fallback priority:
-      // 1. Last "Hoãn giao hàng vì:" timestamp parsed from publicNotes (most accurate)
-      // 2. Most recent event timestamp from publicNotes (first line = newest event)
-      // 3. null — caller/UI handles display
       const effectiveDate = lastDelayDate ?? getMostRecentTimestampFromNotes(o.publicNotes);
       const daysReturning = effectiveDate
         ? Math.max(0, Math.floor((Date.now() - effectiveDate.getTime()) / 86400000))
@@ -91,6 +119,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: orders,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     });
 
   } catch (error) {
@@ -101,3 +135,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+

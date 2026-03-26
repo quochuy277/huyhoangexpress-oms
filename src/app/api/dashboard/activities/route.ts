@@ -8,53 +8,49 @@ export async function GET() {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  // 1. UploadHistory
-  const uploads = await prisma.uploadHistory.findMany({
-    orderBy: { uploadedAt: 'desc' },
-    select: {
-      uploadedAt: true,
-      totalRows: true,
-      newOrders: true,
-      updatedOrders: true,
-      carrierName: true,
-      uploadedBy: { select: { name: true } }
-    },
-    take: 5
-  });
-
-  // 2. ClaimOrder
-  const claims = await prisma.claimOrder.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: { 
-      createdAt: true, 
-      order: { select: { requestCode: true } }, 
-      createdBy: { select: { name: true } } 
-    },
-    take: 5
-  });
-
-  // 3. ReturnTracking
-  const returns = await prisma.returnTracking.findMany({
-    where: { returnStatus: 'RETURNED_TO_CUSTOMER' },
-    orderBy: { updatedAt: 'desc' },
-    select: {
-      updatedAt: true,
-      returnedByStaff: true,
-      order: { select: { requestCode: true } }
-    },
-    take: 5
-  });
-
-  // 4. TodoItem
-  const todos = await prisma.todoItem.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      createdAt: true,
-      title: true,
-      assignee: { select: { name: true } }
-    },
-    take: 5
-  });
+  // Fetch all 4 data sources in parallel
+  const [uploads, claims, returns, todos] = await Promise.all([
+    prisma.uploadHistory.findMany({
+      orderBy: { uploadedAt: 'desc' },
+      select: {
+        uploadedAt: true,
+        totalRows: true,
+        newOrders: true,
+        updatedOrders: true,
+        carrierName: true,
+        uploadedBy: { select: { name: true } }
+      },
+      take: 5
+    }),
+    prisma.claimOrder.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { 
+        createdAt: true, 
+        order: { select: { requestCode: true } }, 
+        createdBy: { select: { name: true } } 
+      },
+      take: 5
+    }),
+    prisma.returnTracking.findMany({
+      where: { returnStatus: 'RETURNED_TO_CUSTOMER' },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        updatedAt: true,
+        returnedByStaff: true,
+        order: { select: { requestCode: true } }
+      },
+      take: 5
+    }),
+    prisma.todoItem.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        createdAt: true,
+        title: true,
+        assignee: { select: { name: true } }
+      },
+      take: 5
+    }),
+  ]);
 
   // Định dạng mảng
   const activities = [];

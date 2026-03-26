@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", ".prisma/client"],
   devIndicators: false,
+  compress: true,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', '@tiptap/react', '@tiptap/starter-kit'],
+  },
   headers: async () => [
     {
       source: "/(.*)",
@@ -25,3 +29,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

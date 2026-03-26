@@ -1,28 +1,68 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { processDelayedOrder, ProcessedDelayedOrder } from '@/lib/delay-analyzer';
+import type { Prisma } from '@prisma/client';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const orders = await prisma.order.findMany({
-      where: {
-        claimLocked: false,
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '50', 10);
+    const search = searchParams.get('search') || '';
+    const shopFilter = searchParams.get('shop') || '';
+    const carrierFilter = searchParams.get('carrier') || '';
+    const riskFilter = searchParams.get('risk') || '';
+    const reasonFilter = searchParams.get('reason') || '';
+    const delayCountFilter = searchParams.get('delay') || '';
+    const statusFilter = searchParams.get('status') || '';
+
+    // Base delayed condition
+    const baseCondition: Prisma.OrderWhereInput = {
+      claimLocked: false,
+      OR: [
+        { deliveryStatus: { in: ['DELIVERY_DELAYED', 'RETURN_CONFIRMED'] } },
+        {
+          AND: [
+            { deliveryStatus: 'DELIVERING' },
+            { publicNotes: { contains: 'Hoãn giao hàng' } }
+          ]
+        }
+      ]
+    };
+
+    // Add server-side SQL filters
+    const AND: Prisma.OrderWhereInput[] = [];
+
+    if (search) {
+      AND.push({
         OR: [
-          { deliveryStatus: { in: ['DELIVERY_DELAYED', 'RETURN_CONFIRMED'] } },
-          {
-            AND: [
-              { deliveryStatus: 'DELIVERING' },
-              { publicNotes: { contains: 'Hoãn giao hàng' } }
-            ]
-          }
-        ]
-      },
+          { requestCode: { contains: search, mode: 'insensitive' } },
+          { shopName: { contains: search, mode: 'insensitive' } },
+          { receiverName: { contains: search, mode: 'insensitive' } },
+          { receiverPhone: { contains: search } },
+          { carrierOrderCode: { contains: search, mode: 'insensitive' } },
+          { customerOrderCode: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (shopFilter) AND.push({ shopName: shopFilter });
+    if (carrierFilter) AND.push({ carrierName: carrierFilter });
+    if (statusFilter) AND.push({ status: statusFilter });
+
+    const where: Prisma.OrderWhereInput = {
+      ...baseCondition,
+      ...(AND.length > 0 ? { AND } : {}),
+    };
+
+    const orders = await prisma.order.findMany({
+      where,
       select: {
         id: true,
         requestCode: true,
@@ -48,8 +88,25 @@ export async function GET() {
       }
     });
 
-    const processedOrders: ProcessedDelayedOrder[] = orders.map(order => processDelayedOrder(order));
+    // Process all orders (compute risk, delays, reasons)
+    let processedOrders: ProcessedDelayedOrder[] = orders.map(order => processDelayedOrder(order));
 
+    // Apply post-processing filters (risk, reason, delayCount)
+    if (riskFilter && riskFilter !== 'all') {
+      processedOrders = processedOrders.filter(o => o.risk === riskFilter);
+    }
+    if (reasonFilter) {
+      processedOrders = processedOrders.filter(o => o.uniqueReasons.includes(reasonFilter));
+    }
+    if (delayCountFilter) {
+      if (delayCountFilter === '4+') {
+        processedOrders = processedOrders.filter(o => o.delayCount >= 4);
+      } else {
+        processedOrders = processedOrders.filter(o => o.delayCount.toString() === delayCountFilter);
+      }
+    }
+
+    // Compute stats on ALL filtered orders (before pagination)
     let totalCOD = 0;
     let highCOD = 0;
     let high = 0;
@@ -68,17 +125,28 @@ export async function GET() {
       }
     });
 
+    // Paginate
+    const total = processedOrders.length;
+    const start = (page - 1) * pageSize;
+    const paginatedOrders = processedOrders.slice(start, start + pageSize);
+
     return NextResponse.json({
       success: true,
       data: {
-        orders: processedOrders,
+        orders: paginatedOrders,
         stats: {
-          total: processedOrders.length,
+          total,
           high,
           medium,
           low,
           totalCOD,
           highCOD
+        },
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
         }
       }
     });
@@ -88,3 +156,4 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'Failed to fetch delayed orders' }, { status: 500 });
   }
 }
+

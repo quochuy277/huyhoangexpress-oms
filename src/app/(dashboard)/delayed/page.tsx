@@ -6,33 +6,19 @@ import { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { DelayedStatsCards } from "@/components/delayed/DelayedStatsCards";
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
-import { PackageX } from "lucide-react";
+import { PackageX, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 
 const DelayDistributionChart = dynamic(() => import("@/components/delayed/DelayDistributionChart").then(m => ({ default: m.DelayDistributionChart })), { ssr: false, loading: () => <div className="h-64 bg-white rounded-xl border border-slate-200 animate-pulse" /> });
 const DelayReasonChart = dynamic(() => import("@/components/delayed/DelayReasonChart").then(m => ({ default: m.DelayReasonChart })), { ssr: false, loading: () => <div className="h-64 bg-white rounded-xl border border-slate-200 animate-pulse" /> });
 
+const PAGE_SIZE = 50;
+
 export default function DelayedOrdersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-
-  const { data, isLoading, error } = useQuery<{
-    success: boolean;
-    data: {
-      orders: ProcessedDelayedOrder[];
-      stats: { total: number; high: number; medium: number; low: number; totalCOD: number; highCOD: number };
-    }
-  }>({
-    queryKey: ["delayedOrdersList"],
-    queryFn: async () => {
-      const res = await fetch("/api/orders/delayed");
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-    refetchInterval: 300000,
-  });
 
   // Read initial filter state from URL
   const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
@@ -41,6 +27,39 @@ export default function DelayedOrdersPage() {
   const [delayCountFilter, setDelayCountFilter] = useState(searchParams.get("delay") || "");
   const [reasonFilter, setReasonFilter] = useState(searchParams.get("reason") || "");
   const [riskFilter, setRiskFilter] = useState<string>(searchParams.get("risk") || "all");
+  const [page, setPage] = useState(1);
+
+  // Build query key from all filters for React Query
+  const queryKey = useMemo(() => [
+    "delayedOrdersList", { search: searchTerm, shop: shopFilter, status: statusFilter,
+      delay: delayCountFilter, reason: reasonFilter, risk: riskFilter, page }
+  ], [searchTerm, shopFilter, statusFilter, delayCountFilter, reasonFilter, riskFilter, page]);
+
+  const { data, isLoading, error } = useQuery<{
+    success: boolean;
+    data: {
+      orders: ProcessedDelayedOrder[];
+      stats: { total: number; high: number; medium: number; low: number; totalCOD: number; highCOD: number };
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    }
+  }>({
+    queryKey,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", page.toString());
+      params.set("pageSize", PAGE_SIZE.toString());
+      if (searchTerm) params.set("search", searchTerm);
+      if (shopFilter) params.set("shop", shopFilter);
+      if (statusFilter) params.set("status", statusFilter);
+      if (delayCountFilter) params.set("delay", delayCountFilter);
+      if (reasonFilter) params.set("reason", reasonFilter);
+      if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
+      const res = await fetch(`/api/orders/delayed?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    refetchInterval: 300000,
+  });
 
   // Sync state to URL
   const updateUrl = useCallback((overrides: Record<string, string>) => {
@@ -60,52 +79,20 @@ export default function DelayedOrdersPage() {
     router.replace(`${pathname}${qs ? "?" + qs : ""}`, { scroll: false });
   }, [searchTerm, shopFilter, statusFilter, delayCountFilter, reasonFilter, riskFilter, pathname, router]);
 
-  const handleSearchTerm = useCallback((v: string) => { setSearchTerm(v); updateUrl({ search: v }); }, [updateUrl]);
-  const handleShopFilter = useCallback((v: string) => { setShopFilter(v); updateUrl({ shop: v }); }, [updateUrl]);
-  const handleStatusFilter = useCallback((v: string) => { setStatusFilter(v); updateUrl({ status: v }); }, [updateUrl]);
-  const handleDelayCountFilter = useCallback((v: string) => { setDelayCountFilter(v); updateUrl({ delay: v }); }, [updateUrl]);
-  const handleReasonFilter = useCallback((v: string) => { setReasonFilter(v); updateUrl({ reason: v }); }, [updateUrl]);
-  const handleRiskFilter = useCallback((v: string) => { setRiskFilter(v); updateUrl({ risk: v }); }, [updateUrl]);
+  const handleFilterChange = useCallback((setter: (v: string) => void, key: string) => {
+    return (v: string) => { setter(v); setPage(1); updateUrl({ [key]: v }); };
+  }, [updateUrl]);
+
+  const handleSearchTerm = useCallback((v: string) => { setSearchTerm(v); setPage(1); updateUrl({ search: v }); }, [updateUrl]);
+  const handleShopFilter = handleFilterChange(setShopFilter, "shop");
+  const handleStatusFilter = handleFilterChange(setStatusFilter, "status");
+  const handleDelayCountFilter = handleFilterChange(setDelayCountFilter, "delay");
+  const handleReasonFilter = handleFilterChange(setReasonFilter, "reason");
+  const handleRiskFilter = handleFilterChange(setRiskFilter, "risk");
 
   const orders = data?.data?.orders || [];
   const baseStats = data?.data?.stats;
-
-  const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
-      // 1. Search filter
-      const search = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || 
-        o.requestCode.toLowerCase().includes(search) ||
-        (o.customerOrderCode && o.customerOrderCode.toLowerCase().includes(search)) ||
-        (o.carrierOrderCode && o.carrierOrderCode.toLowerCase().includes(search)) ||
-        (o.shopName && o.shopName.toLowerCase().includes(search)) ||
-        (o.receiverName && o.receiverName.toLowerCase().includes(search)) ||
-        (o.receiverPhone && o.receiverPhone.includes(search)) ||
-        (o.fullAddress && o.fullAddress.toLowerCase().includes(search));
-      
-      if (!matchesSearch) return false;
-
-      // 2. Risk filter
-      if (riskFilter !== "all" && o.risk !== riskFilter) return false;
-
-      // 3. Shop Filter
-      if (shopFilter && o.shopName !== shopFilter) return false;
-
-      // 4. Status Filter
-      if (statusFilter && o.status !== statusFilter) return false;
-
-      // 5. Delay Count Filter
-      if (delayCountFilter) {
-        if (delayCountFilter === "4+" && o.delayCount < 4) return false;
-        if (delayCountFilter !== "4+" && o.delayCount.toString() !== delayCountFilter) return false;
-      }
-
-      // 6. Reason Filter
-      if (reasonFilter && !o.uniqueReasons.includes(reasonFilter)) return false;
-
-      return true;
-    });
-  }, [orders, searchTerm, riskFilter, shopFilter, statusFilter, delayCountFilter, reasonFilter]);
+  const pagination = data?.data?.pagination;
 
   if (error) {
     return <div className="p-8 text-center text-red-500">Lỗi biên dịch dữ liệu hoãn giao. Vui lòng thử lại sau.</div>;
@@ -138,16 +125,15 @@ export default function DelayedOrdersPage() {
 
           {/* Row 2: Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Pass filteredOrders so charts dynamically react to filters */}
-            <DelayDistributionChart orders={filteredOrders} />
-            <DelayReasonChart orders={filteredOrders} />
+            <DelayDistributionChart orders={orders} />
+            <DelayReasonChart orders={orders} />
           </div>
 
           {/* Row 3: Filter & Table */}
           <div className="flex flex-col" style={{ height: 'auto', minHeight: '500px' }}>
             <DelayedFilterPanel 
               orders={orders}
-              filteredOrders={filteredOrders}
+              filteredOrders={orders}
               searchTerm={searchTerm} setSearchTerm={handleSearchTerm}
               shopFilter={shopFilter} setShopFilter={handleShopFilter}
               statusFilter={statusFilter} setStatusFilter={handleStatusFilter}
@@ -157,11 +143,40 @@ export default function DelayedOrdersPage() {
             />
             
             <div className="flex-1 overflow-hidden">
-              <DelayedOrderTable data={filteredOrders} />
+              <DelayedOrderTable data={orders} />
             </div>
+
+            {/* Pagination */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 px-2">
+                <p className="text-sm text-slate-500">
+                  Hiển thị {((pagination.page - 1) * pagination.pageSize) + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} / {pagination.total} đơn
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-medium text-slate-700 min-w-[80px] text-center">
+                    Trang {pagination.page} / {pagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                    disabled={page >= pagination.totalPages}
+                    className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
     </div>
   );
 }
+

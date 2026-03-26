@@ -51,42 +51,55 @@ export async function GET(req: NextRequest) {
     const prevGrossProfit = Number(prevAgg._sum.totalFee ?? 0) - Number(prevAgg._sum.carrierFee ?? 0);
     const revenueChange = prevGrossProfit > 0 ? Math.round(((grossProfit - prevGrossProfit) / prevGrossProfit) * 100) : 0;
 
-    // Trend chart — still needs per-month grouping, use groupBy
+    // Trend chart — SQL aggregate per month instead of fetching all records
     const trendFrom = startOfMonth(subMonths(new Date(), 5));
     const trendTo = endOfMonth(new Date());
 
-    const [trendOrders, trendClaims, trendExpenses] = await Promise.all([
-      prisma.order.findMany({
-        where: { deliveryStatus: { in: REVENUE_STATUSES }, createdTime: { gte: trendFrom, lte: trendTo } },
-        select: { totalFee: true, carrierFee: true, createdTime: true },
-      }),
-      prisma.claimOrder.findMany({
-        where: { detectedDate: { gte: trendFrom, lte: trendTo } },
-        select: { customerCompensation: true, carrierCompensation: true, detectedDate: true },
-      }),
-      prisma.expense.findMany({
-        where: { date: { gte: trendFrom, lte: trendTo } },
-        select: { amount: true, date: true },
-      }),
+    const [trendOrderRows, trendClaimRows, trendExpenseRows] = await Promise.all([
+      prisma.$queryRaw<Array<{ month: string; revenue: number; carrier_cost: number }>>`
+        SELECT TO_CHAR("createdTime", 'MM/YYYY') as month,
+               COALESCE(SUM("totalFee"), 0)::float8 as revenue,
+               COALESCE(SUM("carrierFee"), 0)::float8 as carrier_cost
+        FROM "Order"
+        WHERE "deliveryStatus" IN ('RECONCILED','RETURNED_FULL','RETURNED_PARTIAL')
+          AND "createdTime" >= ${trendFrom} AND "createdTime" <= ${trendTo}
+        GROUP BY TO_CHAR("createdTime", 'MM/YYYY')
+      `,
+      prisma.$queryRaw<Array<{ month: string; customer_comp: number; carrier_comp: number }>>`
+        SELECT TO_CHAR("detectedDate", 'MM/YYYY') as month,
+               COALESCE(SUM("customerCompensation"), 0)::float8 as customer_comp,
+               COALESCE(SUM("carrierCompensation"), 0)::float8 as carrier_comp
+        FROM "ClaimOrder"
+        WHERE "detectedDate" >= ${trendFrom} AND "detectedDate" <= ${trendTo}
+        GROUP BY TO_CHAR("detectedDate", 'MM/YYYY')
+      `,
+      prisma.$queryRaw<Array<{ month: string; total: number }>>`
+        SELECT TO_CHAR("date", 'MM/YYYY') as month,
+               COALESCE(SUM("amount"), 0)::float8 as total
+        FROM "Expense"
+        WHERE "date" >= ${trendFrom} AND "date" <= ${trendTo}
+        GROUP BY TO_CHAR("date", 'MM/YYYY')
+      `,
     ]);
+
+    // Build trend data from SQL-aggregated results using Map lookups
+    const orderMap = new Map(trendOrderRows.map(r => [r.month, r]));
+    const claimMap = new Map(trendClaimRows.map(r => [r.month, r]));
+    const expenseMap = new Map(trendExpenseRows.map(r => [r.month, r]));
 
     const trendData = [];
     for (let i = 5; i >= 0; i--) {
       const m = subMonths(new Date(), i);
       const key = format(m, "MM/yyyy");
-      const mFrom = startOfMonth(m);
-      const mTo = endOfMonth(m);
 
-      const mOrders = trendOrders.filter(o => o.createdTime && o.createdTime >= mFrom && o.createdTime <= mTo);
-      const rev = mOrders.reduce((s, o) => s + Number(o.totalFee ?? 0), 0);
-      const carrierCost = mOrders.reduce((s, o) => s + Number(o.carrierFee ?? 0), 0);
-      const profit = rev - carrierCost;
+      const orderRow = orderMap.get(key);
+      const profit = orderRow ? (orderRow.revenue - orderRow.carrier_cost) : 0;
 
-      const mClaims = trendClaims.filter(c => c.detectedDate && c.detectedDate >= mFrom && c.detectedDate <= mTo);
-      const claimNetCost = mClaims.reduce((s, c) => s + Number(c.customerCompensation ?? 0) - Number(c.carrierCompensation ?? 0), 0);
+      const claimRow = claimMap.get(key);
+      const claimNetCost = claimRow ? (claimRow.customer_comp - claimRow.carrier_comp) : 0;
 
-      const mExpenses = trendExpenses.filter(e => e.date >= mFrom && e.date <= mTo);
-      const expenseTotal = mExpenses.reduce((s, e) => s + Number(e.amount), 0);
+      const expenseRow = expenseMap.get(key);
+      const expenseTotal = expenseRow ? expenseRow.total : 0;
 
       const totalCost = Math.max(0, claimNetCost) + expenseTotal;
       trendData.push({ month: key, profit, totalCost });

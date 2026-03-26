@@ -16,55 +16,38 @@ export async function GET(req: NextRequest) {
   const endDate = endOfDay(new Date());
   const startDate = startOfDay(subDays(endDate, days - 1));
 
-  // 1. Order Trend (Group by day) - Require raw query for group by date in PG
-  const ordersInPeriod = await prisma.order.findMany({
-    where: {
-      createdTime: {
-        gte: startDate,
-        lte: endDate,
-      }
-    },
-    select: {
-      createdTime: true,
-      deliveryStatus: true,
-    }
-  });
-
-  // Group by date text "dd/MM"
-  const trendMap: Record<string, number> = {};
-  
-  // Initialize map to ensure days with 0 orders exist
-  for (let i = days - 1; i >= 0; i--) {
-    const d = subDays(new Date(), i);
-    trendMap[format(d, "dd/MM")] = 0;
-  }
-
-  // Count orders
-  ordersInPeriod.forEach(order => {
-    if (order.createdTime) {
-      const dateKey = format(order.createdTime, "dd/MM");
-      if (trendMap[dateKey] !== undefined) {
-        trendMap[dateKey]++;
-      }
-    }
-  });
-
-  const orderTrend = Object.entries(trendMap).map(([date, count]) => ({
-    date,
-    count
-  }));
-
-  // 2. Status Distribution (Use Month to match requirements or current period)
+  // 1. Order Trend — SQL GROUP BY instead of fetching all records
   const currentMonthStart = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const statusCounts = await prisma.order.groupBy({
-    by: ['deliveryStatus'],
-    _count: {
-      id: true,
-    },
-    where: {
-      createdTime: { gte: currentMonthStart } // Specs said current month for Pie/Bar
+
+  const [trendRows, statusCounts] = await Promise.all([
+    prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
+      SELECT DATE("createdTime") as date, COUNT(*)::bigint as count
+      FROM "Order"
+      WHERE "createdTime" >= ${startDate} AND "createdTime" <= ${endDate}
+      GROUP BY DATE("createdTime")
+      ORDER BY date ASC
+    `,
+    // 2. Status Distribution
+    prisma.order.groupBy({
+      by: ['deliveryStatus'],
+      _count: { id: true },
+      where: { createdTime: { gte: currentMonthStart } },
+    }),
+  ]);
+
+  // Build trend map with zero-filled days
+  const trendMap: Record<string, number> = {};
+  for (let i = days - 1; i >= 0; i--) {
+    trendMap[format(subDays(new Date(), i), "dd/MM")] = 0;
+  }
+  trendRows.forEach(row => {
+    const dateKey = format(new Date(row.date), "dd/MM");
+    if (trendMap[dateKey] !== undefined) {
+      trendMap[dateKey] = Number(row.count);
     }
   });
+
+  const orderTrend = Object.entries(trendMap).map(([date, count]) => ({ date, count }));
 
   const statuses: Partial<Record<DeliveryStatus, { label: string, group: string }>> = {
     "IN_TRANSIT": { label: "Đang chuyển kho", group: "Active" },
