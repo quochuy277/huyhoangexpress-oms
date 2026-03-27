@@ -19,6 +19,8 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { getUnsavedClaimDialogCopy } from "@/lib/confirm-dialog";
 import {
   CLAIM_STATUS_CONFIG,
   DEFAULT_ISSUE_TYPE,
@@ -155,6 +157,7 @@ export function ClaimDetailDrawer({
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [edits, setEdits] = useState<LocalEdits | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const fetchDetail = useCallback(() => {
     if (!claimId) return;
@@ -176,6 +179,12 @@ export function ClaimDetailDrawer({
       setEdits(toLocalEdits(data));
     }
   }, [data]);
+
+  useEffect(() => {
+    if (!open) {
+      setShowDiscardConfirm(false);
+    }
+  }, [open]);
 
   const isDirty = Boolean(data && edits && computeIsDirty(edits, data));
   const canEditCarrierComp = edits?.claimStatus === "CARRIER_COMPENSATED";
@@ -233,13 +242,16 @@ export function ClaimDetailDrawer({
   };
 
   const handleClose = () => {
-    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Thoát mà không lưu?")) {
+    if (isDirty) {
+      setShowDiscardConfirm(true);
       return;
     }
     onClose();
   };
 
   if (!open) return null;
+
+  const discardCopy = getUnsavedClaimDialogCopy();
 
   const timeline: any[] = [];
   if (data?.statusHistory) {
@@ -733,6 +745,20 @@ export function ClaimDetailDrawer({
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={showDiscardConfirm}
+        title={discardCopy.title}
+        description={discardCopy.description}
+        confirmLabel={discardCopy.confirmLabel}
+        cancelLabel={discardCopy.cancelLabel}
+        tone={discardCopy.tone}
+        icon={<AlertTriangle size={24} />}
+        onClose={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          onClose();
+        }}
+      />
       <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0 } to { transform: translateX(0); opacity: 1 } }`}</style>
     </>,
     document.body

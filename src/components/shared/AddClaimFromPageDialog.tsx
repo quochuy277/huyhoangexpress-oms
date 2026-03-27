@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Loader2, Plus, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Plus, X } from "lucide-react";
 
 import { ClaimDetailDrawer } from "@/components/claims/ClaimDetailDrawer";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { getDuplicateClaimDialogCopy } from "@/lib/confirm-dialog";
 import { CLAIM_STATUS_OPTIONS, ISSUE_TYPE_OPTIONS } from "@/lib/claims-config";
 
 const overlayStyle: React.CSSProperties = {
@@ -93,6 +95,11 @@ interface OrderForClaim {
   status?: string;
 }
 
+type DuplicateClaimPrompt = {
+  claimId: string;
+  requestCode: string;
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -109,6 +116,7 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [duplicateClaimId, setDuplicateClaimId] = useState<string | null>(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<DuplicateClaimPrompt | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -118,18 +126,22 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
       setDeadline("");
       setError("");
       setDuplicateClaimId(null);
+      setDuplicatePrompt(null);
     }
   }, [open]);
 
   const handleDuplicateClaim = (payload: any) => {
-    setError(payload?.error || "Đơn đã có trong đơn có vấn đề.");
-    const requestCode = order?.requestCode || payload?.claim?.requestCode || "đơn này";
-    const confirmed = window.confirm(
-      `Đơn ${requestCode} đã có trong Đơn có vấn đề. Bạn có muốn mở chi tiết đơn hiện có để sửa lại không?`
-    );
-    if (confirmed && payload?.claim?.id) {
-      setDuplicateClaimId(payload.claim.id);
+    const claimId = payload?.claim?.id;
+    if (!claimId) {
+      setError(payload?.error || "Đơn đã có trong Đơn có vấn đề.");
+      return;
     }
+
+    setError("");
+    setDuplicatePrompt({
+      claimId,
+      requestCode: order?.requestCode || payload?.claim?.requestCode || "đơn này",
+    });
   };
 
   const handleSave = async () => {
@@ -174,6 +186,8 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
   };
 
   if (!open || !order) return null;
+
+  const duplicateCopy = duplicatePrompt ? getDuplicateClaimDialogCopy(duplicatePrompt.requestCode) : null;
 
   return createPortal(
     <>
@@ -268,6 +282,23 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
           </button>
         </div>
       </div>
+
+      {duplicateCopy && (
+        <ConfirmDialog
+          open={Boolean(duplicatePrompt)}
+          title={duplicateCopy.title}
+          description={duplicateCopy.description}
+          confirmLabel={duplicateCopy.confirmLabel}
+          cancelLabel={duplicateCopy.cancelLabel}
+          tone={duplicateCopy.tone}
+          icon={<AlertTriangle size={24} />}
+          onClose={() => setDuplicatePrompt(null)}
+          onConfirm={() => {
+            setDuplicateClaimId(duplicatePrompt!.claimId);
+            setDuplicatePrompt(null);
+          }}
+        />
+      )}
 
       <ClaimDetailDrawer
         claimId={duplicateClaimId || ""}
