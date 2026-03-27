@@ -107,6 +107,7 @@ type ClaimDetailDrawerProps = {
   onDelete?: (id: string, requestCode: string) => void;
   onTrackOrder?: (requestCode: string) => void;
   baseZIndex?: number;
+  refreshToken?: number;
 };
 
 type LocalEdits = {
@@ -183,6 +184,7 @@ export function ClaimDetailDrawer({
   onDelete,
   onTrackOrder,
   baseZIndex = 9998,
+  refreshToken = 0,
 }: ClaimDetailDrawerProps) {
   const [data, setData] = useState<ClaimDetailData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -204,7 +206,7 @@ export function ClaimDetailDrawer({
     if (open && claimId) {
       fetchDetail();
     }
-  }, [claimId, fetchDetail, open]);
+  }, [claimId, fetchDetail, open, refreshToken]);
 
   useEffect(() => {
     if (data) {

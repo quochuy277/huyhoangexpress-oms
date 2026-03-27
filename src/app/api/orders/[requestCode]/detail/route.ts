@@ -20,7 +20,14 @@ export async function GET(
     const order = await prisma.order.findUnique({
       where: { requestCode },
       include: {
-        claimOrder: true,
+        claimOrder: {
+          select: {
+            id: true,
+            issueType: true,
+            claimStatus: true,
+            isCompleted: true,
+          },
+        },
         returnTracking: true,
       },
     });
@@ -32,7 +39,6 @@ export async function GET(
     const userRole = session.user.role || "VIEWER";
     const isStaffOrViewer = userRole === "STAFF" || userRole === "VIEWER";
 
-    // Build response, hide sensitive fields for STAFF/VIEWER
     const response: any = { ...order };
     if (isStaffOrViewer) {
       delete response.carrierFee;
