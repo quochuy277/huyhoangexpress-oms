@@ -69,6 +69,46 @@ const FIELD_LABEL_MAP: Record<string, string> = {
   deadline: "Thời hạn",
 };
 
+export type ClaimDetailData = {
+  id: string;
+  issueType: string;
+  claimStatus: string;
+  isCompleted: boolean;
+  detectedDate: string;
+  issueDescription?: string | null;
+  processingContent?: string | null;
+  deadline?: string | null;
+  carrierCompensation?: number | null;
+  customerCompensation?: number | null;
+  order?: {
+    id?: string;
+    requestCode?: string;
+    carrierOrderCode?: string;
+    shopName?: string;
+    codAmount?: number;
+    totalFee?: number;
+    status?: string;
+    pickupTime?: string | null;
+    regionGroup?: string | null;
+    internalNotes?: string | null;
+  };
+  statusHistory?: any[];
+  changeLogs?: any[];
+  [key: string]: any;
+};
+
+type ClaimDetailDrawerProps = {
+  claimId: string;
+  open: boolean;
+  onClose: () => void;
+  onUpdate?: () => void;
+  onAddTodo?: (data: ClaimDetailData) => void;
+  onCompleteToggle?: (claim: { id: string; requestCode: string; isCompleted: boolean }) => void;
+  onDelete?: (id: string, requestCode: string) => void;
+  onTrackOrder?: (requestCode: string) => void;
+  baseZIndex?: number;
+};
+
 type LocalEdits = {
   issueType: string;
   issueDescription: string;
@@ -139,20 +179,12 @@ export function ClaimDetailDrawer({
   onClose,
   onUpdate,
   onAddTodo,
-  onComplete,
+  onCompleteToggle,
   onDelete,
   onTrackOrder,
-}: {
-  claimId: string;
-  open: boolean;
-  onClose: () => void;
-  onUpdate?: () => void;
-  onAddTodo?: (data: any) => void;
-  onComplete?: (id: string, requestCode: string) => void;
-  onDelete?: (id: string, requestCode: string) => void;
-  onTrackOrder?: (requestCode: string) => void;
-}) {
-  const [data, setData] = useState<any>(null);
+  baseZIndex = 9998,
+}: ClaimDetailDrawerProps) {
+  const [data, setData] = useState<ClaimDetailData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -164,7 +196,7 @@ export function ClaimDetailDrawer({
     setLoading(true);
     fetch(`/api/claims/${claimId}`)
       .then((response) => response.json())
-      .then((result) => setData(result))
+      .then((result) => setData(result as ClaimDetailData))
       .finally(() => setLoading(false));
   }, [claimId]);
 
@@ -191,6 +223,14 @@ export function ClaimDetailDrawer({
   const canEditCustomerComp = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"].includes(
     edits?.claimStatus || ""
   );
+  const canComplete = Boolean(data && COMPLETION_STATUSES.includes(data.claimStatus));
+  const canToggleComplete = Boolean(data && (data.isCompleted || canComplete));
+  const completeActionLabel = data?.isCompleted ? "K\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t" : "Ho\u00E0n t\u1EA5t";
+  const completeActionTitle = data?.isCompleted
+    ? "K\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t"
+    : canComplete
+      ? "Ho\u00E0n t\u1EA5t x\u1EED l\u00FD"
+      : "Ch\u01B0a \u0111\u1EE7 \u0111i\u1EC1u ki\u1EC7n ho\u00E0n t\u1EA5t";
 
   const setEdit = <K extends keyof LocalEdits>(field: K, value: LocalEdits[K]) => {
     setEdits((previous) => (previous ? { ...previous, [field]: value } : previous));
@@ -311,7 +351,7 @@ export function ClaimDetailDrawer({
 
   return createPortal(
     <>
-      <div style={overlayStyle} onClick={handleClose} />
+      <div style={{ ...overlayStyle, zIndex: baseZIndex }} onClick={handleClose} />
       <div
         style={{
           position: "fixed",
@@ -319,7 +359,7 @@ export function ClaimDetailDrawer({
           right: 0,
           bottom: 0,
           width: "min(700px, 100vw)",
-          zIndex: 9999,
+          zIndex: baseZIndex + 1,
           background: "#f8fafc",
           borderLeft: `2px solid ${isDirty ? "#f59e0b" : "#2563EB"}`,
           boxShadow: "-12px 0 40px rgba(0,0,0,0.12)",
@@ -429,27 +469,32 @@ export function ClaimDetailDrawer({
                 Công Việc
               </button>
             )}
-            {data && onComplete && (
+            {data && onCompleteToggle && (
               <button
-                onClick={() => onComplete(claimId, data.order?.requestCode || "")}
-                disabled={!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted}
+                onClick={() => onCompleteToggle({
+                  id: claimId,
+                  requestCode: data.order?.requestCode || "",
+                  isCompleted: Boolean(data.isCompleted),
+                })}
+                disabled={!canToggleComplete}
+                title={completeActionTitle}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "5px",
                   padding: "6px 12px",
                   borderRadius: "8px",
-                  border: "1.5px solid #bbf7d0",
-                  background: "#f0fdf4",
-                  color: "#16a34a",
+                  border: data.isCompleted ? "1.5px solid #fde68a" : "1.5px solid #bbf7d0",
+                  background: data.isCompleted ? "#fffbeb" : "#f0fdf4",
+                  color: data.isCompleted ? "#d97706" : "#16a34a",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: "pointer",
-                  opacity: !COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted ? 0.4 : 1,
+                  cursor: canToggleComplete ? "pointer" : "default",
+                  opacity: canToggleComplete ? 1 : 0.4,
                 }}
               >
-                <Check size={13} />
-                Hoàn tất
+                {data.isCompleted ? <RotateCcw size={13} /> : <Check size={13} />}
+                {completeActionLabel}
               </button>
             )}
             {data && onDelete && (
