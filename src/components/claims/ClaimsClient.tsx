@@ -42,6 +42,8 @@ const CLAIM_STATUS_CONFIG: Record<string, { label: string; bg: string; text: str
   CUSTOMER_REJECTED: { label: "Từ chối ĐB KH ✓", bg: "bg-orange-100", text: "text-orange-700" },
 };
 
+const COMPLETION_STATUSES = ["RESOLVED", "CUSTOMER_COMPENSATED", "CUSTOMER_REJECTED"];
+
 function formatVND(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
@@ -52,6 +54,30 @@ function daysBetween(d: string | Date) {
 
 function daysUntil(d: string | Date) {
   return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+}
+
+function getCompleteToggleActionState(claimStatus: string, isCompleted: boolean) {
+  if (isCompleted) {
+    return {
+      canToggle: true,
+      title: "Kéo lại chưa hoàn tất",
+      className: "text-orange-500 hover:bg-orange-50 hover:border-orange-200",
+    };
+  }
+
+  if (COMPLETION_STATUSES.includes(claimStatus)) {
+    return {
+      canToggle: true,
+      title: "Hoàn tất",
+      className: "text-green-500 hover:bg-green-50 hover:border-green-200",
+    };
+  }
+
+  return {
+    canToggle: false,
+    title: "Chưa đủ điều kiện hoàn tất",
+    className: "text-slate-300",
+  };
 }
 
 /* ============================================================
@@ -815,11 +841,15 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
     if (!completeConfirm) return;
     setCompleteConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
-      await fetch(`/api/claims/${completeConfirm.id}`, {
+      const res = await fetch(`/api/claims/${completeConfirm.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isCompleted: true }),
       });
+      if (!res.ok) {
+        setCompleteConfirm(prev => prev ? { ...prev, loading: false } : null);
+        return;
+      }
       setCompleteConfirm(prev => prev ? { ...prev, loading: false, success: `\u0110\u01A1n ${prev.requestCode} \u0111\u00E3 ho\u00E0n t\u1EA5t x\u1EED l\u00FD.` } : null);
       fetchClaims();
       setTimeout(() => setCompleteConfirm(null), 1500);
@@ -832,11 +862,15 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
     if (!reopenConfirm) return;
     setReopenConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
-      await fetch(`/api/claims/${reopenConfirm.id}`, {
+      const res = await fetch(`/api/claims/${reopenConfirm.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isCompleted: false }),
       });
+      if (!res.ok) {
+        setReopenConfirm(prev => prev ? { ...prev, loading: false } : null);
+        return;
+      }
       setReopenConfirm(prev => prev ? { ...prev, loading: false, success: `\u0110\u01A1n ${prev.requestCode} \u0111\u00E3 \u0111\u01B0\u1EE3c k\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t.` } : null);
       fetchClaims();
       setTimeout(() => setReopenConfirm(null), 1500);
@@ -1244,6 +1278,7 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
                   const daysPending = daysBetween(c.detectedDate);
                   const daysLeft = c.deadline ? daysUntil(c.deadline) : Infinity;
                   const issCfg = ISSUE_TYPE_CONFIG[c.issueType] || ISSUE_TYPE_CONFIG.OTHER;
+                  const completeAction = getCompleteToggleActionState(c.claimStatus, Boolean(c.isCompleted));
 
                   return (
                     <tr
@@ -1427,10 +1462,12 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
                             </button>
                             <button
                               onClick={() => handleRequestCompleteToggle(c.id, c.order?.requestCode || "", Boolean(c.isCompleted))}
-                              className={`p-1 w-6 h-6 flex items-center justify-center rounded border border-transparent transition-colors ${c.isCompleted ? "text-orange-500 hover:bg-orange-50 hover:border-orange-200" : "text-green-500 hover:bg-green-50 hover:border-green-200"}`}
-                              title={c.isCompleted ? "Kéo lại chưa hoàn tất" : "Hoàn tất"}
+                              disabled={!completeAction.canToggle}
+                              className={`p-1 w-6 h-6 flex items-center justify-center rounded border border-transparent transition-colors ${completeAction.className}`}
+                              title={completeAction.title}
+                              style={{ opacity: completeAction.canToggle ? 1 : 0.45, cursor: completeAction.canToggle ? "pointer" : "not-allowed" }}
                             >
-                              <Check size={12} />
+                              {c.isCompleted ? <RotateCcw size={12} /> : <Check size={12} />}
                             </button>
                             <button
                               onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
@@ -1594,4 +1631,5 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
 }
 
 export default memo(ClaimsClientInner);
+
 
