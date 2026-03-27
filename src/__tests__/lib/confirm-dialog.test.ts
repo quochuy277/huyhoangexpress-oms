@@ -39,8 +39,10 @@ describe("confirm-dialog helpers", () => {
   });
 
   it("returns success-tone copy for completing a claim", () => {
-    expect(getClaimCompleteDialogCopy("YC123")).toMatchObject({
+    expect(getClaimCompleteDialogCopy("YC123")).toEqual({
       title: "Hoàn tất xử lý",
+      description:
+        "Xác nhận đơn YC123 đã hoàn tất xử lý? Trạng thái sẽ được đánh dấu là đã xong.",
       confirmLabel: "Hoàn tất",
       cancelLabel: "Để sau",
       tone: "success",
@@ -48,8 +50,10 @@ describe("confirm-dialog helpers", () => {
   });
 
   it("returns warning-tone copy for reopening a completed claim", () => {
-    expect(getClaimReopenDialogCopy("YC123")).toMatchObject({
+    expect(getClaimReopenDialogCopy("YC123")).toEqual({
       title: "Kéo lại chưa hoàn tất",
+      description:
+        "Đơn YC123 sẽ được chuyển lại về trạng thái chưa hoàn tất. Trạng thái xử lý hiện tại sẽ được giữ nguyên.",
       confirmLabel: "Kéo lại",
       cancelLabel: "Giữ nguyên",
       tone: "warning",
