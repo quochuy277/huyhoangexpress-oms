@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getClaimCompleteDialogCopy,
+  getClaimReopenDialogCopy,
   getConfirmDialogToneConfig,
   getDuplicateClaimDialogCopy,
   getUnsavedClaimDialogCopy,
@@ -32,6 +34,24 @@ describe("confirm-dialog helpers", () => {
       description: "Nếu thoát bây giờ, các thay đổi chưa lưu sẽ bị mất.",
       confirmLabel: "Thoát không lưu",
       cancelLabel: "Tiếp tục chỉnh sửa",
+      tone: "warning",
+    });
+  });
+
+  it("returns success-tone copy for completing a claim", () => {
+    expect(getClaimCompleteDialogCopy("YC123")).toMatchObject({
+      title: "Hoàn tất xử lý",
+      confirmLabel: "Hoàn tất",
+      cancelLabel: "Để sau",
+      tone: "success",
+    });
+  });
+
+  it("returns warning-tone copy for reopening a completed claim", () => {
+    expect(getClaimReopenDialogCopy("YC123")).toMatchObject({
+      title: "Kéo lại chưa hoàn tất",
+      confirmLabel: "Kéo lại",
+      cancelLabel: "Giữ nguyên",
       tone: "warning",
     });
   });

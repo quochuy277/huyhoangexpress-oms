@@ -100,3 +100,23 @@ export function getUnsavedClaimDialogCopy(): ConfirmDialogCopy {
     tone: "warning",
   };
 }
+
+export function getClaimCompleteDialogCopy(requestCode: string): ConfirmDialogCopy {
+  return {
+    title: "Hoàn tất xử lý",
+    description: `Xác nhận đơn ${requestCode} đã hoàn tất xử lý? Trạng thái sẽ được đánh dấu là đã xong.`,
+    confirmLabel: "Hoàn tất",
+    cancelLabel: "Để sau",
+    tone: "success",
+  };
+}
+
+export function getClaimReopenDialogCopy(requestCode: string): ConfirmDialogCopy {
+  return {
+    title: "Kéo lại chưa hoàn tất",
+    description: `Đơn ${requestCode} sẽ được chuyển lại về trạng thái chưa hoàn tất. Trạng thái xử lý hiện tại sẽ được giữ nguyên.`,
+    confirmLabel: "Kéo lại",
+    cancelLabel: "Giữ nguyên",
+    tone: "warning",
+  };
+}
