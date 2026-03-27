@@ -1274,7 +1274,7 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
       const res = await fetch("/api/claims/auto-detect", { method: "POST" });
       const data = await res.json();
       // Only refetch if auto-detect actually found/changed something
-      if (data.newClaims > 0 || data.autoCompleted > 0) {
+      if (data.newClaims > 0 || data.reopenedClaims > 0 || data.autoCompleted > 0) {
         fetchClaims();
       }
     } finally {

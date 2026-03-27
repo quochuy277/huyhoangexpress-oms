@@ -2,6 +2,16 @@ import { prisma } from "@/lib/prisma";
 import { AUTO_SCAN_EXCLUDED_ISSUE_TYPES } from "@/lib/claims-config";
 
 const FINAL_STATUSES = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"];
+const AUTO_SCAN_PENDING_STATUS = "PENDING";
+const AUTO_SCAN_CHANGED_BY = "Hệ thống";
+
+type AutoDetectedClaimInput = {
+  orderId: string;
+  issueType: "SLOW_JOURNEY" | "OTHER";
+  issueDescription?: string;
+  source: "AUTO_SLOW_JOURNEY" | "AUTO_INTERNAL_NOTE";
+  note: string;
+};
 
 /**
  * Auto-complete existing claims whose orders have reached a final delivery status.
@@ -12,7 +22,6 @@ const FINAL_STATUSES = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"];
  * Returns count of auto-completed claims.
  */
 export async function autoCompleteResolvedClaims(): Promise<number> {
-  // Rule 1: SLOW_JOURNEY + final delivery status
   const byDeliveryStatus = await prisma.claimOrder.findMany({
     where: {
       isCompleted: false,
@@ -22,7 +31,6 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
     select: { id: true },
   });
 
-  // Rule 2: Any issueType + already resolved/compensated
   const byClaimStatus = await prisma.claimOrder.findMany({
     where: {
       isCompleted: false,
@@ -31,7 +39,6 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
     select: { id: true },
   });
 
-  // Merge unique IDs
   const idSet = new Set([
     ...byDeliveryStatus.map(c => c.id),
     ...byClaimStatus.map(c => c.id),
@@ -56,7 +63,7 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
       data: ids.map(id => ({
         claimOrderId: id,
         toStatus: "RESOLVED" as any,
-        changedBy: "Hệ thống",
+        changedBy: AUTO_SCAN_CHANGED_BY,
         changedAt: now,
         note: "Tự động hoàn tất",
       })),
@@ -83,8 +90,10 @@ export async function detectSlowJourneyOrders(): Promise<string[]> {
   });
 
   const slowOrders: string[] = [];
+
   for (const order of orders) {
     if (!order.pickupTime) continue;
+
     const days = Math.floor((now.getTime() - new Date(order.pickupTime).getTime()) / 86400000);
     const region = order.regionGroup || "";
     const maxDays = region.startsWith("0.") || region.startsWith("1.") || region.startsWith("2.")
@@ -92,8 +101,10 @@ export async function detectSlowJourneyOrders(): Promise<string[]> {
       : region.startsWith("3.") || region.startsWith("4.")
         ? 10
         : 15;
+
     if (days > maxDays) slowOrders.push(order.id);
   }
+
   return slowOrders;
 }
 
@@ -114,14 +125,16 @@ export async function detectInternalNoteIssues(): Promise<string[]> {
     },
     select: { id: true },
   });
+
   return orders.map(o => o.id);
 }
 
 /**
- * Create ClaimOrder records for auto-detected orders + auto-complete resolved ones.
+ * Create or reopen ClaimOrder records for auto-detected orders + auto-complete resolved ones.
  */
-export async function createAutoDetectedClaims(userId: string): Promise<{ newClaims: number; autoCompleted: number }> {
-  // Run all detection + auto-complete in parallel
+export async function createAutoDetectedClaims(
+  userId: string
+): Promise<{ newClaims: number; reopenedClaims: number; autoCompleted: number }> {
   const [slowIds, noteIds, autoCompleted] = await Promise.all([
     detectSlowJourneyOrders(),
     detectInternalNoteIssues(),
@@ -129,34 +142,87 @@ export async function createAutoDetectedClaims(userId: string): Promise<{ newCla
   ]);
 
   let created = 0;
+  let reopened = 0;
   const now = new Date();
   const deadline = new Date(now.getTime() + 15 * 86400000);
 
-  // Batch create claims — use individual creates with try/catch to skip duplicates
-  const allNewClaims = [
-    ...slowIds.map(id => ({ orderId: id, issueType: "SLOW_JOURNEY" as const, source: "AUTO_SLOW_JOURNEY" as const, note: "Tự động phát hiện: Hành trình chậm" })),
-    ...noteIds.map(id => ({ orderId: id, issueType: "OTHER" as const, issueDescription: "Phát hiện từ ghi chú nội bộ", source: "AUTO_INTERNAL_NOTE" as const, note: "Tự động phát hiện: Từ ghi chú nội bộ" })),
+  const allDetectedClaims: AutoDetectedClaimInput[] = [
+    ...slowIds.map(id => ({
+      orderId: id,
+      issueType: "SLOW_JOURNEY" as const,
+      source: "AUTO_SLOW_JOURNEY" as const,
+      note: "Tự động phát hiện: Hành trình chậm",
+    })),
+    ...noteIds.map(id => ({
+      orderId: id,
+      issueType: "OTHER" as const,
+      issueDescription: "Phát hiện từ ghi chú nội bộ",
+      source: "AUTO_INTERNAL_NOTE" as const,
+      note: "Tự động phát hiện: Từ ghi chú nội bộ",
+    })),
   ];
 
-  for (const claim of allNewClaims) {
-    try {
+  for (const claim of allDetectedClaims) {
+    const existingClaim = await prisma.claimOrder.findUnique({
+      where: { orderId: claim.orderId },
+      select: {
+        id: true,
+        issueType: true,
+        claimStatus: true,
+        isCompleted: true,
+      },
+    });
+
+    if (!existingClaim) {
       await prisma.claimOrder.create({
         data: {
           orderId: claim.orderId,
           issueType: claim.issueType,
-          issueDescription: "issueDescription" in claim ? claim.issueDescription : undefined,
+          issueDescription: claim.issueDescription,
           detectedDate: now,
           deadline,
           source: claim.source,
           createdById: userId,
-          statusHistory: { create: { toStatus: "PENDING", changedBy: "Hệ thống", note: claim.note } },
+          statusHistory: {
+            create: {
+              toStatus: AUTO_SCAN_PENDING_STATUS as any,
+              changedBy: AUTO_SCAN_CHANGED_BY,
+              note: claim.note,
+            },
+          },
         },
       });
       created++;
-    } catch {
-      // Skip duplicates (unique constraint on orderId)
+      continue;
     }
+
+    if (!existingClaim.isCompleted) continue;
+    if (existingClaim.issueType === claim.issueType) continue;
+
+    await prisma.claimOrder.update({
+      where: { id: existingClaim.id },
+      data: {
+        issueType: claim.issueType,
+        issueDescription: claim.issueDescription ?? null,
+        detectedDate: now,
+        deadline,
+        source: claim.source,
+        claimStatus: AUTO_SCAN_PENDING_STATUS as any,
+        isCompleted: false,
+        completedAt: null,
+        completedBy: null,
+        statusHistory: {
+          create: {
+            fromStatus: existingClaim.claimStatus as any,
+            toStatus: AUTO_SCAN_PENDING_STATUS as any,
+            changedBy: AUTO_SCAN_CHANGED_BY,
+            note: `Tự động mở lại do phát hiện loại vấn đề mới: ${existingClaim.issueType} -> ${claim.issueType}`,
+          },
+        },
+      },
+    });
+    reopened++;
   }
 
-  return { newClaims: created, autoCompleted };
+  return { newClaims: created, reopenedClaims: reopened, autoCompleted };
 }

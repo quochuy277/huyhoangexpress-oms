@@ -4,6 +4,68 @@
 
 ---
 
+### 4. Điều chỉnh thuật toán Quét tự động của Claims khi trùng đơn
+
+**Yêu cầu:** Khi auto-scan phát hiện trùng đơn đã có claim:
+- Nếu claim cũ chưa hoàn tất thì bỏ qua
+- Nếu claim cũ đã hoàn tất và loại vấn đề mới khác loại cũ thì cập nhật thông tin auto-scan mới, đồng thời mở lại claim về trạng thái chưa hoàn tất
+
+**Cách triển khai:**
+- Viết thêm test cho `createAutoDetectedClaims()` để phủ 3 nhánh:
+  - Bỏ qua claim đang mở
+  - Mở lại claim đã hoàn tất khi phát hiện issue type mới
+  - Giữ nguyên claim đã hoàn tất khi issue type cũ và mới giống nhau
+- Thay logic cũ trong `src/lib/claim-detector.ts` từ kiểu `create()` rồi bỏ qua duplicate sang:
+  - `findUnique({ where: { orderId } })`
+  - Chưa có claim -> tạo mới
+  - Có claim chưa hoàn tất -> bỏ qua
+  - Có claim đã hoàn tất + khác issue type -> `update()` claim cũ, reset `claimStatus` về `PENDING`, `isCompleted=false`, xóa `completedAt/completedBy`, cập nhật `issueType`, `issueDescription`, `source`, `detectedDate`, `deadline`
+- Giữ nguyên các trường xử lý thủ công như `processingContent`, `carrierCompensation`, `customerCompensation`
+- Thêm `statusHistory` để ghi nhận việc claim được hệ thống tự động mở lại
+- Mở rộng API `/api/claims/auto-detect` trả thêm `reopenedClaims`
+- Cập nhật `ClaimsClient.tsx` để refetch bảng khi chỉ có case mở lại claim mà không có claim mới
+
+**Files đã sửa:**
+- `src/lib/claim-detector.ts`
+- `src/app/api/claims/auto-detect/route.ts`
+- `src/components/claims/ClaimsClient.tsx`
+- `src/__tests__/lib/claim-detector.test.ts`
+
+**Kết quả:**
+- Auto-scan không còn bỏ sót trường hợp đơn đã xử lý xong nhưng xuất hiện loại vấn đề mới
+- Claim cũ được tái sử dụng thay vì tạo trùng record
+- Dữ liệu xử lý thủ công không bị ghi đè ngoài ý muốn
+- UI tự tải lại đúng khi auto-scan mở lại claim
+
+**Xác minh:**
+- `npm run test:run -- src/__tests__/lib/claim-detector.test.ts`
+- Kết quả: pass 31 tests / 2 test files
+
+### 3. ThÃªm bÃ´̣ ma tráº­n skill routing cho Codex
+
+**YÃªu cáº§u:** XÃ¢y dá»±ng má»™t file ma tráº­n skill Ä‘á»ƒ Codex tá»± Ä‘á»™ng chá»n skill phÃ¹ há»£p theo tá»«ng tÃ¬nh huá»‘ng.
+
+**CÃ¡ch triá»ƒn khai:**
+- Táº¡o `AGENTS.md` á»Ÿ root repo lÃ m entrypoint cho Codex
+- Táº¡o `docs/SKILL_ROUTING_MATRIX.md` lÃ m tÃ i liá»‡u chi tiáº¿t, dá»… báº£o trÃ¬
+- Äá»“ng bá»™ nguyÃªn táº¯c vá»›i `PROJECT_RULE.md` thay vÃ¬ táº¡o rule xung Ä‘á»™t
+
+**Ná»™i dung ma tráº­n má»›i:**
+- Rule priority: user instructions -> `AGENTS.md` -> `PROJECT_RULE.md` -> file matrix chi tiáº¿t
+- Process skills: `using-superpowers`, `intelligent-routing`, `brainstorming`, `writing-plans`, `systematic-debugging`, `verification-before-completion`, v.v.
+- Domain skills: `fullstack-developer`, `frontend-design`, `tailwind-patterns`, `api-patterns`, `database-design`, `webapp-testing`, `deployment-procedures`, v.v.
+- Output skills: `technical-writer`, `documentation-templates`, `doc`, `pdf`, `spreadsheet`, `imagegen`, `openai-docs`, v.v.
+- Combination recipes: feature flow, bug-fix flow, UI redesign flow, deploy flow, review flow
+- Quick decision tree bÄƒ̀ng Mermaid Ä‘á»ƒ dÃ¹ng lÃ m quy táº¯c chánh nhÃ¡nh nhanh
+
+**File Ä‘Ã£ táº¡o:**
+- `AGENTS.md`
+- `docs/SKILL_ROUTING_MATRIX.md`
+
+**Káº¿t quáº£:** Repo cÃ³ mÃ´t entrypoint rÃµ rÃ ng cho Codex vÃ  má»™t bÃ´̣ ma tráº­n skill chi tiáº¿t Ä‘á»ƒ má»Ÿ rá»™ng vá» sau.
+
+---
+
 ## Session 1 — 25/03/2026
 
 ### 1. Refactor toàn diện trang Công Việc (Todos)

@@ -6,10 +6,21 @@ vi.mock("@/lib/prisma", () => ({
     order: {
       findMany: vi.fn(),
     },
+    claimOrder: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    claimStatusHistory: {
+      createMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }));
 
-import { detectSlowJourneyOrders } from "@/lib/claim-detector";
+import { createAutoDetectedClaims, detectSlowJourneyOrders } from "@/lib/claim-detector";
 import { prisma } from "@/lib/prisma";
 
 // ============================================================
@@ -28,6 +39,18 @@ function mockOrders(
   orders: { id: string; requestCode: string; pickupTime: Date; regionGroup: string }[]
 ) {
   vi.mocked(prisma.order.findMany).mockResolvedValue(orders as never);
+}
+
+function mockAutoDetectSlowOrder(orderId = "order-1", daysAgo = 5, regionGroup = "0.123") {
+  vi.mocked(prisma.order.findMany)
+    .mockResolvedValueOnce([makeOrder(orderId, regionGroup, daysAgo)] as never)
+    .mockResolvedValueOnce([] as never);
+}
+
+function mockNoAutoCompleteCandidates() {
+  vi.mocked(prisma.claimOrder.findMany)
+    .mockResolvedValueOnce([] as never)
+    .mockResolvedValueOnce([] as never);
 }
 
 // ============================================================
@@ -140,5 +163,110 @@ describe("detectSlowJourneyOrders", () => {
     mockOrders([]);
     const result = await detectSlowJourneyOrders();
     expect(result).toEqual([]);
+  });
+});
+
+describe("createAutoDetectedClaims", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.order.findMany).mockReset();
+    vi.mocked(prisma.claimOrder.findMany).mockReset();
+    vi.mocked(prisma.claimOrder.findUnique).mockReset();
+    vi.mocked(prisma.claimOrder.create).mockReset();
+    vi.mocked(prisma.claimOrder.update).mockReset();
+    vi.mocked(prisma.claimOrder.updateMany).mockReset();
+    vi.mocked(prisma.claimStatusHistory.createMany).mockReset();
+    vi.mocked(prisma.$transaction).mockReset();
+  });
+
+  it("skips auto-scan when the order already has an incomplete claim", async () => {
+    mockAutoDetectSlowOrder();
+    mockNoAutoCompleteCandidates();
+    vi.mocked(prisma.claimOrder.findUnique).mockResolvedValue({
+      id: "claim-1",
+      orderId: "order-1",
+      issueType: "SUSPICIOUS",
+      issueDescription: "Old issue",
+      claimStatus: "VERIFYING_CARRIER",
+      isCompleted: false,
+      processingContent: "Manual handling",
+      carrierCompensation: 100,
+      customerCompensation: 50,
+      source: "MANUAL",
+    } as never);
+
+    const result = await createAutoDetectedClaims("user-1");
+
+    expect(result).toEqual({ newClaims: 0, reopenedClaims: 0, autoCompleted: 0 });
+    expect(prisma.claimOrder.create).not.toHaveBeenCalled();
+    expect(prisma.claimOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("reopens a completed claim when auto-scan finds a different issue type", async () => {
+    mockAutoDetectSlowOrder();
+    mockNoAutoCompleteCandidates();
+    vi.mocked(prisma.claimOrder.findUnique).mockResolvedValue({
+      id: "claim-1",
+      orderId: "order-1",
+      issueType: "OTHER",
+      issueDescription: "Phat hien tu ghi chu noi bo",
+      claimStatus: "RESOLVED",
+      isCompleted: true,
+      processingContent: "Keep this manual note",
+      carrierCompensation: 100,
+      customerCompensation: 50,
+      source: "AUTO_INTERNAL_NOTE",
+    } as never);
+    vi.mocked(prisma.claimOrder.update).mockResolvedValue({ id: "claim-1" } as never);
+
+    const result = await createAutoDetectedClaims("user-1");
+
+    expect(result).toEqual({ newClaims: 0, reopenedClaims: 1, autoCompleted: 0 });
+    expect(prisma.claimOrder.create).not.toHaveBeenCalled();
+    expect(prisma.claimOrder.update).toHaveBeenCalledTimes(1);
+
+    const updateArg = vi.mocked(prisma.claimOrder.update).mock.calls[0][0];
+    expect(updateArg.where).toEqual({ id: "claim-1" });
+    expect(updateArg.data).toMatchObject({
+      issueType: "SLOW_JOURNEY",
+      issueDescription: null,
+      source: "AUTO_SLOW_JOURNEY",
+      claimStatus: "PENDING",
+      isCompleted: false,
+      completedAt: null,
+      completedBy: null,
+      detectedDate: expect.any(Date),
+      deadline: expect.any(Date),
+      statusHistory: {
+        create: {
+          fromStatus: "RESOLVED",
+          toStatus: "PENDING",
+          changedBy: "Hệ thống",
+          note: "Tự động mở lại do phát hiện loại vấn đề mới: OTHER -> SLOW_JOURNEY",
+        },
+      },
+    });
+    expect(updateArg.data).not.toHaveProperty("processingContent");
+    expect(updateArg.data).not.toHaveProperty("carrierCompensation");
+    expect(updateArg.data).not.toHaveProperty("customerCompensation");
+  });
+
+  it("keeps a completed claim closed when auto-scan finds the same issue type", async () => {
+    mockAutoDetectSlowOrder();
+    mockNoAutoCompleteCandidates();
+    vi.mocked(prisma.claimOrder.findUnique).mockResolvedValue({
+      id: "claim-1",
+      orderId: "order-1",
+      issueType: "SLOW_JOURNEY",
+      issueDescription: null,
+      claimStatus: "RESOLVED",
+      isCompleted: true,
+      source: "AUTO_SLOW_JOURNEY",
+    } as never);
+
+    const result = await createAutoDetectedClaims("user-1");
+
+    expect(result).toEqual({ newClaims: 0, reopenedClaims: 0, autoCompleted: 0 });
+    expect(prisma.claimOrder.create).not.toHaveBeenCalled();
+    expect(prisma.claimOrder.update).not.toHaveBeenCalled();
   });
 });

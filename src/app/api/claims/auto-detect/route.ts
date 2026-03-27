@@ -5,6 +5,7 @@ import { createAutoDetectedClaims } from "@/lib/claim-detector";
 export async function POST() {
   try {
     const session = await auth();
+
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
@@ -13,11 +14,13 @@ export async function POST() {
 
     const messages: string[] = [];
     if (result.newClaims > 0) messages.push(`Thêm ${result.newClaims} đơn có vấn đề mới`);
+    if (result.reopenedClaims > 0) messages.push(`Mở lại ${result.reopenedClaims} đơn đã hoàn tất do phát hiện vấn đề mới`);
     if (result.autoCompleted > 0) messages.push(`Tự động hoàn tất ${result.autoCompleted} đơn đã đối soát/trả hàng`);
 
     return NextResponse.json({
       success: true,
       newClaims: result.newClaims,
+      reopenedClaims: result.reopenedClaims,
       autoCompleted: result.autoCompleted,
       message: messages.length > 0 ? messages.join(". ") : "Không phát hiện thay đổi mới",
     });
