@@ -108,6 +108,7 @@ type ClaimDetailDrawerProps = {
   onTrackOrder?: (requestCode: string) => void;
   baseZIndex?: number;
   refreshToken?: number;
+  closeOnNestedOverlayOpen?: boolean;
 };
 
 type LocalEdits = {
@@ -185,6 +186,7 @@ export function ClaimDetailDrawer({
   onTrackOrder,
   baseZIndex = 9998,
   refreshToken = 0,
+  closeOnNestedOverlayOpen = false,
 }: ClaimDetailDrawerProps) {
   const [data, setData] = useState<ClaimDetailData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -227,12 +229,36 @@ export function ClaimDetailDrawer({
   );
   const canComplete = Boolean(data && COMPLETION_STATUSES.includes(data.claimStatus));
   const canToggleComplete = Boolean(data && (data.isCompleted || canComplete));
+  const canTriggerCompleteToggle = canToggleComplete && !isDirty;
+  const canOpenNestedOverlay = !closeOnNestedOverlayOpen || !isDirty;
   const completeActionLabel = data?.isCompleted ? "K\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t" : "Ho\u00E0n t\u1EA5t";
-  const completeActionTitle = data?.isCompleted
-    ? "K\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t"
-    : canComplete
-      ? "Ho\u00E0n t\u1EA5t x\u1EED l\u00FD"
-      : "Ch\u01B0a \u0111\u1EE7 \u0111i\u1EC1u ki\u1EC7n ho\u00E0n t\u1EA5t";
+  const completeActionTitle = isDirty
+    ? "Vui l\u00f2ng l\u01b0u ho\u1eb7c ho\u00e0n t\u00e1c thay \u0111\u1ed5i tr\u01b0\u1edbc khi c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i ho\u00e0n t\u1ea5t"
+    : data?.isCompleted
+      ? "K\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t"
+      : canComplete
+        ? "Ho\u00E0n t\u1EA5t x\u1EED l\u00FD"
+        : "Ch\u01B0a \u0111\u1EE7 \u0111i\u1EC1u ki\u1EC7n ho\u00E0n t\u1EA5t";
+  const nestedOverlayActionTitle = closeOnNestedOverlayOpen && isDirty
+    ? "Vui l\u00f2ng l\u01b0u ho\u1eb7c ho\u00e0n t\u00e1c thay \u0111\u1ed5i tr\u01b0\u1edbc khi m\u1edf c\u1eeda s\u1ed5 kh\u00e1c"
+    : undefined;
+
+  const handleTrackOrder = () => {
+    const requestCode = data?.order?.requestCode;
+    if (!requestCode || !onTrackOrder || !canOpenNestedOverlay) return;
+    if (closeOnNestedOverlayOpen) {
+      onClose();
+    }
+    onTrackOrder(requestCode);
+  };
+
+  const handleAddTodo = () => {
+    if (!data || !onAddTodo || !canOpenNestedOverlay) return;
+    if (closeOnNestedOverlayOpen) {
+      onClose();
+    }
+    onAddTodo(data);
+  };
 
   const setEdit = <K extends keyof LocalEdits>(field: K, value: LocalEdits[K]) => {
     setEdits((previous) => (previous ? { ...previous, [field]: value } : previous));
@@ -428,10 +454,9 @@ export function ClaimDetailDrawer({
           <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
             {data && (
               <button
-                onClick={() => {
-                  const requestCode = data.order?.requestCode;
-                  if (requestCode && onTrackOrder) onTrackOrder(requestCode);
-                }}
+                onClick={handleTrackOrder}
+                disabled={!canOpenNestedOverlay}
+                title={nestedOverlayActionTitle}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -443,7 +468,8 @@ export function ClaimDetailDrawer({
                   color: "#059669",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: "pointer",
+                  cursor: canOpenNestedOverlay ? "pointer" : "default",
+                  opacity: canOpenNestedOverlay ? 1 : 0.5,
                 }}
               >
                 <Truck size={13} />
@@ -452,7 +478,9 @@ export function ClaimDetailDrawer({
             )}
             {data && onAddTodo && (
               <button
-                onClick={() => onAddTodo(data)}
+                onClick={handleAddTodo}
+                disabled={!canOpenNestedOverlay}
+                title={nestedOverlayActionTitle}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -464,7 +492,8 @@ export function ClaimDetailDrawer({
                   color: "#2563EB",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: "pointer",
+                  cursor: canOpenNestedOverlay ? "pointer" : "default",
+                  opacity: canOpenNestedOverlay ? 1 : 0.5,
                 }}
               >
                 <CheckSquare size={13} />
@@ -478,7 +507,7 @@ export function ClaimDetailDrawer({
                   requestCode: data.order?.requestCode || "",
                   isCompleted: Boolean(data.isCompleted),
                 })}
-                disabled={!canToggleComplete}
+                disabled={!canTriggerCompleteToggle}
                 title={completeActionTitle}
                 style={{
                   display: "flex",
@@ -491,8 +520,8 @@ export function ClaimDetailDrawer({
                   color: data.isCompleted ? "#d97706" : "#16a34a",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: canToggleComplete ? "pointer" : "default",
-                  opacity: canToggleComplete ? 1 : 0.4,
+                  cursor: canTriggerCompleteToggle ? "pointer" : "default",
+                  opacity: canTriggerCompleteToggle ? 1 : 0.4,
                 }}
               >
                 {data.isCompleted ? <RotateCcw size={13} /> : <Check size={13} />}

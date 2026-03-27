@@ -447,6 +447,7 @@ export function AddClaimFromPageDialog({
         onTrackOrder={setTrackingCode}
         baseZIndex={claimDrawerZIndex}
         refreshToken={claimRefreshToken}
+        closeOnNestedOverlayOpen
       />
 
       {claimTodo && (

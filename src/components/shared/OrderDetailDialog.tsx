@@ -658,6 +658,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         onTrackOrder={setClaimTrackingCode}
         baseZIndex={CLAIM_DRAWER_Z_INDEX}
         refreshToken={claimRefreshToken}
+        closeOnNestedOverlayOpen
       />
 
       {claimTodo && (
