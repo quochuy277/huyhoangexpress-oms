@@ -186,3 +186,10 @@
 **Káº¿t quáº£:** PROJECT_RULE.md pháº£n Ã¡nh Ä‘Ãºng 100% tráº¡ng thÃ¡i hiá»‡n táº¡i cá»§a codebase.
 
 ---
+### 3. Th?ng nh?t ClaimDetail và tag Lo?i v?n d? trong Chi ti?t don hàng
+
+- G?p toàn b? UI chi ti?t don có v?n d? v? `ClaimDetailDrawer` dùng chung
+- Ð?ng b? action `Hành trình`, `Công vi?c`, `Hoàn t?t`, `Kéo l?i chua hoàn t?t`, `Xóa`
+- Ð?ng b? toàn b? xác nh?n b?ng helper copy dùng chung trong `confirm-dialog`
+- Thêm tag `Lo?i v?n d?` trong pop-up `Chi ti?t don hàng` và m? drawer claim ch?ng lên trên
+- M? r?ng duplicate-claim flow ngoài trang claims d? dùng cùng action và confirm behavior

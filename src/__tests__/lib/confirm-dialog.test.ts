@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getClaimCompleteDialogCopy,
+  getClaimDeleteDialogCopy,
+  getClaimReopenDialogCopy,
   getConfirmDialogToneConfig,
   getDuplicateClaimDialogCopy,
   getUnsavedClaimDialogCopy,
@@ -33,6 +36,39 @@ describe("confirm-dialog helpers", () => {
       confirmLabel: "Thoát không lưu",
       cancelLabel: "Tiếp tục chỉnh sửa",
       tone: "warning",
+    });
+  });
+
+  it("returns success-tone copy for completing a claim", () => {
+    expect(getClaimCompleteDialogCopy("YC123")).toEqual({
+      title: "Hoàn tất xử lý",
+      description:
+        "Xác nhận đơn YC123 đã hoàn tất xử lý? Trạng thái sẽ được đánh dấu là đã xong.",
+      confirmLabel: "Hoàn tất",
+      cancelLabel: "Để sau",
+      tone: "success",
+    });
+  });
+
+  it("returns warning-tone copy for reopening a completed claim", () => {
+    expect(getClaimReopenDialogCopy("YC123")).toEqual({
+      title: "Kéo lại chưa hoàn tất",
+      description:
+        "Đơn YC123 sẽ được chuyển lại về trạng thái chưa hoàn tất. Trạng thái xử lý hiện tại sẽ được giữ nguyên.",
+      confirmLabel: "Kéo lại",
+      cancelLabel: "Giữ nguyên",
+      tone: "warning",
+    });
+  });
+
+  it("returns danger-tone copy for deleting a claim", () => {
+    expect(getClaimDeleteDialogCopy("YC123")).toEqual({
+      title: "Xóa đơn có vấn đề",
+      description:
+        "Bạn có chắc chắn muốn xóa đơn YC123 khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.",
+      confirmLabel: "Xóa đơn",
+      cancelLabel: "Hủy",
+      tone: "danger",
     });
   });
 });

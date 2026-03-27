@@ -11,10 +11,11 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { ClaimDetailDrawer } from "@/components/claims/ClaimDetailDrawer";
+import { ClaimDetailDrawer, type ClaimDetailData } from "@/components/claims/ClaimDetailDrawer";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { TrackingPopup } from "@/components/tracking/TrackingPopup";
+import { getClaimCompleteDialogCopy, getClaimReopenDialogCopy } from "@/lib/confirm-dialog";
 
 /* ============================================================
    CONSTANTS & HELPERS
@@ -43,9 +44,6 @@ const CLAIM_STATUS_CONFIG: Record<string, { label: string; bg: string; text: str
 
 const COMPLETION_STATUSES = ["RESOLVED", "CUSTOMER_COMPENSATED", "CUSTOMER_REJECTED"];
 
-const CARRIER_COMP_EDITABLE = ["CARRIER_COMPENSATED"];
-const CUSTOMER_COMP_EDITABLE = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"];
-
 function formatVND(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
@@ -56,6 +54,30 @@ function daysBetween(d: string | Date) {
 
 function daysUntil(d: string | Date) {
   return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+}
+
+function getCompleteToggleActionState(claimStatus: string, isCompleted: boolean) {
+  if (isCompleted) {
+    return {
+      canToggle: true,
+      title: "Kéo lại chưa hoàn tất",
+      className: "text-orange-500 hover:bg-orange-50 hover:border-orange-200",
+    };
+  }
+
+  if (COMPLETION_STATUSES.includes(claimStatus)) {
+    return {
+      canToggle: true,
+      title: "Hoàn tất",
+      className: "text-green-500 hover:bg-green-50 hover:border-green-200",
+    };
+  }
+
+  return {
+    canToggle: false,
+    title: "Chưa đủ điều kiện hoàn tất",
+    className: "text-slate-300",
+  };
 }
 
 /* ============================================================
@@ -352,515 +374,6 @@ function AddClaimDialog({
 }
 
 /* ============================================================
-   FIELD LABEL MAP for change history display
-   ============================================================ */
-const FIELD_LABEL_MAP: Record<string, string> = {
-  claimStatus: "Trạng thái xử lý",
-  issueType: "Loại vấn đề",
-  issueDescription: "Nội dung vấn đề",
-  processingContent: "Nội dung xử lý",
-  carrierCompensation: "NVC đền bù",
-  customerCompensation: "Đền bù KH",
-  deadline: "Thời hạn",
-};
-
-function getDisplayValue(fieldName: string, value: string | null): string {
-  if (!value) return "—";
-  if (fieldName === "claimStatus") return CLAIM_STATUS_CONFIG[value]?.label || value;
-  if (fieldName === "issueType") return ISSUE_TYPE_CONFIG[value]?.label || value;
-  if (fieldName === "carrierCompensation" || fieldName === "customerCompensation") return formatVND(parseFloat(value) || 0);
-  if (fieldName === "deadline") {
-    try { return format(new Date(value), "dd/MM/yyyy"); } catch { return value; }
-  }
-  return value.length > 50 ? value.slice(0, 50) + "..." : value;
-}
-
-/* ============================================================
-   DETAIL PANEL — Redesigned 700px with inline editing
-   ============================================================ */
-/* Editable fields buffered locally before manual save */
-type LocalEdits = {
-  issueType: string;
-  issueDescription: string;
-  deadline: string; // "YYYY-MM-DD" or ""
-  claimStatus: string;
-  processingContent: string;
-  carrierCompensation: number;
-  customerCompensation: number;
-};
-
-function toLocalEdits(d: any): LocalEdits {
-  return {
-    issueType: d.issueType || "",
-    issueDescription: d.issueDescription || "",
-    deadline: d.deadline ? new Date(d.deadline).toISOString().split("T")[0] : "",
-    claimStatus: d.claimStatus || "",
-    processingContent: d.processingContent || "",
-    carrierCompensation: d.carrierCompensation || 0,
-    customerCompensation: d.customerCompensation || 0,
-  };
-}
-
-function computeIsDirty(edits: LocalEdits, original: any): boolean {
-  const origDeadline = original.deadline ? new Date(original.deadline).toISOString().split("T")[0] : "";
-  return (
-    edits.issueType !== (original.issueType || "") ||
-    edits.issueDescription !== (original.issueDescription || "") ||
-    edits.deadline !== origDeadline ||
-    edits.claimStatus !== (original.claimStatus || "") ||
-    edits.processingContent !== (original.processingContent || "") ||
-    Number(edits.carrierCompensation) !== Number(original.carrierCompensation || 0) ||
-    Number(edits.customerCompensation) !== Number(original.customerCompensation || 0)
-  );
-}
-
-function ClaimDetailPanel({
-  claimId, open, onClose, onUpdate, onAddTodo, onComplete, onDelete, onTrackOrder,
-}: {
-  claimId: string; open: boolean; onClose: () => void; onUpdate?: () => void;
-  onAddTodo?: (data: any) => void;
-  onComplete?: (id: string, requestCode: string) => void;
-  onDelete?: (id: string, requestCode: string) => void;
-  onTrackOrder?: (requestCode: string) => void;
-}) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [edits, setEdits] = useState<LocalEdits | null>(null);
-
-  const fetchDetail = useCallback(() => {
-    if (!claimId) return;
-    setLoading(true);
-    fetch(`/api/claims/${claimId}`)
-      .then(r => r.json())
-      .then(d => setData(d))
-      .finally(() => setLoading(false));
-  }, [claimId]);
-
-  useEffect(() => {
-    if (open && claimId) fetchDetail();
-  }, [open, claimId, fetchDetail]);
-
-  // Khi data load về (lần đầu hoặc sau khi save), sync localEdits
-  useEffect(() => {
-    if (data) setEdits(toLocalEdits(data));
-  }, [data]);
-
-  const isDirty = !!(data && edits && computeIsDirty(edits, data));
-  const canEditCarrierComp = edits?.claimStatus === "CARRIER_COMPENSATED";
-  const canEditCustomerComp = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"].includes(edits?.claimStatus || "");
-
-  const setEdit = <K extends keyof LocalEdits>(field: K, value: LocalEdits[K]) => {
-    setEdits(prev => prev ? { ...prev, [field]: value } : prev);
-  };
-
-  const handleSave = async () => {
-    if (!data || !edits || !isDirty) return;
-    // Build diff — chỉ gửi các field thực sự thay đổi
-    const changes: Record<string, any> = {};
-    if (edits.issueType !== (data.issueType || "")) changes.issueType = edits.issueType;
-    if (edits.issueDescription !== (data.issueDescription || "")) changes.issueDescription = edits.issueDescription || null;
-    const origDeadline = data.deadline ? new Date(data.deadline).toISOString().split("T")[0] : "";
-    if (edits.deadline !== origDeadline) changes.deadline = edits.deadline || null;
-    if (edits.claimStatus !== (data.claimStatus || "")) changes.claimStatus = edits.claimStatus;
-    if (edits.processingContent !== (data.processingContent || "")) changes.processingContent = edits.processingContent || null;
-    if (Number(edits.carrierCompensation) !== Number(data.carrierCompensation || 0)) changes.carrierCompensation = Number(edits.carrierCompensation) || 0;
-    if (Number(edits.customerCompensation) !== Number(data.customerCompensation || 0)) changes.customerCompensation = Number(edits.customerCompensation) || 0;
-
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/claims/${claimId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(changes),
-      });
-      const result = await res.json();
-      if (result.claim) {
-        setData(result.claim); // Use returned data directly — no re-fetch needed
-      } else {
-        fetchDetail(); // Fallback
-      }
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-      onUpdate?.();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReset = () => {
-    if (data) setEdits(toLocalEdits(data));
-  };
-
-  const handleClose = () => {
-    if (isDirty && !confirm("Bạn có thay đổi chưa lưu. Thoát mà không lưu?")) return;
-    onClose();
-  };
-
-  if (!open) return null;
-
-  // Merge statusHistory + changeLogs into unified timeline
-  const timeline: any[] = [];
-  if (data?.statusHistory) {
-    data.statusHistory.forEach((h: any) => { timeline.push({ type: "status", ...h }); });
-  }
-  if (data?.changeLogs) {
-    data.changeLogs.forEach((l: any) => {
-      if (l.fieldName !== "claimStatus") timeline.push({ type: "change", ...l });
-    });
-  }
-  timeline.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
-
-  const sectionTitle = (icon: React.ReactNode, title: string) => (
-    <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", marginBottom: "10px", display: "flex", alignItems: "center", gap: "7px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-      {icon} {title}
-    </h3>
-  );
-
-  const infoRow = (label: string, value: React.ReactNode) => (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f1f5f9" }}>
-      <span style={{ color: "#6b7280", fontSize: "12px" }}>{label}</span>
-      <span style={{ fontWeight: 600, fontSize: "12px", color: "#1e293b", textAlign: "right", maxWidth: "55%" }}>{value}</span>
-    </div>
-  );
-
-  return createPortal(
-    <>
-      <div style={overlayStyle} onClick={handleClose} />
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: "min(700px, 100vw)",
-        zIndex: 9999, background: "#f8fafc", borderLeft: `2px solid ${isDirty ? "#f59e0b" : "#2563EB"}`,
-        boxShadow: "-12px 0 40px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column",
-        animation: "slideIn 0.25s ease-out",
-        transition: "border-color 0.2s",
-      }}>
-        {/* Header */}
-        <div style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "12px 16px", background: "#fff", borderBottom: "1px solid #e5e7eb",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ padding: "6px", borderRadius: "8px", background: isDirty ? "#fef3c7" : "#eff6ff" }}>
-              <ShieldAlert size={18} color={isDirty ? "#d97706" : "#2563EB"} />
-            </div>
-            <div>
-              <div style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "8px" }}>
-                Chi Tiết Đơn Có Vấn Đề
-                {isDirty && (
-                  <span style={{
-                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "99px",
-                    background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a",
-                    letterSpacing: "0.02em",
-                  }}>
-                    ● Chưa lưu
-                  </span>
-                )}
-                {saveSuccess && (
-                  <span style={{
-                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "99px",
-                    background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0",
-                  }}>
-                    ✓ Đã lưu
-                  </span>
-                )}
-              </div>
-              {data?.order?.requestCode && (
-                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "1px" }}>{data.order.requestCode}</div>
-              )}
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-            {data && (
-              <button
-                onClick={() => { const rc = data.order?.requestCode; if (rc && onTrackOrder) onTrackOrder(rc); }}
-                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #6ee7b7", background: "#ecfdf5", color: "#059669", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#d1fae5"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#ecfdf5"; }}
-                title="Tra hành trình"
-              >
-                <Truck size={13} /> Hành trình
-              </button>
-            )}
-            {data && onAddTodo && (
-              <button
-                onClick={() => onAddTodo(data)}
-                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #93c5fd", background: "#eff6ff", color: "#2563EB", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#dbeafe"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#eff6ff"; }}
-                title="Thêm vào Công Việc"
-              >
-                <CheckSquare size={13} /> Công Việc
-              </button>
-            )}
-            {data && onComplete && (
-              <button
-                onClick={() => onComplete(claimId, data.order?.requestCode || "")}
-                disabled={!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted}
-                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #bbf7d0", background: "#f0fdf4", color: "#16a34a", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s", opacity: (!COMPLETION_STATUSES.includes(data.claimStatus) || data.isCompleted) ? 0.4 : 1 }}
-                onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#dcfce7"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#f0fdf4"; }}
-                title={data.isCompleted ? "Đã hoàn tất" : !COMPLETION_STATUSES.includes(data.claimStatus) ? "Chưa đủ điều kiện hoàn tất" : "Hoàn tất xử lý"}
-              >
-                <Check size={13} /> Hoàn tất
-              </button>
-            )}
-            {data && onDelete && (
-              <button
-                onClick={() => onDelete(claimId, data.order?.requestCode || "")}
-                style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #fecaca", background: "#fef2f2", color: "#dc2626", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#fee2e2"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#fef2f2"; }}
-                title="Xóa đơn"
-              >
-                <Trash2 size={13} /> Xóa
-              </button>
-            )}
-            <button onClick={handleClose} style={{ ...closeBtnBase, width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-          {loading && <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={24} /></div>}
-          {data && edits && !loading && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-
-              {/* === Section 1: Thông tin đơn hàng === */}
-              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
-                {sectionTitle(<Package size={14} color="#2563EB" />, "Thông tin đơn hàng")}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }} className="resp-grid-1-2">
-                  {infoRow("Mã yêu cầu", <span style={{ color: "#2563EB", fontWeight: 700 }}>{data.order?.requestCode || "—"}</span>)}
-                  {infoRow("Mã ĐT đối tác", data.order?.carrierOrderCode || "—")}
-                  {infoRow("Cửa hàng", data.order?.shopName || "—")}
-                  {infoRow("COD / Giá trị", <span style={{ color: "#059669" }}>{formatVND(data.order?.codAmount || 0)}</span>)}
-                  {infoRow("Tổng phí", formatVND(data.order?.totalFee || 0))}
-                  {infoRow("Trạng thái đơn", data.order?.status || "—")}
-                  {infoRow("Thời gian lấy hàng", data.order?.pickupTime ? format(new Date(data.order.pickupTime), "dd/MM/yyyy HH:mm") : "—")}
-                  {infoRow("Nhóm Vùng miền", data.order?.regionGroup || "—")}
-                </div>
-                <div style={{ marginTop: "8px", padding: "5px 0", borderBottom: "1px solid #f1f5f9" }}>
-                  <span style={{ color: "#6b7280", fontSize: "12px", display: "block", marginBottom: "4px" }}>Ghi chú nội bộ</span>
-                  <span style={{ fontWeight: 500, fontSize: "12px", color: "#1e293b", whiteSpace: "pre-wrap" }}>{data.order?.internalNotes || "—"}</span>
-                </div>
-              </div>
-
-              {/* === Section 2: Thông tin vấn đề (editable) === */}
-              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #fde68a" }}>
-                {sectionTitle(<AlertTriangle size={14} color="#d97706" />, "Thông tin vấn đề")}
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div>
-                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Loại vấn đề</label>
-                    <select
-                      value={edits.issueType}
-                      onChange={e => setEdit("issueType", e.target.value)}
-                      style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px", cursor: "pointer" }}
-                    >
-                      {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Nội dung vấn đề</label>
-                    <textarea
-                      value={edits.issueDescription}
-                      onChange={e => setEdit("issueDescription", e.target.value)}
-                      placeholder="Mô tả chi tiết vấn đề..."
-                      style={{ ...inputStyle, minHeight: "60px", resize: "vertical", fontSize: "13px" }}
-                    />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
-                    <div>
-                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Ngày phát hiện</label>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
-                        {format(new Date(data.detectedDate), "dd/MM/yyyy", { locale: vi })}
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Ngày tồn đọng</label>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
-                        {daysBetween(data.detectedDate)} ngày
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Thời hạn</label>
-                    <input
-                      type="date"
-                      value={edits.deadline}
-                      onChange={e => setEdit("deadline", e.target.value)}
-                      style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* === Section 3: Xử lý (editable) === */}
-              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #bbf7d0" }}>
-                {sectionTitle(<FileText size={14} color="#16a34a" />, "Xử lý")}
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div>
-                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Trạng thái xử lý</label>
-                    <select
-                      value={edits.claimStatus}
-                      onChange={e => setEdit("claimStatus", e.target.value)}
-                      style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px", cursor: "pointer" }}
-                    >
-                      {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>Nội dung xử lý</label>
-                    <textarea
-                      value={edits.processingContent}
-                      onChange={e => setEdit("processingContent", e.target.value)}
-                      placeholder="Nhập nội dung xử lý..."
-                      style={{ ...inputStyle, minHeight: "60px", resize: "vertical", fontSize: "13px" }}
-                    />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }} className="resp-grid-1-2">
-                    <div>
-                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>
-                        NVC đền bù
-                        {!canEditCarrierComp && <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 400 }}> (khóa)</span>}
-                      </label>
-                      {canEditCarrierComp ? (
-                        <input
-                          type="number"
-                          value={edits.carrierCompensation}
-                          onChange={e => setEdit("carrierCompensation", parseFloat(e.target.value) || 0)}
-                          min={0}
-                          style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
-                        />
-                      ) : (
-                        <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
-                          {formatVND(data.carrierCompensation || 0)}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "3px" }}>
-                        Đền bù KH
-                        {!canEditCustomerComp && <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 400 }}> (khóa)</span>}
-                      </label>
-                      {canEditCustomerComp ? (
-                        <input
-                          type="number"
-                          value={edits.customerCompensation}
-                          onChange={e => setEdit("customerCompensation", parseFloat(e.target.value) || 0)}
-                          min={0}
-                          style={{ ...inputStyle, fontSize: "13px", padding: "7px 10px" }}
-                        />
-                      ) : (
-                        <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", padding: "7px 10px", background: "#f1f5f9", borderRadius: "6px" }}>
-                          {formatVND(data.customerCompensation || 0)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* === Section 4: Lịch sử (merged timeline) === */}
-              <div style={{ background: "#fff", borderRadius: "10px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
-                {sectionTitle(<Clock size={14} color="#6366f1" />, "Lịch sử thay đổi")}
-                {timeline.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "16px", color: "#9ca3af", fontSize: "12px" }}>Chưa có lịch sử</div>
-                ) : (
-                  <div style={{ borderLeft: "2px solid #e2e8f0", paddingLeft: "16px", marginLeft: "6px" }}>
-                    {timeline.map((item, i) => (
-                      <div key={item.id} style={{ position: "relative", marginBottom: "14px" }}>
-                        <div style={{
-                          position: "absolute", left: "-23px", top: "3px", width: "10px", height: "10px",
-                          borderRadius: "50%",
-                          background: i === 0 ? (item.type === "status" ? "#2563EB" : "#8b5cf6") : "#e2e8f0",
-                          border: `2px solid ${i === 0 ? (item.type === "status" ? "#2563EB" : "#8b5cf6") : "#d1d5db"}`,
-                        }} />
-                        {item.type === "status" ? (
-                          <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
-                            <span style={{ color: "#6b7280", fontWeight: 400 }}>TT Xử lý → </span>
-                            {CLAIM_STATUS_CONFIG[item.toStatus]?.label || item.toStatus}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
-                            <span style={{ color: "#6b7280", fontWeight: 400 }}>{FIELD_LABEL_MAP[item.fieldName] || item.fieldName}: </span>
-                            <span style={{ color: "#dc2626", textDecoration: "line-through", marginRight: "4px" }}>
-                              {getDisplayValue(item.fieldName, item.oldValue)}
-                            </span>
-                            → <span style={{ color: "#059669" }}>{getDisplayValue(item.fieldName, item.newValue)}</span>
-                          </div>
-                        )}
-                        <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
-                          {item.changedBy} — {format(new Date(item.changedAt), "dd/MM/yyyy HH:mm", { locale: vi })}
-                        </div>
-                        {item.note && <div style={{ fontSize: "11px", color: "#9ca3af", fontStyle: "italic" }}>{item.note}</div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-        </div>
-
-        {/* Footer: Save / Reset — chỉ hiển thị khi có data */}
-        {data && edits && (
-          <div style={{
-            padding: "12px 16px", background: "#fff", borderTop: "1px solid #e5e7eb",
-            display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end",
-          }}>
-            {isDirty && (
-              <button
-                onClick={handleReset}
-                disabled={saving}
-                style={{
-                  display: "flex", alignItems: "center", gap: "5px", padding: "8px 14px",
-                  borderRadius: "8px", border: "1.5px solid #d1d5db", background: "#fff",
-                  color: "#6b7280", fontSize: "13px", fontWeight: 600, cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "#f9fafb"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
-                title="Hoàn tác — bỏ tất cả thay đổi chưa lưu"
-              >
-                <RotateCcw size={13} /> Hoàn tác
-              </button>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={saving || !isDirty}
-              style={{
-                display: "flex", alignItems: "center", gap: "6px", padding: "8px 18px",
-                borderRadius: "8px",
-                border: isDirty ? "1.5px solid #2563EB" : "1.5px solid #d1d5db",
-                background: isDirty ? "#2563EB" : "#f9fafb",
-                color: isDirty ? "#fff" : "#9ca3af",
-                fontSize: "13px", fontWeight: 700, cursor: isDirty ? "pointer" : "default",
-                transition: "all 0.2s",
-                opacity: saving ? 0.7 : 1,
-              }}
-              onMouseEnter={e => { if (isDirty && !saving) e.currentTarget.style.background = "#1d4ed8"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = isDirty ? "#2563EB" : "#f9fafb"; }}
-            >
-              {saving ? <Loader2 className="animate-spin" size={14} /> : <Check size={14} />}
-              {saving ? "Đang lưu..." : isDirty ? "Lưu thay đổi" : "Không có thay đổi"}
-            </button>
-          </div>
-        )}
-      </div>
-      <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity:0 } to { transform: translateX(0); opacity:1 } }`}</style>
-    </>,
-    document.body
-  );
-}
-
-/* ============================================================
    INLINE STATUS DROPDOWN
    ============================================================ */
 function StatusDropdown({
@@ -998,11 +511,19 @@ function ProcessingContentPopup({
   );
 }
 
+
+type ClaimActionDialogState = {
+  id: string;
+  requestCode: string;
+  loading: boolean;
+  success: string | null;
+};
+
 /* ============================================================
-   CONFIRM ACTION DIALOG — Beautiful replacement for confirm/alert
+   CONFIRM ACTION DIALOG - Beautiful replacement for confirm/alert
    ============================================================ */
 function ConfirmActionDialog({
-  open, onClose, onConfirm, title, description, confirmLabel, confirmColor, icon, loading, successMsg,
+  open, onClose, onConfirm, title, description, confirmLabel, cancelLabel = "H\u1EE7y", confirmColor, icon, loading, successMsg,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1010,7 +531,8 @@ function ConfirmActionDialog({
   title: string;
   description: string;
   confirmLabel: string;
-  confirmColor: "red" | "green";
+  cancelLabel?: string;
+  confirmColor: "red" | "green" | "orange";
   icon: React.ReactNode;
   loading?: boolean;
   successMsg?: string | null;
@@ -1019,7 +541,9 @@ function ConfirmActionDialog({
 
   const colors = confirmColor === "red"
     ? { bg: "#dc2626", hover: "#b91c1c", iconBg: "#fef2f2", iconBorder: "#fecaca" }
-    : { bg: "#16a34a", hover: "#15803d", iconBg: "#f0fdf4", iconBorder: "#bbf7d0" };
+    : confirmColor === "orange"
+      ? { bg: "#d97706", hover: "#b45309", iconBg: "#fffbeb", iconBorder: "#fde68a" }
+      : { bg: "#16a34a", hover: "#15803d", iconBg: "#f0fdf4", iconBorder: "#bbf7d0" };
 
   return createPortal(
     <>
@@ -1071,7 +595,7 @@ function ConfirmActionDialog({
                 onMouseEnter={e => { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.borderColor = "#d1d5db"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
               >
-                Hủy
+                {cancelLabel}
               </button>
               <button
                 onClick={onConfirm}
@@ -1159,8 +683,9 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
   const [detailClaimId, setDetailClaimId] = useState<string | null>(null);
   const [processingPopup, setProcessingPopup] = useState<{ id: string; content: string } | null>(null);
   const [todoClaimOrder, setTodoClaimOrder] = useState<any | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; requestCode: string; loading: boolean; success: string | null } | null>(null);
-  const [completeConfirm, setCompleteConfirm] = useState<{ id: string; requestCode: string; loading: boolean; success: string | null } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<ClaimActionDialogState | null>(null);
+  const [completeConfirm, setCompleteConfirm] = useState<ClaimActionDialogState | null>(null);
+  const [reopenConfirm, setReopenConfirm] = useState<ClaimActionDialogState | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
 
   // Multi-select
@@ -1284,24 +809,73 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
 
   // Auto-detect chỉ chạy khi user bấm nút hoặc sau khi upload Excel - không chạy tự động khi mount
 
-  const handleComplete = (claimId: string, requestCode: string) => {
+  const handleOpenTodoFromClaim = (data: ClaimDetailData) => {
+    setTodoClaimOrder({
+      order: data.order,
+      issueType: data.issueType,
+      claimStatus: data.claimStatus,
+    });
+  };
+
+  const handleRequestCompleteToggle = (claimId: string, requestCode: string, isCompleted: boolean) => {
+    if (isCompleted) {
+      setReopenConfirm({ id: claimId, requestCode, loading: false, success: null });
+      return;
+    }
     setCompleteConfirm({ id: claimId, requestCode, loading: false, success: null });
+  };
+
+  const handleDrawerCompleteToggle = ({
+    id,
+    requestCode,
+    isCompleted,
+  }: {
+    id: string;
+    requestCode: string;
+    isCompleted: boolean;
+  }) => {
+    handleRequestCompleteToggle(id, requestCode, isCompleted);
   };
 
   const executeComplete = async () => {
     if (!completeConfirm) return;
     setCompleteConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
-      await fetch(`/api/claims/${completeConfirm.id}`, {
+      const res = await fetch(`/api/claims/${completeConfirm.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isCompleted: true }),
       });
-      setCompleteConfirm(prev => prev ? { ...prev, loading: false, success: `Đơn ${prev.requestCode} đã hoàn tất xử lý.` } : null);
+      if (!res.ok) {
+        setCompleteConfirm(prev => prev ? { ...prev, loading: false } : null);
+        return;
+      }
+      setCompleteConfirm(prev => prev ? { ...prev, loading: false, success: `\u0110\u01A1n ${prev.requestCode} \u0111\u00E3 ho\u00E0n t\u1EA5t x\u1EED l\u00FD.` } : null);
       fetchClaims();
       setTimeout(() => setCompleteConfirm(null), 1500);
     } catch {
       setCompleteConfirm(prev => prev ? { ...prev, loading: false } : null);
+    }
+  };
+
+  const executeReopen = async () => {
+    if (!reopenConfirm) return;
+    setReopenConfirm(prev => prev ? { ...prev, loading: true } : null);
+    try {
+      const res = await fetch(`/api/claims/${reopenConfirm.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCompleted: false }),
+      });
+      if (!res.ok) {
+        setReopenConfirm(prev => prev ? { ...prev, loading: false } : null);
+        return;
+      }
+      setReopenConfirm(prev => prev ? { ...prev, loading: false, success: `\u0110\u01A1n ${prev.requestCode} \u0111\u00E3 \u0111\u01B0\u1EE3c k\u00E9o l\u1EA1i ch\u01B0a ho\u00E0n t\u1EA5t.` } : null);
+      fetchClaims();
+      setTimeout(() => setReopenConfirm(null), 1500);
+    } catch {
+      setReopenConfirm(prev => prev ? { ...prev, loading: false } : null);
     }
   };
 
@@ -1420,6 +994,9 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
       sortDir: f.sortBy === field ? (f.sortDir === "asc" ? "desc" : "asc") : "asc",
     }));
   };
+
+  const completeDialogCopy = getClaimCompleteDialogCopy(completeConfirm?.requestCode || "");
+  const reopenDialogCopy = getClaimReopenDialogCopy(reopenConfirm?.requestCode || "");
 
   return (
     <div style={{ padding: "0" }}>
@@ -1701,6 +1278,7 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
                   const daysPending = daysBetween(c.detectedDate);
                   const daysLeft = c.deadline ? daysUntil(c.deadline) : Infinity;
                   const issCfg = ISSUE_TYPE_CONFIG[c.issueType] || ISSUE_TYPE_CONFIG.OTHER;
+                  const completeAction = getCompleteToggleActionState(c.claimStatus, Boolean(c.isCompleted));
 
                   return (
                     <tr
@@ -1883,19 +1461,13 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
                               <CheckSquare size={12} />
                             </button>
                             <button
-                              onClick={async () => {
-                                if (c.isCompleted) {
-                                  // Un-complete: set back to uncompleted
-                                  await fetch(`/api/claims/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isCompleted: false, claimStatus: "PENDING" }) });
-                                  fetchClaims();
-                                } else {
-                                  handleComplete(c.id, c.order?.requestCode);
-                                }
-                              }}
-                              className={`p-1 w-6 h-6 flex items-center justify-center rounded border border-transparent transition-colors ${c.isCompleted ? "text-orange-500 hover:bg-orange-50 hover:border-orange-200" : "text-green-500 hover:bg-green-50 hover:border-green-200"}`}
-                              title={c.isCompleted ? "Kéo lại chưa hoàn tất" : "Hoàn tất"}
+                              onClick={() => handleRequestCompleteToggle(c.id, c.order?.requestCode || "", Boolean(c.isCompleted))}
+                              disabled={!completeAction.canToggle}
+                              className={`p-1 w-6 h-6 flex items-center justify-center rounded border border-transparent transition-colors ${completeAction.className}`}
+                              title={completeAction.title}
+                              style={{ opacity: completeAction.canToggle ? 1 : 0.45, cursor: completeAction.canToggle ? "pointer" : "not-allowed" }}
                             >
-                              <Check size={12} />
+                              {c.isCompleted ? <RotateCcw size={12} /> : <Check size={12} />}
                             </button>
                             <button
                               onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
@@ -1971,21 +1543,15 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
         onSuccess={fetchClaims}
       />
 
-      <ClaimDetailPanel
+      <ClaimDetailDrawer
         claimId={detailClaimId || ""}
-        open={!!detailClaimId}
+        open={Boolean(detailClaimId)}
         onClose={() => setDetailClaimId(null)}
         onUpdate={fetchClaims}
-        onAddTodo={(data) => {
-          setTodoClaimOrder({
-            order: data.order,
-            issueType: data.issueType,
-            claimStatus: data.claimStatus,
-          });
-        }}
-        onComplete={(id, rc) => handleComplete(id, rc)}
-        onDelete={(id, rc) => handleDelete(id, rc)}
-        onTrackOrder={(rc) => setTrackingCode(rc)}
+        onAddTodo={handleOpenTodoFromClaim}
+        onCompleteToggle={handleDrawerCompleteToggle}
+        onDelete={handleDelete}
+        onTrackOrder={(requestCode) => setTrackingCode(requestCode)}
       />
 
       {processingPopup && (
@@ -2030,13 +1596,28 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
         open={!!completeConfirm}
         onClose={() => setCompleteConfirm(null)}
         onConfirm={executeComplete}
-        title="Hoàn tất xử lý"
-        description={`Xác nhận đơn ${completeConfirm?.requestCode || ""} đã hoàn tất xử lý? Trạng thái sẽ được đánh dấu là đã xong.`}
-        confirmLabel="Hoàn tất"
+        title={completeDialogCopy.title}
+        description={completeDialogCopy.description}
+        confirmLabel={completeDialogCopy.confirmLabel}
+        cancelLabel={completeDialogCopy.cancelLabel}
         confirmColor="green"
         icon={<Check size={26} color="#16a34a" />}
         loading={completeConfirm?.loading}
         successMsg={completeConfirm?.success}
+      />
+
+      <ConfirmActionDialog
+        open={Boolean(reopenConfirm)}
+        onClose={() => setReopenConfirm(null)}
+        onConfirm={executeReopen}
+        title={reopenDialogCopy.title}
+        description={reopenDialogCopy.description}
+        confirmLabel={reopenDialogCopy.confirmLabel}
+        cancelLabel={reopenDialogCopy.cancelLabel}
+        confirmColor="orange"
+        icon={<RotateCcw size={26} color="#d97706" />}
+        loading={reopenConfirm?.loading}
+        successMsg={reopenConfirm?.success}
       />
 
       {/* Tracking Popup */}
@@ -2050,3 +1631,5 @@ function ClaimsClientInner({ onCountChange, externalDetailClaimId, onExternalDet
 }
 
 export default memo(ClaimsClientInner);
+
+
