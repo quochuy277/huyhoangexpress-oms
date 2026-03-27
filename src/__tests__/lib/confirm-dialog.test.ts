@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getClaimCompleteDialogCopy,
+  getClaimDeleteDialogCopy,
   getClaimReopenDialogCopy,
   getConfirmDialogToneConfig,
   getDuplicateClaimDialogCopy,
@@ -57,6 +58,17 @@ describe("confirm-dialog helpers", () => {
       confirmLabel: "Kéo lại",
       cancelLabel: "Giữ nguyên",
       tone: "warning",
+    });
+  });
+
+  it("returns danger-tone copy for deleting a claim", () => {
+    expect(getClaimDeleteDialogCopy("YC123")).toEqual({
+      title: "Xóa đơn có vấn đề",
+      description:
+        "Bạn có chắc chắn muốn xóa đơn YC123 khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.",
+      confirmLabel: "Xóa đơn",
+      cancelLabel: "Hủy",
+      tone: "danger",
     });
   });
 });

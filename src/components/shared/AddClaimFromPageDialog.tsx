@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import {
   getClaimCompleteDialogCopy,
+  getClaimDeleteDialogCopy,
   getClaimReopenDialogCopy,
   getDuplicateClaimDialogCopy,
 } from "@/lib/confirm-dialog";
@@ -126,15 +127,6 @@ interface Props {
   baseZIndex?: number;
 }
 
-function getClaimDeleteDialogCopy(requestCode: string) {
-  return {
-    title: "Xóa đơn có vấn đề",
-    description: `Bạn có chắc chắn muốn xóa đơn ${requestCode} khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.`,
-    confirmLabel: "Xóa đơn",
-    cancelLabel: "Hủy",
-    tone: "danger" as const,
-  };
-}
 
 function getTodoSource(source: string) {
   return source === "FROM_RETURNS" ? "FROM_RETURNS" : "FROM_ORDERS";
