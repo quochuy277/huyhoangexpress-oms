@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
+import { buildBudgetSummary, buildExpenseSummary, buildPnlSections } from "./financeResponsive";
 
 const PERIODS = [
   { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
@@ -11,17 +13,13 @@ const PERIODS = [
 const COLORS = ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
 
-interface Props { isAdmin: boolean; }
+interface Props { isAdmin: boolean; initialCategories?: any[]; }
 
-export default function OverviewTab({ isAdmin }: Props) {
+export default function OverviewTab({ isAdmin, initialCategories }: Props) {
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [overview, setOverview] = useState<any>(null);
-  const [pnl, setPnl] = useState<any>(null);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [budgets, setBudgets] = useState<any>(null);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [showCatDialog, setShowCatDialog] = useState(false);
   const [showBudgetDialog, setShowBudgetDialog] = useState(false);
@@ -54,21 +52,35 @@ export default function OverviewTab({ isAdmin }: Props) {
 
   const fmtDateParam = (d: Date) => d.toISOString().slice(0, 10);
 
-  const fetchAll = useCallback(async () => {
-    const { from: pFrom, to: pTo } = getPnlDates();
-    const fromStr = fmtDateParam(pFrom);
-    const toStr = fmtDateParam(pTo);
-    const [ov, pl, exp, cat, bud] = await Promise.all([
-      fetch(`/api/finance/overview?period=${period}${period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : ""}`).then(r => r.json()),
-      fetch(`/api/finance/pnl?from=${fromStr}&to=${toStr}`).then(r => r.json()),
-      fetch(`/api/finance/expenses?from=${fromStr}&to=${toStr}`).then(r => r.json()),
-      fetch("/api/finance/categories").then(r => r.json()),
-      fetch(`/api/finance/budgets?month=${pFrom.toISOString().slice(0, 7)}`).then(r => r.json()),
-    ]);
-    setOverview(ov); setPnl(pl); setExpenses(exp.expenses || []); setCategories(cat.categories || []); setBudgets(bud);
-  }, [period, customFrom, customTo, getPnlDates]);
+  // React Query: fetch all finance data as a single query
+  const pnlDates = getPnlDates();
+  const fromStr = fmtDateParam(pnlDates.from);
+  const toStr = fmtDateParam(pnlDates.to);
+  const budgetMonth = pnlDates.from.toISOString().slice(0, 7);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const { data: financeData } = useQuery({
+    queryKey: ["finance-overview", period, customFrom, customTo, pnlPeriod, pnlCustomFrom, pnlCustomTo],
+    queryFn: async () => {
+      const [ov, pl, exp, cat, bud] = await Promise.all([
+        fetch(`/api/finance/overview?period=${period}${period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : ""}`).then(r => r.json()),
+        fetch(`/api/finance/pnl?from=${fromStr}&to=${toStr}`).then(r => r.json()),
+        fetch(`/api/finance/expenses?from=${fromStr}&to=${toStr}`).then(r => r.json()),
+        fetch("/api/finance/categories").then(r => r.json()),
+        fetch(`/api/finance/budgets?month=${budgetMonth}`).then(r => r.json()),
+      ]);
+      return { overview: ov, pnl: pl, expenses: exp.expenses || [], categories: cat.categories || [], budgets: bud };
+    },
+    placeholderData: (prev) => prev,
+    initialData: initialCategories ? { overview: null, pnl: null, expenses: [], categories: initialCategories, budgets: null } : undefined,
+  });
+
+  const overview = financeData?.overview ?? null;
+  const pnl = financeData?.pnl ?? null;
+  const expenses = financeData?.expenses ?? [];
+  const categories = financeData?.categories ?? initialCategories ?? [];
+  const budgets = financeData?.budgets ?? null;
+
+  const refetchAll = () => queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
 
   const saveExpense = async () => {
     const url = editingExpense ? `/api/finance/expenses/${editingExpense.id}` : "/api/finance/expenses";
@@ -76,32 +88,32 @@ export default function OverviewTab({ isAdmin }: Props) {
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(expForm) });
     setShowExpenseDialog(false); setEditingExpense(null);
     setExpForm({ categoryId: "", title: "", amount: "", date: "", note: "" });
-    fetchAll();
+    refetchAll();
   };
 
   const deleteExpense = async (id: string) => {
     if (!confirm("Xóa khoản chi?")) return;
     await fetch(`/api/finance/expenses/${id}`, { method: "DELETE" });
-    fetchAll();
+    refetchAll();
   };
 
   const addCategory = async () => {
     if (!newCat.trim()) return;
     await fetch("/api/finance/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCat }) });
-    setNewCat(""); fetchAll();
+    setNewCat(""); refetchAll();
   };
 
   const deleteCategory = async (id: string) => {
     if (!confirm("Xóa danh mục?")) return;
     const res = await fetch(`/api/finance/categories/${id}`, { method: "DELETE" });
     if (!res.ok) { const d = await res.json(); alert(d.error); }
-    fetchAll();
+    refetchAll();
   };
 
   const saveBudgets = async () => {
     const budgetArr = Object.entries(budgetForm).map(([categoryId, amount]) => ({ categoryId, amount: parseFloat(amount) || 0 }));
     await fetch("/api/finance/budgets", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: getPnlDates().from.toISOString().slice(0, 7), budgets: budgetArr }) });
-    setShowBudgetDialog(false); fetchAll();
+    setShowBudgetDialog(false); refetchAll();
   };
 
   const cardStyle = (color: string): React.CSSProperties => ({
@@ -113,7 +125,7 @@ export default function OverviewTab({ isAdmin }: Props) {
     alignItems: "center", justifyContent: "center", zIndex: 50,
   };
   const dlgInner: React.CSSProperties = {
-    background: "#fff", borderRadius: 12, padding: 24, maxWidth: 500, width: "90%", border: "1.5px solid #2563eb", maxHeight: "80vh", overflow: "auto",
+    background: "#fff", borderRadius: 12, padding: 20, maxWidth: 520, width: "min(92vw, 520px)", border: "1.5px solid #2563eb", maxHeight: "85vh", overflow: "auto",
   };
   const btnPrimary: React.CSSProperties = { background: "#2563eb", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600 };
   const btnSec: React.CSSProperties = { background: "#f1f5f9", border: "1px solid #e2e8f0", padding: "8px 16px", borderRadius: 8, cursor: "pointer" };
@@ -121,73 +133,83 @@ export default function OverviewTab({ isAdmin }: Props) {
   const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 4, display: "block" };
 
   const s = overview?.summary;
+  const pnlSections = pnl ? buildPnlSections(pnl) : [];
+  const expenseCards = expenses.map((expense: any) => buildExpenseSummary(expense));
+  const budgetCards = budgets?.budgets?.map((budget: any) => buildBudgetSummary(budget)) ?? [];
+  const panelClass = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
+  const periodButtonClass = (active: boolean) =>
+    `whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
+      active
+        ? "border-blue-200 bg-blue-600 text-white"
+        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800"
+    }`;
 
   return (
-    <div>
-      {/* Period Filter */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-        {PERIODS.map(p => (
-          <button key={p.value} onClick={() => setPeriod(p.value)} style={{
-            padding: "6px 14px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
-            background: period === p.value ? "#2563eb" : "#fff", color: period === p.value ? "#fff" : "#64748b",
-            fontWeight: 600, fontSize: 13, transition: "all 0.2s",
-          }}>{p.label}</button>
-        ))}
+    <div className="space-y-5 sm:space-y-6">
+      <div className="overflow-x-auto pb-1">
+        <div className="flex min-w-max gap-2">
+          {PERIODS.map((p) => (
+            <button key={p.value} onClick={() => setPeriod(p.value)} className={periodButtonClass(period === p.value)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
       {period === "custom" && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center" }}>
-          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Từ:</label>
-          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
-          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Đến:</label>
-          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+        <div className={`${panelClass} grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto,1fr,auto,1fr] lg:items-center`}>
+          <label className="text-sm font-semibold text-slate-600">Từ</label>
+          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); }} style={inputStyle} />
+          <label className="text-sm font-semibold text-slate-600">Đến</label>
+          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); }} style={inputStyle} />
         </div>
       )}
 
-      {/* Section A: Summary Cards */}
       {s && (
-        <>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-            <div style={cardStyle("#2563eb")}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Doanh Thu</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{fmtVND(s.grossProfit)}</div>
-              <div style={{ fontSize: 11, color: s.revenueChange >= 0 ? "#10b981" : "#ef4444" }}>{s.revenueChange >= 0 ? "+" : ""}{s.revenueChange}% so với kỳ trước</div>
-            </div>
-            <div style={cardStyle("#ef4444")}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Chi Phí</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#ef4444" }}>{pnl ? fmtVND(pnl.totalOperatingExpenses - pnl.claims.claimDiff) : "—"}</div>
-              <div style={{ fontSize: 11, color: "#64748b" }}>Đền bù + Chi phí vận hành</div>
-            </div>
-            <div style={cardStyle(pnl ? (pnl.netProfit >= 0 ? "#10b981" : "#ef4444") : "#10b981")}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Lợi Nhuận Ròng</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: pnl ? (pnl.netProfit >= 0 ? "#10b981" : "#ef4444") : "#94a3b8" }}>{pnl ? fmtVND(pnl.netProfit) : "—"}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div style={cardStyle("#2563eb")}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Doanh Thu</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{fmtVND(s.grossProfit)}</div>
+            <div style={{ fontSize: 11, color: s.revenueChange >= 0 ? "#10b981" : "#ef4444" }}>
+              {s.revenueChange >= 0 ? "+" : ""}
+              {s.revenueChange}% so với kỳ trước
             </div>
           </div>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
-            <div style={cardStyle("#10b981")}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Tổng COD Đã Đối Soát</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#10b981" }}>{fmtVND(s.totalCod)}</div>
+          <div style={cardStyle("#ef4444")}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Chi Phí</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#ef4444" }}>
+              {pnl ? fmtVND(pnl.totalOperatingExpenses - pnl.claims.claimDiff) : "—"}
             </div>
-            <div style={cardStyle("#2563eb")}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Đơn Đã Đối Soát</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{s.orderCount.toLocaleString()}</div>
-            </div>
-            <div style={cardStyle("#2563eb")}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Margin Trung Bình</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{s.margin}%</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>Đền bù + Chi phí vận hành</div>
+          </div>
+          <div style={cardStyle(pnl ? (pnl.netProfit >= 0 ? "#10b981" : "#ef4444") : "#10b981")}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Lợi Nhuận Ròng</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: pnl ? (pnl.netProfit >= 0 ? "#10b981" : "#ef4444") : "#94a3b8" }}>
+              {pnl ? fmtVND(pnl.netProfit) : "—"}
             </div>
           </div>
-        </>
+          <div style={cardStyle("#10b981")}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng COD Đã Đối Soát</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#10b981" }}>{fmtVND(s.totalCod)}</div>
+          </div>
+          <div style={cardStyle("#2563eb")}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Đơn Đã Đối Soát</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{s.orderCount.toLocaleString()}</div>
+          </div>
+          <div style={cardStyle("#2563eb")}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Margin Trung Bình</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{s.margin}%</div>
+          </div>
+        </div>
       )}
 
-      {/* Section B: Trend Chart */}
       {overview?.trendData?.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📈 Xu hướng Doanh thu</h3>
-          <ResponsiveContainer width="100%" height={280}>
+        <div className={panelClass}>
+          <h3 className="mb-4 text-base font-bold text-slate-800">📈 Xu hướng Doanh thu</h3>
+          <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={overview.trendData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" fontSize={12} />
-              <YAxis fontSize={12} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} />
+              <XAxis dataKey="month" fontSize={11} />
+              <YAxis fontSize={11} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} />
               <Tooltip formatter={(v: any) => fmtVND(Number(v))} />
               <Area type="monotone" dataKey="profit" stroke="#2563eb" fill="#dbeafe" name="Doanh thu ròng" />
               <Area type="monotone" dataKey="totalCost" stroke="#ef4444" fill="#fee2e2" name="Tổng chi phí" />
@@ -197,14 +219,13 @@ export default function OverviewTab({ isAdmin }: Props) {
         </div>
       )}
 
-      {/* Section C: Distribution Charts */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 24, flexWrap: "wrap" }}>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {overview?.carrierDistribution?.length > 0 && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, flex: "1 1 350px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Doanh thu theo Đối tác</h3>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">Doanh thu theo Đối tác</h3>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={overview.carrierDistribution} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                <Pie data={overview.carrierDistribution} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={80} labelLine={false}>
                   {overview.carrierDistribution.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v: any) => fmtVND(Number(v))} />
@@ -213,13 +234,13 @@ export default function OverviewTab({ isAdmin }: Props) {
           </div>
         )}
         {overview?.shopDistribution?.length > 0 && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, flex: "1 1 350px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Doanh thu theo Cửa hàng</h3>
-            <ResponsiveContainer width="100%" height={Math.max(220, overview.shopDistribution.length * 30)}>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">Doanh thu theo Cửa hàng</h3>
+            <ResponsiveContainer width="100%" height={Math.max(220, overview.shopDistribution.length * 28)}>
               <BarChart data={overview.shopDistribution} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" fontSize={11} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} />
-                <YAxis type="category" dataKey="name" fontSize={11} width={150} />
+                <YAxis type="category" dataKey="name" fontSize={11} width={120} />
                 <Tooltip formatter={(v: any) => fmtVND(Number(v))} />
                 <Bar dataKey="revenue" fill="#2563eb" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -228,37 +249,36 @@ export default function OverviewTab({ isAdmin }: Props) {
         )}
       </div>
 
-      {/* Section D: P&L Statement */}
       {pnl && (
-        <div style={{ background: "#fff", borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>📊 KẾT QUẢ KINH DOANH — {pnl.month}</h3>
-            <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-              {[
-                { value: "month", label: "Tháng này" },
-                { value: "quarter", label: "Quý này" },
-                { value: "year", label: "Năm nay" },
-                { value: "custom", label: "Tùy chọn" },
-              ].map(p => (
-                <button key={p.value} onClick={() => setPnlPeriod(p.value)} style={{
-                  padding: "5px 12px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
-                  background: pnlPeriod === p.value ? "#2563eb" : "#fff",
-                  color: pnlPeriod === p.value ? "#fff" : "#64748b",
-                  fontWeight: 600, fontSize: 12, transition: "all 0.2s",
-                }}>{p.label}</button>
-              ))}
+        <div className={panelClass}>
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <h3 className="text-base font-bold text-slate-800">📊 KẾT QUẢ KINH DOANH — {pnl.month}</h3>
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2">
+                {[
+                  { value: "month", label: "Tháng này" },
+                  { value: "quarter", label: "Quý này" },
+                  { value: "year", label: "Năm nay" },
+                  { value: "custom", label: "Tùy chọn" },
+                ].map(p => (
+                  <button key={p.value} onClick={() => setPnlPeriod(p.value)} className={periodButtonClass(pnlPeriod === p.value)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {pnlPeriod === "custom" && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Từ:</label>
-              <input type="date" value={pnlCustomFrom} onChange={e => setPnlCustomFrom(e.target.value)} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 12 }} />
-              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Đến:</label>
-              <input type="date" value={pnlCustomTo} onChange={e => setPnlCustomTo(e.target.value)} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 12 }} />
-              <button onClick={fetchAll} style={{ padding: "5px 12px", borderRadius: 8, background: "#2563eb", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Áp dụng</button>
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[auto,1fr,auto,1fr,auto] xl:items-center">
+              <label className="text-sm font-semibold text-slate-600">Từ</label>
+              <input type="date" value={pnlCustomFrom} onChange={e => setPnlCustomFrom(e.target.value)} style={inputStyle} />
+              <label className="text-sm font-semibold text-slate-600">Đến</label>
+              <input type="date" value={pnlCustomTo} onChange={e => setPnlCustomTo(e.target.value)} style={inputStyle} />
+              <button onClick={refetchAll} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Áp dụng</button>
             </div>
           )}
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="hidden overflow-x-auto md:block">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
               <tr><td colSpan={2} style={{ fontWeight: 700, padding: "10px 0 4px", color: "#2563eb", borderBottom: "1px solid #e2e8f0" }}>DOANH THU (tự động từ đơn hàng)</td></tr>
               <tr><td style={{ padding: "6px 16px" }}>Tổng Phí thu từ Shop</td><td style={{ textAlign: "right" }}>{fmtVND(pnl.revenue.totalFeeFromShop)}</td></tr>
@@ -283,20 +303,38 @@ export default function OverviewTab({ isAdmin }: Props) {
                 <td style={{ textAlign: "right", fontSize: 18, color: pnl.netProfit >= 0 ? "#10b981" : "#ef4444" }}>{fmtVND(pnl.netProfit)} {pnl.netProfit < 0 ? "🔴" : "🟢"}</td>
               </tr>
             </tbody>
-          </table>
+            </table>
+          </div>
+          <div className="space-y-3 md:hidden">
+            {pnlSections.map((section) => (
+              <details key={section.key} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800">
+                  <span>{section.title}</span>
+                  <span className="text-right text-xs font-bold text-slate-600">{section.summary}</span>
+                </summary>
+                <div className="space-y-2 border-t border-slate-200 bg-white px-4 py-3">
+                  {section.rows.map((row) => (
+                    <div key={`${section.key}-${row.label}`} className="flex items-start justify-between gap-3 text-sm">
+                      <span className="text-slate-500">{row.label}</span>
+                      <span className="text-right font-semibold text-slate-800">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Section E: Expense Management */}
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>📝 Quản Lý Khoản Chi</h3>
-          <div style={{ display: "flex", gap: 8 }}>
+      <div className={panelClass}>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-base font-bold text-slate-800">📝 Quản Lý Khoản Chi</h3>
+          <div className="flex flex-col gap-2 sm:flex-row">
             {isAdmin && <button onClick={() => setShowCatDialog(true)} style={btnSec}>⚙ Quản lý danh mục</button>}
             {isAdmin && <button onClick={() => { setEditingExpense(null); setExpForm({ categoryId: "", title: "", amount: "", date: "", note: "" }); setShowExpenseDialog(true); }} style={btnPrimary}>+ Thêm khoản chi</button>}
           </div>
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div className="hidden overflow-x-auto md:block">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
@@ -310,7 +348,7 @@ export default function OverviewTab({ isAdmin }: Props) {
               </tr>
             </thead>
             <tbody>
-              {expenses.map((e, i) => (
+              {expenses.map((e: any, i: number) => (
                 <tr key={e.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                   <td style={{ padding: 8 }}>{i + 1}</td>
                   <td style={{ padding: 8 }}>{new Date(e.date).toLocaleDateString("vi-VN")}</td>
@@ -330,21 +368,74 @@ export default function OverviewTab({ isAdmin }: Props) {
             </tbody>
           </table>
         </div>
+        <div className="space-y-3 md:hidden">
+          {expenseCards.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
+              Chưa có khoản chi nào
+            </div>
+          )}
+          {expenseCards.map((expense: any, index: number) => {
+            const rawExpense = expenses[index];
+            return (
+              <details key={expense.id} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <summary className="flex list-none items-start justify-between gap-3 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-800">{expense.title}</div>
+                    <div className="mt-1 text-xs text-slate-500">{expense.categoryName} • {expense.dateLabel}</div>
+                  </div>
+                  <div className="text-right text-sm font-bold text-slate-800">{expense.amountLabel}</div>
+                </summary>
+                <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">Ghi chú</span>
+                    <span className="text-right text-slate-700">{expense.noteLabel}</span>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingExpense(rawExpense);
+                          setExpForm({
+                            categoryId: rawExpense.categoryId,
+                            title: rawExpense.title,
+                            amount: String(rawExpense.amount),
+                            date: rawExpense.date?.slice(0, 10),
+                            note: rawExpense.note || "",
+                          });
+                          setShowExpenseDialog(true);
+                        }}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => deleteExpense(rawExpense.id)}
+                        className="flex-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </details>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Section F: Monthly Budget */}
       {budgets && (
-        <div style={{ background: "#fff", borderRadius: 12, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+        <div className={panelClass}>
           {budgets.hasAlert && (
             <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#991b1b" }}>
               ⚠️ Có danh mục chi phí đã vượt 90% ngân sách!
             </div>
           )}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>💰 Ngân Sách Hàng Tháng — {budgets.month}</h3>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-base font-bold text-slate-800">💰 Ngân Sách Hàng Tháng — {budgets.month}</h3>
             {isAdmin && <button onClick={() => { const f: Record<string, string> = {}; budgets.budgets?.forEach((b: any) => { f[b.categoryId] = String(b.budgetAmount || 0); }); setBudgetForm(f); setShowBudgetDialog(true); }} style={btnSec}>⚙ Đặt ngân sách</button>}
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div className="hidden overflow-x-auto md:block">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 <th style={{ padding: 10, textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>Danh Mục</th>
@@ -378,7 +469,59 @@ export default function OverviewTab({ isAdmin }: Props) {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
+          <div className="space-y-3 md:hidden">
+            {budgetCards.map((budget: any, index: number) => {
+              const rawBudget = budgets.budgets[index];
+              const toneClass =
+                budget.statusTone === "danger"
+                  ? "text-red-600"
+                  : budget.statusTone === "warning"
+                    ? "text-amber-600"
+                    : "text-emerald-600";
+
+              return (
+                <div key={budget.categoryId} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">{budget.categoryName}</div>
+                      <div className={`mt-1 text-xs font-semibold ${toneClass}`}>{budget.statusLabel}</div>
+                    </div>
+                    <div className="text-right text-sm font-bold text-slate-800">{budget.ratioLabel}</div>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full rounded-full ${
+                        budget.statusTone === "danger"
+                          ? "bg-red-500"
+                          : budget.statusTone === "warning"
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }`}
+                      style={{ width: `${Math.min(rawBudget.ratio, 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-slate-500">Ngân sách</div>
+                      <div className="font-semibold text-slate-800">{budget.budgetLabel}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">Đã chi</div>
+                      <div className="font-semibold text-slate-800">{budget.spentLabel}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-slate-500">Còn lại</div>
+                      <div className={`font-semibold ${rawBudget.remaining >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {budget.remainingLabel}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -388,7 +531,7 @@ export default function OverviewTab({ isAdmin }: Props) {
           <div style={dlgInner} onClick={e => e.stopPropagation()}>
             <h3 style={{ marginBottom: 16 }}>{editingExpense ? "Sửa khoản chi" : "Thêm khoản chi"}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div><label style={labelStyle}>Danh mục *</label><select value={expForm.categoryId} onChange={e => setExpForm({ ...expForm, categoryId: e.target.value })} style={inputStyle}><option value="">Chọn</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div><label style={labelStyle}>Danh mục *</label><select value={expForm.categoryId} onChange={e => setExpForm({ ...expForm, categoryId: e.target.value })} style={inputStyle}><option value="">Chọn</option>{categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               <div><label style={labelStyle}>Tên khoản chi *</label><input value={expForm.title} onChange={e => setExpForm({ ...expForm, title: e.target.value })} style={inputStyle} /></div>
               <div><label style={labelStyle}>Số tiền (VND) *</label><input type="number" value={expForm.amount} onChange={e => setExpForm({ ...expForm, amount: e.target.value })} style={inputStyle} /></div>
               <div><label style={labelStyle}>Ngày *</label><input type="date" value={expForm.date} onChange={e => setExpForm({ ...expForm, date: e.target.value })} style={inputStyle} /></div>
@@ -407,7 +550,7 @@ export default function OverviewTab({ isAdmin }: Props) {
         <div style={dlgStyle} onClick={() => setShowCatDialog(false)}>
           <div style={dlgInner} onClick={e => e.stopPropagation()}>
             <h3 style={{ marginBottom: 16 }}>⚙ Quản lý danh mục</h3>
-            {categories.map(c => (
+            {categories.map((c: any) => (
               <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
                 <span>{c.name} {c.isSystem && <span style={{ fontSize: 10, color: "#94a3b8" }}>(hệ thống)</span>}</span>
                 {!c.isSystem && <button onClick={() => deleteCategory(c.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#ef4444" }}>🗑</button>}
@@ -427,7 +570,7 @@ export default function OverviewTab({ isAdmin }: Props) {
         <div style={dlgStyle} onClick={() => setShowBudgetDialog(false)}>
           <div style={dlgInner} onClick={e => e.stopPropagation()}>
             <h3 style={{ marginBottom: 16 }}>⚙ Đặt ngân sách tháng {budgets?.month}</h3>
-            {categories.map(c => (
+            {categories.map((c: any) => (
               <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <label style={{ flex: 1, fontSize: 13 }}>{c.name}</label>
                 <input type="number" value={budgetForm[c.id] || ""} onChange={e => setBudgetForm({ ...budgetForm, [c.id]: e.target.value })} style={{ ...inputStyle, width: 150 }} placeholder="0" />

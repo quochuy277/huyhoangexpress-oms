@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AlertTriangle, Wrench, DollarSign } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -12,37 +12,34 @@ type TabKey = "claims" | "tools" | "compensation";
 
 interface Props {
   userRole: string;
-  permissionGroupId: string | null;
+  canViewCompensation: boolean;
 }
 
-export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props) {
+export default function ClaimsPageWrapper({ userRole, canViewCompensation }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("claims");
   const [claimCount, setClaimCount] = useState(0);
-  const [canViewFinance, setCanViewFinance] = useState(false);
   const [externalDetailClaimId, setExternalDetailClaimId] = useState<string | null>(null);
+  // Lazy mount: chỉ mount tab khi user mở lần đầu, sau đó giữ mounted để tránh re-fetch
+  const [mountedTabs, setMountedTabs] = useState<Set<TabKey>>(new Set(["claims"]));
 
   const isAdmin = userRole === "ADMIN";
 
-  useEffect(() => {
-    if (userRole === "ADMIN" || userRole === "MANAGER") {
-      setCanViewFinance(true);
-    } else if (permissionGroupId) {
-      fetch("/api/admin/permission-groups")
-        .then(r => r.json())
-        .then(data => {
-          const pg = (data.groups || []).find((g: any) => g.id === permissionGroupId);
-          if (pg?.canViewFinancePage) setCanViewFinance(true);
-        })
-        .catch(() => {});
-    }
-  }, [userRole, permissionGroupId]);
+  const handleTabChange = (key: TabKey) => {
+    setActiveTab(key);
+    setMountedTabs(prev => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  };
 
   // claimCount is now updated via onCountChange callback from ClaimsClient - no separate fetch needed
 
   const tabs = [
     { key: "claims" as TabKey, label: `Đơn có vấn đề (${claimCount})`, icon: <AlertTriangle size={15} />, color: "#dc2626" },
     { key: "tools" as TabKey, label: "Công cụ", icon: <Wrench size={15} />, color: "#2563EB" },
-    ...(canViewFinance ? [{ key: "compensation" as TabKey, label: "Tổng hợp đền bù", icon: <DollarSign size={15} />, color: "#16a34a" }] : []),
+    ...(canViewCompensation ? [{ key: "compensation" as TabKey, label: "Tổng hợp đền bù", icon: <DollarSign size={15} />, color: "#16a34a" }] : []),
   ];
 
   return (
@@ -56,7 +53,7 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
         {tabs.map(t => (
           <button
             key={t.key}
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => handleTabChange(t.key)}
             style={{
               display: "flex", alignItems: "center", gap: "6px",
               padding: "10px 14px", fontSize: "13px",
@@ -74,24 +71,28 @@ export default function ClaimsPageWrapper({ userRole, permissionGroupId }: Props
         ))}
       </div>
 
-      {/* Tab content — use CSS show/hide to prevent re-mount and avoid re-running auto-detect on tab switch */}
+      {/* Tab content — lazy mount lần đầu, sau đó giữ mounted + CSS hide để tránh re-fetch */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <div style={{ display: activeTab === "claims" ? "block" : "none", height: "100%" }}>
-          <ClaimsClient
-            onCountChange={setClaimCount}
-            externalDetailClaimId={externalDetailClaimId}
-            onExternalDetailConsumed={() => setExternalDetailClaimId(null)}
-          />
-        </div>
-        <div style={{ display: activeTab === "tools" ? "block" : "none", height: "100%" }}>
-          <ClaimsToolsTab
-            isAdmin={isAdmin}
-            onOpenClaim={(claimId) => {
-              setExternalDetailClaimId(claimId);
-            }}
-          />
-        </div>
-        {canViewFinance && (
+        {mountedTabs.has("claims") && (
+          <div style={{ display: activeTab === "claims" ? "block" : "none", height: "100%" }}>
+            <ClaimsClient
+              onCountChange={setClaimCount}
+              externalDetailClaimId={externalDetailClaimId}
+              onExternalDetailConsumed={() => setExternalDetailClaimId(null)}
+            />
+          </div>
+        )}
+        {mountedTabs.has("tools") && (
+          <div style={{ display: activeTab === "tools" ? "block" : "none", height: "100%" }}>
+            <ClaimsToolsTab
+              isAdmin={isAdmin}
+              onOpenClaim={(claimId) => {
+                setExternalDetailClaimId(claimId);
+              }}
+            />
+          </div>
+        )}
+        {canViewCompensation && mountedTabs.has("compensation") && (
           <div style={{ display: activeTab === "compensation" ? "block" : "none", height: "100%" }}>
             <ClaimsCompensationTab />
           </div>

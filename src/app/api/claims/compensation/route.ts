@@ -7,16 +7,9 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const user = session.user as any;
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-    if (user.permissionGroupId) {
-      const pg = await prisma.permissionGroup.findUnique({ where: { id: user.permissionGroupId } });
-      if (!pg?.canViewFinancePage) {
-        return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
-      }
-    } else {
-      return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
-    }
+  const user = session.user;
+  if (!user.permissions?.canViewCompensation && !user.permissions?.canViewFinancePage && user.role !== "ADMIN" && user.role !== "MANAGER") {
+    return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
   }
 
   const url = new URL(req.url);

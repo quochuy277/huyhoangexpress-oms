@@ -117,7 +117,7 @@ export function ExcelUpload({ onUploadComplete }: ExcelUploadProps) {
         onDragLeave={handleDragLeave}
         onClick={() => fileInputRef.current?.click()}
         className={`
-          relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
+          relative border-2 border-dashed rounded-xl p-5 sm:p-8 text-center cursor-pointer
           transition-all duration-200
           ${isDragging
             ? "border-blue-500 bg-blue-50 scale-[1.01]"
@@ -220,7 +220,7 @@ export function ExcelUpload({ onUploadComplete }: ExcelUploadProps) {
               <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 font-medium">
                 Chi tiết lỗi ({result.errors.length} dòng) ▸
               </summary>
-              <div className="mt-2 max-h-48 overflow-y-auto border border-slate-200 rounded-lg">
+              <div className="mt-2 max-h-64 sm:max-h-48 overflow-y-auto border border-slate-200 rounded-lg">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 sticky top-0">
                     <tr>

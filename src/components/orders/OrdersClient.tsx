@@ -18,6 +18,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getOrdersToastClassNames } from "@/components/orders/ordersResponsive";
 
 interface OrdersClientProps {
   userRole: string;
@@ -31,7 +32,9 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get("tab") as TabType | null;
-  const [activeTab, setActiveTabState] = useState<TabType>(tabFromUrl === "changes" ? "changes" : "orders");
+  const [activeTab, setActiveTabState] = useState<TabType>(
+    tabFromUrl === "changes" ? "changes" : "orders",
+  );
 
   const setActiveTab = useCallback((tab: TabType) => {
     setActiveTabState(tab);
@@ -43,6 +46,7 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
     }
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [searchParams, pathname, router]);
+
   const [showUpload, setShowUpload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
@@ -52,11 +56,16 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
   const [deleteResult, setDeleteResult] = useState<string | null>(null);
   const [changesToast, setChangesToast] = useState<number | null>(null);
 
+  const deleteToastStyles = getOrdersToastClassNames(
+    deleteResult?.startsWith("✓") ? "success" : "error",
+  );
+  const changesToastStyles = getOrdersToastClassNames("info");
+
   const { data: historyData, isLoading: isLoadingHistory } = useQuery({
     queryKey: ["upload-history", historyPage],
     queryFn: async () => {
       const res = await fetch(
-        `/api/orders/upload-history?page=${historyPage}&pageSize=10`
+        `/api/orders/upload-history?page=${historyPage}&pageSize=10`,
       );
       if (!res.ok) throw new Error("Fetch failed");
       return res.json();
@@ -101,7 +110,6 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
     queryClient.invalidateQueries({ queryKey: ["change-stats"] });
     queryClient.invalidateQueries({ queryKey: ["order-changes"] });
 
-    // Show toast if changes detected
     if (totalChanges && totalChanges > 0) {
       setChangesToast(totalChanges);
       setTimeout(() => setChangesToast(null), 8000);
@@ -109,28 +117,27 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4 flex flex-col h-[calc(100vh-6.5rem)] sm:h-[calc(100vh-8rem)]">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+    <div className="flex h-[calc(100vh-6.5rem)] flex-col space-y-3 sm:h-[calc(100vh-8rem)] sm:space-y-4">
+      <div className="flex shrink-0 flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
+          <h1 className="text-xl font-bold text-slate-800 sm:text-2xl">
             Quản Lý Đơn Hàng
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
             Tìm kiếm, lọc và quản lý toàn bộ đơn hàng
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           {selectedRows.length > 0 && isAdminOrManager && (
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
             >
               {isDeleting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
               )}
               Xóa ({selectedRows.length} đơn)
             </button>
@@ -140,7 +147,7 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
             <div className="flex flex-col items-end gap-1">
               <button
                 onClick={() => setShowUpload(!showUpload)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm ${
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
                   showUpload
                     ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
                     : "bg-blue-600 text-white hover:bg-blue-700"
@@ -148,11 +155,11 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
               >
                 {showUpload ? (
                   <>
-                    <X className="w-4 h-4" /> Đóng
+                    <X className="h-4 w-4" /> Đóng
                   </>
                 ) : (
                   <>
-                    <Upload className="w-4 h-4" /> Tải lên Excel
+                    <Upload className="h-4 w-4" /> Tải lên Excel
                   </>
                 )}
               </button>
@@ -162,84 +169,79 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
                   setHistoryPage(1);
                   setShowHistory(true);
                 }}
-                className="text-[13px] text-slate-500 hover:text-slate-800 hover:underline flex items-center gap-1 mt-1 transition-colors"
+                className="mt-1 flex items-center gap-1 text-[13px] text-slate-500 transition-colors hover:text-slate-800 hover:underline"
               >
-                <History className="w-3.5 h-3.5" /> Lịch sử tải lên
+                <History className="h-3.5 w-3.5" /> Lịch sử tải lên
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Upload panel */}
       {showUpload && !isViewer && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 shrink-0 animate-in fade-in slide-in-from-top-2">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">
+        <div className="shrink-0 animate-in slide-in-from-top-2 fade-in rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">
             Tải lên file đơn hàng
           </h2>
           <ExcelUpload onUploadComplete={handleUploadComplete} />
         </div>
       )}
 
-      {/* Tab navigation */}
-      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg shrink-0 w-fit">
-        <button
-          onClick={() => setActiveTab("orders")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-            activeTab === "orders"
-              ? "bg-white text-slate-800 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          Đơn hàng
-        </button>
-        <button
-          onClick={() => setActiveTab("changes")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-            activeTab === "changes"
-              ? "bg-white text-slate-800 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          Biến động đơn hàng
-        </button>
+      <div className="w-fit shrink-0 overflow-x-auto rounded-lg bg-slate-100 p-1">
+        <div className="flex min-w-max items-center gap-1">
+          <button
+            onClick={() => setActiveTab("orders")}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
+              activeTab === "orders"
+                ? "bg-white text-slate-800 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Package className="h-4 w-4" />
+            Đơn hàng
+          </button>
+          <button
+            onClick={() => setActiveTab("changes")}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
+              activeTab === "changes"
+                ? "bg-white text-slate-800 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Activity className="h-4 w-4" />
+            Biến động đơn hàng
+          </button>
+        </div>
       </div>
 
-      {/* Tab content */}
       {activeTab === "orders" ? (
         <>
-          {/* Filters */}
-          <div className="shrink-0 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <Suspense fallback={null}>
               <OrderFilters hideExport={isViewer} />
             </Suspense>
           </div>
 
-          {/* Table */}
-          <div className="flex-1 min-h-0 relative">
+          <div className="relative min-h-0 flex-1">
             <Suspense
               fallback={
-                <div className="absolute inset-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-pulse">
-                  {/* Table header skeleton */}
-                  <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4">
-                    <div className="h-4 w-8 bg-slate-200 rounded" />
-                    <div className="h-4 w-28 bg-slate-200 rounded" />
-                    <div className="h-4 w-24 bg-slate-200 rounded" />
-                    <div className="h-4 w-32 bg-slate-200 rounded flex-1" />
-                    <div className="h-4 w-20 bg-slate-200 rounded" />
-                    <div className="h-4 w-16 bg-slate-200 rounded" />
+                <div className="absolute inset-0 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-4 border-b border-slate-100 px-4 py-3">
+                    <div className="h-4 w-8 rounded bg-slate-200" />
+                    <div className="h-4 w-28 rounded bg-slate-200" />
+                    <div className="h-4 w-24 rounded bg-slate-200" />
+                    <div className="h-4 w-32 flex-1 rounded bg-slate-200" />
+                    <div className="h-4 w-20 rounded bg-slate-200" />
+                    <div className="h-4 w-16 rounded bg-slate-200" />
                   </div>
-                  {/* Table rows skeleton */}
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="px-4 py-3 border-b border-slate-50 flex items-center gap-4">
-                      <div className="h-3 w-8 bg-slate-100 rounded" />
-                      <div className="h-3 w-28 bg-slate-100 rounded" />
-                      <div className="h-3 w-24 bg-slate-100 rounded" />
-                      <div className="h-3 w-32 bg-slate-100 rounded flex-1" />
-                      <div className="h-5 w-20 bg-slate-100 rounded-full" />
-                      <div className="h-3 w-16 bg-slate-100 rounded" />
+                    <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
+                      <div className="h-3 w-8 rounded bg-slate-100" />
+                      <div className="h-3 w-28 rounded bg-slate-100" />
+                      <div className="h-3 w-24 rounded bg-slate-100" />
+                      <div className="h-3 w-32 flex-1 rounded bg-slate-100" />
+                      <div className="h-5 w-20 rounded-full bg-slate-100" />
+                      <div className="h-3 w-16 rounded bg-slate-100" />
                     </div>
                   ))}
                 </div>
@@ -256,20 +258,20 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
       ) : (
         <Suspense
           fallback={
-            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-pulse">
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                <div className="h-5 w-40 bg-slate-200 rounded" />
+            <div className="flex-1 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div className="h-5 w-40 rounded bg-slate-200" />
                 <div className="flex gap-2">
-                  <div className="h-8 w-20 bg-slate-100 rounded-lg" />
-                  <div className="h-8 w-20 bg-slate-100 rounded-lg" />
+                  <div className="h-8 w-20 rounded-lg bg-slate-100" />
+                  <div className="h-8 w-20 rounded-lg bg-slate-100" />
                 </div>
               </div>
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="px-4 py-3 border-b border-slate-50 flex items-center gap-4">
-                  <div className="h-3 w-24 bg-slate-100 rounded" />
-                  <div className="h-3 w-32 bg-slate-100 rounded flex-1" />
-                  <div className="h-5 w-20 bg-slate-100 rounded-full" />
-                  <div className="h-3 w-20 bg-slate-100 rounded" />
+                <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
+                  <div className="h-3 w-24 rounded bg-slate-100" />
+                  <div className="h-3 w-32 flex-1 rounded bg-slate-100" />
+                  <div className="h-5 w-20 rounded-full bg-slate-100" />
+                  <div className="h-3 w-20 rounded bg-slate-100" />
                 </div>
               ))}
             </div>
@@ -279,7 +281,6 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
         </Suspense>
       )}
 
-      {/* Upload History Dialog */}
       <UploadHistoryDialog
         open={showHistory}
         onOpenChange={setShowHistory}
@@ -290,88 +291,42 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
         onPageChange={setHistoryPage}
       />
 
-      {/* Delete Toast */}
       {deleteResult && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            zIndex: 9999,
-            background: deleteResult.startsWith("✓") ? "#ecfdf5" : "#fef2f2",
-            border: `1.5px solid ${
-              deleteResult.startsWith("✓") ? "#10b981" : "#ef4444"
-            }`,
-            borderRadius: "10px",
-            padding: "12px 20px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            color: deleteResult.startsWith("✓") ? "#065f46" : "#991b1b",
-            fontSize: "13px",
-            fontWeight: 600,
-          }}
-        >
-          {deleteResult}
+        <div className={deleteToastStyles.container}>
+          <div className={deleteToastStyles.text}>{deleteResult}</div>
         </div>
       )}
 
-      {/* Changes Toast */}
       {changesToast !== null && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            zIndex: 9999,
-            background: "#eff6ff",
-            border: "1.5px solid #3b82f6",
-            borderRadius: "10px",
-            padding: "12px 20px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            color: "#1e40af",
-            fontSize: "13px",
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
-          <Activity style={{ width: 16, height: 16 }} />
-          <span>
-            Phát hiện {changesToast.toLocaleString("vi-VN")} thay đổi mới
-          </span>
-          <button
-            onClick={() => {
-              setChangesToast(null);
-              setActiveTab("changes");
-            }}
-            style={{
-              marginLeft: 8,
-              padding: "4px 12px",
-              background: "#3b82f6",
-              color: "white",
-              borderRadius: "6px",
-              fontSize: "12px",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Xem biến động
-          </button>
-          <button
-            onClick={() => setChangesToast(null)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "2px",
-            }}
-          >
-            <X style={{ width: 14, height: 14, color: "#93c5fd" }} />
-          </button>
+        <div className={changesToastStyles.container}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <Activity className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+              <span className={changesToastStyles.text}>
+                Phát hiện {changesToast.toLocaleString("vi-VN")} thay đổi mới
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 sm:justify-start">
+              <button
+                onClick={() => {
+                  setChangesToast(null);
+                  setActiveTab("changes");
+                }}
+                className={changesToastStyles.actionButton}
+              >
+                Xem biến động
+              </button>
+              <button
+                onClick={() => setChangesToast(null)}
+                className={changesToastStyles.dismissButton}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
       <DeleteOrdersDialog
         open={showDeleteDialog}
         selectedCodes={selectedRows}

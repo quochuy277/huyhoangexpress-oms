@@ -56,14 +56,14 @@ export async function GET(req: NextRequest) {
     const clDateWhere: Prisma.ClaimChangeLogWhereInput = {};
     if (dateFrom) {
       const from = new Date(dateFrom);
-      dateWhere.changedAt = { ...dateWhere.changedAt as any, gte: from };
-      clDateWhere.changedAt = { ...clDateWhere.changedAt as any, gte: from };
+      (dateWhere.changedAt as Prisma.DateTimeFilter) = { ...(dateWhere.changedAt as Prisma.DateTimeFilter), gte: from };
+      (clDateWhere.changedAt as Prisma.DateTimeFilter) = { ...(clDateWhere.changedAt as Prisma.DateTimeFilter), gte: from };
     }
     if (dateTo) {
       const toDate = new Date(dateTo);
       toDate.setHours(23, 59, 59, 999);
-      dateWhere.changedAt = { ...dateWhere.changedAt as any, lte: toDate };
-      clDateWhere.changedAt = { ...clDateWhere.changedAt as any, lte: toDate };
+      (dateWhere.changedAt as Prisma.DateTimeFilter) = { ...(dateWhere.changedAt as Prisma.DateTimeFilter), lte: toDate };
+      (clDateWhere.changedAt as Prisma.DateTimeFilter) = { ...(clDateWhere.changedAt as Prisma.DateTimeFilter), lte: toDate };
     }
 
     // Build staff filter at DB level
@@ -107,48 +107,24 @@ export async function GET(req: NextRequest) {
       order: { select: { requestCode: true } },
     };
 
-    // Count + fetch in parallel, using skip/take for true DB pagination
-    // We need to merge two sources, so we use a strategy:
-    // 1. Count both sources
-    // 2. Fetch both with generous limit, merge, sort, then paginate in memory
-    //    BUT with DB-level filters already applied, the dataset is much smaller
-
-    const MAX_FETCH = pageSize * page; // Only fetch what we need up to current page
-
-    const promises: Promise<any>[] = [];
+    // Step 1: Count both sources + fetch staff names in parallel
+    const countPromises: Promise<any>[] = [];
 
     if (includeStatusHistory) {
-      promises.push(
-        prisma.claimStatusHistory.findMany({
-          where: dateWhere,
-          include: { claimOrder: { select: claimOrderSelect } },
-          orderBy: { changedAt: "desc" },
-          take: MAX_FETCH,
-        }),
-        prisma.claimStatusHistory.count({ where: dateWhere }),
-      );
+      countPromises.push(prisma.claimStatusHistory.count({ where: dateWhere }));
     } else {
-      promises.push(Promise.resolve([]), Promise.resolve(0));
+      countPromises.push(Promise.resolve(0));
     }
 
     if (includeChangeLogs) {
-      promises.push(
-        prisma.claimChangeLog.findMany({
-          where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
-          include: { claimOrder: { select: claimOrderSelect } },
-          orderBy: { changedAt: "desc" },
-          take: MAX_FETCH,
-        }),
-        prisma.claimChangeLog.count({
-          where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
-        }),
-      );
+      countPromises.push(prisma.claimChangeLog.count({
+        where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
+      }));
     } else {
-      promises.push(Promise.resolve([]), Promise.resolve(0));
+      countPromises.push(Promise.resolve(0));
     }
 
-    // Fetch staff names in parallel (only distinct changedBy)
-    promises.push(
+    countPromises.push(
       prisma.claimStatusHistory.findMany({
         select: { changedBy: true },
         distinct: ["changedBy"],
@@ -156,7 +132,49 @@ export async function GET(req: NextRequest) {
       }),
     );
 
-    const [statusHistories, statusCount, changeLogs, changeLogCount, staffList] = await Promise.all(promises);
+    const [statusCount, changeLogCount, staffList] = await Promise.all(countPromises);
+
+    // Step 2: Calculate skip estimates per source based on ratio
+    const dbTotal = statusCount + changeLogCount;
+    const skipTotal = (page - 1) * pageSize;
+    const statusRatio = dbTotal > 0 ? statusCount / dbTotal : 0.5;
+    // Fetch pageSize * 2 from each source to handle interleaving, with proportional skip
+    const TAKE_PER_SOURCE = pageSize * 2;
+    const statusSkip = Math.max(0, Math.floor(skipTotal * statusRatio) - pageSize);
+    const clSkip = Math.max(0, Math.floor(skipTotal * (1 - statusRatio)) - pageSize);
+
+    // Step 3: Fetch data with bounded skip/take
+    const dataPromises: Promise<any>[] = [];
+
+    if (includeStatusHistory && statusCount > 0) {
+      dataPromises.push(
+        prisma.claimStatusHistory.findMany({
+          where: dateWhere,
+          include: { claimOrder: { select: claimOrderSelect } },
+          orderBy: { changedAt: "desc" },
+          skip: statusSkip,
+          take: TAKE_PER_SOURCE,
+        }),
+      );
+    } else {
+      dataPromises.push(Promise.resolve([]));
+    }
+
+    if (includeChangeLogs && changeLogCount > 0) {
+      dataPromises.push(
+        prisma.claimChangeLog.findMany({
+          where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
+          include: { claimOrder: { select: claimOrderSelect } },
+          orderBy: { changedAt: "desc" },
+          skip: clSkip,
+          take: TAKE_PER_SOURCE,
+        }),
+      );
+    } else {
+      dataPromises.push(Promise.resolve([]));
+    }
+
+    const [statusHistories, changeLogs] = await Promise.all(dataPromises);
 
     // Transform into unified activities
     type Activity = {
@@ -210,10 +228,10 @@ export async function GET(req: NextRequest) {
     // Sort merged results by timestamp descending
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    // Paginate the merged result
-    const total = activities.length;
+    // Paginate using DB total for accurate page count
+    const total = dbTotal;
     const totalPages = Math.ceil(total / pageSize);
-    const paged = activities.slice((page - 1) * pageSize, page * pageSize);
+    const paged = activities.slice(0, pageSize);
 
     // Staff names from distinct query
     const staffNames = (staffList || [])
@@ -223,7 +241,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       activities: paged,
       staffNames,
-      pagination: { page, pageSize, total, totalPages, dbTotal: statusCount + changeLogCount },
+      pagination: { page, pageSize, total, totalPages },
     });
   } catch (e) {
     console.error("History error:", e);

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         fileName: file.name,
         fileSize: file.size,
         filePath: `/uploads/documents/${uniqueName}`,
-        uploadedBy: (session.user as any).name || "Admin",
+        uploadedBy: session.user.name || "Admin",
       },
     });
 

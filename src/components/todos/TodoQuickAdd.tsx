@@ -25,7 +25,7 @@ export function TodoQuickAdd({ onAdd }: TodoQuickAddProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 border-[1.5px] border-gray-200 rounded-[10px] bg-white transition-colors focus-within:border-blue-300">
+    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-[1.5px] border-gray-200 rounded-[10px] bg-white transition-colors focus-within:border-blue-300">
       <span className="text-base shrink-0">📝</span>
       <input
         value={title}
@@ -40,7 +40,7 @@ export function TodoQuickAdd({ onAdd }: TodoQuickAddProps) {
             key={p}
             onClick={() => setPriority(p)}
             title={PRIORITY_CONFIG[p].label}
-            className="w-3.5 h-3.5 rounded-full cursor-pointer transition-all border-[1.5px]"
+            className="w-7 h-7 rounded-full cursor-pointer transition-all border-2"
             style={{
               borderColor: priority === p ? PRIORITY_CONFIG[p].dot : "#d1d5db",
               background: priority === p ? PRIORITY_CONFIG[p].dot : "transparent",

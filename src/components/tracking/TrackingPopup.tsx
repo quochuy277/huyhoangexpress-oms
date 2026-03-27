@@ -60,7 +60,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
             alignItems: "center",
             justifyContent: "space-between",
             borderBottom: "1px solid #e5e7eb",
-            padding: "14px 20px",
+            padding: "14px 16px",
             flexShrink: 0,
           }}
         >
@@ -118,7 +118,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "20px",
+            padding: "16px",
           }}
         >
           <TrackingTimeline
@@ -135,7 +135,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
             justifyContent: "flex-end",
             gap: "10px",
             borderTop: "1px solid #e5e7eb",
-            padding: "12px 20px",
+            padding: "12px 16px",
             flexShrink: 0,
           }}
         >
@@ -145,7 +145,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              padding: "7px 14px",
+              padding: "9px 14px",
               border: "1.5px solid #93c5fd",
               borderRadius: "8px",
               background: "#eff6ff",
@@ -161,7 +161,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
           <button
             onClick={onClose}
             style={{
-              padding: "7px 14px",
+              padding: "9px 14px",
               border: "1px solid #d1d5db",
               borderRadius: "8px",
               background: "#fff",

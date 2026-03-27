@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart } from "recharts";
+import { buildCashbookTransactionSummary, buildShopPayoutSummary } from "./financeResponsive";
 
 const PERIODS = [
   { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
@@ -68,34 +69,40 @@ export default function CashbookTab() {
     background: "#fff", borderRadius: 12, padding: "16px 20px", borderLeft: `4px solid ${color}`,
     boxShadow: "0 1px 3px rgba(0,0,0,0.08)", flex: "1 1 200px",
   });
+  const panelClass = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
+  const toggleButtonClass = (active: boolean) =>
+    `whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
+      active
+        ? "border-blue-200 bg-blue-600 text-white"
+        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800"
+    }`;
 
   const s = summary?.summary;
   const lastUpload = uploads[0];
 
   return (
-    <div>
-      {/* Period Filter */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-        {PERIODS.map(p => (
-          <button key={p.value} onClick={() => setPeriod(p.value)} style={{
-            padding: "6px 14px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
-            background: period === p.value ? "#2563eb" : "#fff", color: period === p.value ? "#fff" : "#64748b", fontWeight: 600, fontSize: 13,
-          }}>{p.label}</button>
-        ))}
+    <div className="space-y-5 sm:space-y-6">
+      <div className="overflow-x-auto pb-1">
+        <div className="flex min-w-max gap-2">
+          {PERIODS.map(p => (
+            <button key={p.value} onClick={() => setPeriod(p.value)} className={toggleButtonClass(period === p.value)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
       {period === "custom" && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center" }}>
-          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Từ:</label>
-          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
-          <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Đến:</label>
-          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+        <div className={`${panelClass} grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[auto,1fr,auto,1fr] xl:items-center`}>
+          <label className="text-sm font-semibold text-slate-600">Từ</label>
+          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <label className="text-sm font-semibold text-slate-600">Đến</label>
+          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
         </div>
       )}
 
-      {/* Section A: Upload Area */}
-      <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, border: "2px dashed #d1d5db", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>📤 Tải lên file Công nợ</h3>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 shadow-sm sm:p-5">
+        <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📤 Tải lên file Công nợ</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label style={{ padding: "8px 16px", background: "#2563eb", color: "#fff", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
             {uploading ? "⏳ Đang xử lý..." : "Chọn file Excel (.xlsx)"}
             <input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
@@ -119,7 +126,8 @@ export default function CashbookTab() {
         {uploads.length > 1 && (
           <details style={{ marginTop: 12 }}>
             <summary style={{ fontSize: 13, cursor: "pointer", color: "#2563eb" }}>📋 Lịch sử upload ({uploads.length})</summary>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 8 }}>
+            <div className="hidden md:block">
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 8 }}>
               <thead><tr style={{ background: "#f8fafc" }}>
                 <th style={{ padding: 6, textAlign: "left" }}>Ngày</th><th style={{ padding: 6, textAlign: "left" }}>File</th>
                 <th style={{ padding: 6, textAlign: "right" }}>Mới</th><th style={{ padding: 6, textAlign: "right" }}>Trùng</th>
@@ -137,14 +145,27 @@ export default function CashbookTab() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
+            <div className="mt-3 space-y-3 md:hidden">
+              {uploads.map((upload) => (
+                <div key={upload.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <div className="font-semibold text-slate-800">{upload.fileName}</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-500">
+                    <div>Ngày: {new Date(upload.uploadedAt).toLocaleDateString("vi-VN")}</div>
+                    <div>Người upload: {upload.uploadedBy}</div>
+                    <div>Mới: {upload.newRows}</div>
+                    <div>Trùng: {upload.duplicateRows}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </details>
         )}
       </div>
 
-      {/* Section B: Summary Cards */}
       {s && (
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div style={cardStyle("#10b981")}><div style={{ fontSize: 12, color: "#64748b" }}>COD Nhận Về</div><div style={{ fontSize: 22, fontWeight: 700, color: "#10b981" }}>{fmtVND(s.codTotal)}</div><div style={{ fontSize: 11, color: "#94a3b8" }}>{s.codCount} đợt</div></div>
           <div style={cardStyle("#ef4444")}><div style={{ fontSize: 12, color: "#64748b" }}>Đã Trả Shop</div><div style={{ fontSize: 22, fontWeight: 700, color: "#ef4444" }}>{fmtVND(Math.abs(s.shopPayoutTotal))}</div><div style={{ fontSize: 11, color: "#94a3b8" }}>{s.shopPayoutCount} lần</div></div>
           <div style={cardStyle("#2563eb")}><div style={{ fontSize: 12, color: "#64748b" }}>Nạp Tiền</div><div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{fmtVND(s.topUpTotal)}</div><div style={{ fontSize: 11, color: "#94a3b8" }}>{s.topUpCount} lần</div></div>
@@ -152,10 +173,8 @@ export default function CashbookTab() {
         </div>
       )}
 
-      {/* Section C: Transaction Table */}
-      <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>📋 Chi tiết giao dịch</h3>
-        {/* Filters */}
+      <div className={panelClass}>
+        <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📋 Chi tiết giao dịch</h3>
         <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
           {Object.entries(GROUP_LABELS).map(([key, { label, color }]) => (
             <button key={key} onClick={() => toggleGroup(key)} style={{
@@ -166,7 +185,7 @@ export default function CashbookTab() {
           <input placeholder="🔍 Tìm mã phiếu, nội dung..." value={search} onChange={e => { setSearch(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
             style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, flex: "1 1 200px" }} />
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div className="hidden overflow-x-auto md:block">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ background: "#f8fafc" }}>
               <th style={{ padding: 8, textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>#</th>
@@ -196,10 +215,46 @@ export default function CashbookTab() {
             </tbody>
           </table>
         </div>
-        {/* Pagination */}
+        <div className="space-y-3 md:hidden">
+          {transactions.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
+              Chưa có giao dịch
+            </div>
+          )}
+          {transactions.map((transaction) => {
+            const summary = buildCashbookTransactionSummary(transaction);
+            return (
+              <div key={transaction.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-800">{summary.receiptCode}</div>
+                    <div className="mt-1 text-xs text-slate-500">{summary.timeLabel}</div>
+                  </div>
+                  <div className={`text-right text-sm font-bold ${transaction.amount >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {summary.amountLabel}
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div className="col-span-2">
+                    <div className="text-xs text-slate-500">Nội dung</div>
+                    <div className="font-semibold text-slate-800">{summary.content}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">Nhóm</div>
+                    <div className="font-semibold text-slate-800">{summary.groupLabel}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">Tồn</div>
+                    <div className="font-semibold text-slate-800">{summary.balanceLabel}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
         {pagination.pages > 1 && (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 13 }}>
-            <span style={{ color: "#64748b" }}>Trang {pagination.page}/{pagination.pages} ({pagination.total} giao dịch)</span>
+          <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <span>Trang {pagination.page}/{pagination.pages} ({pagination.total} giao dịch)</span>
             <div style={{ display: "flex", gap: 4 }}>
               <button disabled={pagination.page <= 1} onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #e2e8f0", cursor: "pointer" }}>‹</button>
               <button disabled={pagination.page >= pagination.pages} onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #e2e8f0", cursor: "pointer" }}>›</button>
@@ -211,12 +266,11 @@ export default function CashbookTab() {
         )}
       </div>
 
-      {/* Section D: Charts */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {summary?.dailyChart?.length > 0 && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, flex: "1 1 450px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>📊 Dòng tiền theo ngày</h3>
-            <ResponsiveContainer width="100%" height={250}>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📊 Dòng tiền theo ngày</h3>
+            <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={summary.dailyChart}>
                 <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" fontSize={11} /><YAxis fontSize={11} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} />
                 <Tooltip formatter={(v: any) => fmtVND(Number(v))} /><Legend />
@@ -228,9 +282,9 @@ export default function CashbookTab() {
           </div>
         )}
         {summary?.groupDistribution?.length > 0 && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, flex: "1 1 300px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>📊 Phân bố giao dịch theo nhóm</h3>
-            <ResponsiveContainer width="100%" height={250}>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📊 Phân bố giao dịch theo nhóm</h3>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={summary.groupDistribution} dataKey="amount" nameKey="group" cx="50%" cy="50%" outerRadius={80}
                   label={({ group, percent }: any) => `${GROUP_LABELS[group]?.label || group} ${(percent * 100).toFixed(0)}%`}>
@@ -243,11 +297,11 @@ export default function CashbookTab() {
         )}
       </div>
 
-      {/* Section E: Shop Payout Summary */}
       {summary?.shopPayoutSummary?.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>💳 Tổng hợp trả tiền Shop</h3>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className={panelClass}>
+          <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">💳 Tổng hợp trả tiền Shop</h3>
+          <div className="hidden overflow-x-auto md:block">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ background: "#f8fafc" }}>
               <th style={{ padding: 8, textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>#</th>
               <th style={{ padding: 8, textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>Cửa Hàng</th>
@@ -268,7 +322,35 @@ export default function CashbookTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
+          <div className="space-y-3 md:hidden">
+            {summary.shopPayoutSummary.map((item: any) => {
+              const payout = buildShopPayoutSummary(item);
+              return (
+                <div key={item.shop} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-800">{payout.title}</div>
+                    <div className="text-right text-sm font-bold text-slate-800">{payout.totalLabel}</div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-slate-500">Số lần ĐS</div>
+                      <div className="font-semibold text-slate-800">{payout.countLabel}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-500">Phí CK</div>
+                      <div className="font-semibold text-slate-800">{payout.feeLabel}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-slate-500">Lần gần nhất</div>
+                      <div className="font-semibold text-slate-800">{payout.lastDateLabel}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -63,7 +63,7 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const actionBtnStyle = (border: string, bg: string, bgHover: string, color: string): React.CSSProperties => ({
-  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
+  display: "flex", alignItems: "center", gap: "5px", padding: "8px 14px",
   borderRadius: "8px", border: `1.5px solid ${border}`, background: bg,
   color, fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
 });
@@ -289,7 +289,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }} className="resp-pad-mobile">
           {loading && (
             <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>
               <Loader2 className="animate-spin inline" size={24} />
@@ -332,7 +332,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
                       <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 14px" }} className="resp-grid-1-2">
                         {section.fields.map((f) => (
                           <div key={f.label}>
-                            <div style={{ fontSize: "10px", color: "#94a3b8" }}>{f.label}</div>
+                            <div style={{ fontSize: "11px", color: "#94a3b8" }}>{f.label}</div>
                             <div style={{
                               fontSize: "12px", marginTop: "1px",
                               fontWeight: f.highlight ? 700 : 500,
@@ -408,7 +408,15 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         onClose={() => setShowTracking(false)}
       />
 
-      <style>{`@keyframes orderDetailPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
+      <style>{`
+        @keyframes orderDetailPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }
+        @media (max-width: 640px) {
+          .resp-grid-1-2 { grid-template-columns: 1fr !important; }
+          .resp-hide-mobile { display: none !important; }
+          .resp-pad-mobile { padding: 12px !important; }
+          .resp-gap-mobile { gap: 6px !important; }
+        }
+      `}</style>
     </>,
     document.body
   );
@@ -417,7 +425,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
 function NoteBlock({ label, value, bg }: { label: string; value: string | null; bg: string }) {
   return (
     <div>
-      <div style={{ fontSize: "10px", color: "#94a3b8", marginBottom: "4px" }}>{label}</div>
+      <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>{label}</div>
       <div style={{
         fontSize: "12px", color: "#475569", whiteSpace: "pre-wrap",
         background: bg, padding: "8px 10px", borderRadius: "6px", minHeight: "32px",

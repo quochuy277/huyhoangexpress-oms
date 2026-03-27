@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, Trash2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 import { format } from "date-fns";
 import { PRIORITY_CONFIG, STATUS_CONFIG, SOURCE_CONFIG } from "./constants";
 import type { TodoItemData, TodoPagination } from "@/types/todo";
@@ -42,12 +42,14 @@ export function TodoListView({
             return (
               <div key={t.id} className={`px-4 py-3 ${isDone ? "opacity-50" : ""}`}>
                 <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isDone}
-                    onChange={() => onToggleComplete(t.id)}
-                    className="mt-1 w-4 h-4 accent-blue-600 cursor-pointer shrink-0"
-                  />
+                  <div className="flex items-center justify-center w-10 h-10 -m-2 shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isDone}
+                      onChange={() => onToggleComplete(t.id)}
+                      className="w-[18px] h-[18px] accent-blue-600 cursor-pointer"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div
                       onClick={() => onSelect(t)}
@@ -56,30 +58,41 @@ export function TodoListView({
                       {t.title}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[t.priority]?.twBg || ""}`}>
+                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[t.priority]?.twBg || ""}`}>
                         {PRIORITY_CONFIG[t.priority]?.label}
                       </span>
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[t.status]?.twBg || ""}`}>
+                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[t.status]?.twBg || ""}`}>
                         {STATUS_CONFIG[t.status]?.label}
                       </span>
                       {t.source !== "MANUAL" && (
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}>
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}>
                           {SOURCE_CONFIG[t.source]?.label}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between mt-2 text-[11px] text-gray-500">
-                      <div className="flex items-center gap-2">
+                    {/* Admin assigned indicator */}
+                    {t.createdBy && t.assignee && t.createdById !== t.assigneeId && (
+                      <div className="flex items-center gap-1 mt-1.5 text-[11px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 w-fit">
+                        <UserCheck size={10} />
+                        <span className="font-medium">Giao bởi {t.createdBy.name}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {t.dueDate && (
                           <span className={`font-medium ${overdue ? "text-red-600" : today ? "text-amber-600" : ""}`}>
                             ⏰ {format(new Date(t.dueDate), "dd/MM HH:mm")}
                           </span>
                         )}
+                        <span className="text-gray-400">Tạo: {format(new Date(t.createdAt), "dd/MM HH:mm")}</span>
+                        {t.completedAt && (
+                          <span className="text-green-600">✓ {format(new Date(t.completedAt), "dd/MM HH:mm")}</span>
+                        )}
                         {t.assignee?.name && <span>{t.assignee.name}</span>}
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => onSelect(t)} className="p-1.5 rounded-md border border-gray-200 bg-white text-gray-500"><Pencil size={12} /></button>
-                        <button onClick={() => onDelete(t.id)} className="p-1.5 rounded-md border border-red-200 bg-white text-red-600"><Trash2 size={12} /></button>
+                        <button onClick={() => onSelect(t)} className="p-2.5 rounded-md border border-gray-200 bg-white text-gray-500"><Pencil size={16} /></button>
+                        <button onClick={() => onDelete(t.id)} className="p-2.5 rounded-md border border-red-200 bg-white text-red-600"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   </div>
@@ -101,6 +114,8 @@ export function TodoListView({
               <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[90px]">Ưu Tiên</th>
               <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[110px]">Trạng Thái</th>
               <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[100px]">Thời Hạn</th>
+              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[110px]">Ngày Tạo</th>
+              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[110px]">Hoàn Thành</th>
               <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[100px]">Người PT</th>
               <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[80px]">Nguồn</th>
               <th className="px-2.5 py-2 w-[70px]"></th>
@@ -109,7 +124,7 @@ export function TodoListView({
           <tbody>
             {todos.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-10 text-gray-400">
+                <td colSpan={11} className="text-center py-10 text-gray-400">
                   Chưa có công việc nào
                 </td>
               </tr>
@@ -175,10 +190,26 @@ export function TodoListView({
                       </select>
                     </td>
                     <td className={`px-2.5 py-2 ${overdue ? "text-red-600 font-semibold" : today ? "text-amber-600 font-semibold" : "text-slate-600"}`}>
-                      {t.dueDate ? format(new Date(t.dueDate), "dd/MM/yyyy") : <span className="text-gray-300">—</span>}
+                      {t.dueDate ? format(new Date(t.dueDate), "dd/MM/yyyy HH:mm") : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-2.5 py-2 font-medium text-slate-800 truncate max-w-[100px]">
-                      {t.assignee?.name || "—"}
+                    <td className="px-2.5 py-2 text-slate-500">
+                      {format(new Date(t.createdAt), "dd/MM/yyyy HH:mm")}
+                    </td>
+                    <td className="px-2.5 py-2">
+                      {t.completedAt ? (
+                        <span className="text-green-600 font-medium">{format(new Date(t.completedAt), "dd/MM/yyyy HH:mm")}</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-2.5 py-2 font-medium text-slate-800 max-w-[100px]">
+                      <div className="truncate">{t.assignee?.name || "—"}</div>
+                      {t.createdBy && t.assignee && t.createdById !== t.assigneeId && (
+                        <div className="flex items-center gap-0.5 text-[11px] text-purple-600 mt-0.5" title={`Giao bởi ${t.createdBy.name}`}>
+                          <UserCheck size={10} />
+                          <span className="truncate">Giao bởi {t.createdBy.name}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-2.5 py-2">
                       <span
@@ -221,9 +252,9 @@ export function TodoListView({
             <button
               disabled={pagination.page <= 1}
               onClick={() => onPageChange(pagination.page - 1)}
-              className="p-1.5 rounded-md border border-gray-200 bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-md border border-gray-200 bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={16} />
             </button>
             <span className="font-semibold tabular-nums">
               {pagination.page}/{pagination.totalPages}
@@ -231,9 +262,9 @@ export function TodoListView({
             <button
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => onPageChange(pagination.page + 1)}
-              className="p-1.5 rounded-md border border-gray-200 bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-md border border-gray-200 bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>

@@ -17,7 +17,7 @@ const cards = [
 
 export function TodoSummaryCards({ stats, onClickOverdue }: TodoSummaryCardsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
       {cards.map((c) => {
         const Icon = c.icon;
         const value = stats?.[c.key] ?? 0;
@@ -34,7 +34,7 @@ export function TodoSummaryCards({ stats, onClickOverdue }: TodoSummaryCardsProp
               <span className={`text-xl sm:text-2xl font-extrabold ${c.color}`}>{value}</span>
               <Icon size={16} className={`${c.color} opacity-50 hidden sm:block`} />
             </div>
-            <div className="text-[10px] sm:text-[11px] font-semibold text-gray-500 leading-tight">{c.label}</div>
+            <div className="text-[11px] sm:text-xs font-semibold text-gray-500 leading-tight">{c.label}</div>
           </button>
         );
       })}

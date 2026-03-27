@@ -142,7 +142,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
             <select
               value={scope}
               onChange={(e) => { setScope(e.target.value as "mine" | "all"); setPage(1); }}
-              className="px-2.5 py-[7px] border border-gray-300 rounded-lg text-[13px] font-semibold outline-none bg-white cursor-pointer focus:border-blue-400 transition-colors"
+              className="px-2.5 py-2 border border-gray-300 rounded-lg text-[13px] font-semibold outline-none bg-white cursor-pointer focus:border-blue-400 transition-colors"
             >
               <option value="mine">Của tôi</option>
               <option value="all">Tất cả</option>
@@ -153,7 +153,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
           <div className="flex border-[1.5px] border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => setView("list")}
-              className={`px-3 py-1.5 border-none cursor-pointer text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`px-3 sm:px-3 py-2 sm:py-1.5 border-none cursor-pointer text-xs font-semibold flex items-center gap-1 transition-colors ${
                 view === "list" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
               }`}
             >
@@ -161,7 +161,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
             </button>
             <button
               onClick={() => setView("kanban")}
-              className={`px-3 py-1.5 border-none border-l border-gray-200 cursor-pointer text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`px-3 sm:px-3 py-2 sm:py-1.5 border-none border-l border-gray-200 cursor-pointer text-xs font-semibold flex items-center gap-1 transition-colors ${
                 view === "kanban" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
               }`}
             >
@@ -171,7 +171,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
 
           <button
             onClick={() => setShowNewDialog(true)}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-[7px] rounded-lg border-none bg-blue-600 text-white text-[13px] font-semibold cursor-pointer hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg border-none bg-blue-600 text-white text-[13px] font-semibold cursor-pointer hover:bg-blue-700 transition-colors"
           >
             <Plus size={15} /> <span className="hidden sm:inline">Thêm mới</span>
           </button>

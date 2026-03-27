@@ -106,10 +106,11 @@ export function AddTodoDialog({
       {/* Backdrop */}
       <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClose} />
 
-      {/* Dialog */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-[480px] max-w-[calc(100vw-32px)] bg-white border-[1.5px] border-blue-600 rounded-xl shadow-xl p-5 sm:p-6 animate-[dialogIn_0.2s_ease-out]">
+      {/* Dialog wrapper - flexbox centering */}
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+        <div className="w-[480px] max-w-full max-h-[calc(100vh-32px)] bg-white border-[1.5px] border-blue-600 rounded-xl shadow-xl flex flex-col pointer-events-auto animate-[dialogIn_0.2s_ease-out]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-5">
+        <div className="flex items-center justify-between border-b border-gray-200 p-5 sm:p-6 pb-4 shrink-0">
           <div className="flex items-center gap-2">
             <CheckSquare className="text-blue-600" size={20} />
             <span className="text-lg font-semibold text-slate-800">Thêm vào Công Việc</span>
@@ -122,8 +123,8 @@ export function AddTodoDialog({
           </button>
         </div>
 
-        {/* Form */}
-        <div className="flex flex-col gap-4">
+        {/* Form - scrollable */}
+        <div className="flex flex-col gap-4 overflow-y-auto flex-1 px-5 sm:px-6">
           {/* Title */}
           <div>
             <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">
@@ -170,7 +171,7 @@ export function AddTodoDialog({
             <div>
               <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Thời hạn</label>
               <input
-                type="date"
+                type="datetime-local"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 className={inputClass}
@@ -208,7 +209,7 @@ export function AddTodoDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 mt-6 border-t border-gray-200 pt-4">
+        <div className="flex justify-end gap-3 border-t border-gray-200 p-5 sm:p-6 pt-4 shrink-0">
           <button
             onClick={onClose}
             className="bg-transparent border border-gray-300 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors"
@@ -224,8 +225,9 @@ export function AddTodoDialog({
             {isSubmitting ? "Đang tạo..." : "Tạo công việc"}
           </button>
         </div>
+        </div>
       </div>
-      <style>{`@keyframes dialogIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
+      <style>{`@keyframes dialogIn { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }`}</style>
     </>
   );
 

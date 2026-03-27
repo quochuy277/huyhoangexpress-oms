@@ -30,7 +30,19 @@
       "Bash(cat 'D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\layout.tsx')",
       "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(auth\\\\\\)/)",
       "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(landing\\\\\\)/)",
-      "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(auth\\\\\\)/login/)"
+      "Bash(ls e:/AAA_CODE/Order_Manager/src/app/\\\\\\(auth\\\\\\)/login/)",
+      "Bash(find \"/d/OneDrive/Documents/CODE/DU AN PHAN MEM CARE DON/Order_manager/src/components\" -name \"*.tsx\" -exec grep -l \"const.*=.*useQuery\\\\|const.*=.*useCallback\\\\|const.*=.*useMemo\" {})",
+      "Bash(ls -d \"D:/OneDrive/Documents/CODE/DU AN PHAN MEM CARE DON/Order_manager/src/app/\\(dashboard\\)\"/*/)",
+      "Bash(2)",
+      "Bash(find \"/d/OneDrive/Documents/CODE/DU AN PHAN MEM CARE DON/Order_manager/src/app/\\(dashboard\\)\" -maxdepth 2 -type f -name \"*.tsx\")",
+      "Bash(find 'D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager' -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\) -path */types*)",
+      "Bash(npm list:*)",
+      "Bash(npx @anthropic-ai/claude-code plugin install superpowers@claude-plugins-official)",
+      "Bash(npx @anthropic-ai/claude-code plugin install frontend-design@claude-plugins-official)",
+      "Bash(npx @anthropic-ai/claude-code plugin install code-review@claude-plugins-official)",
+      "Bash(npx @anthropic-ai/claude-code plugin install supabase@claude-plugins-official)",
+      "Bash(npx @anthropic-ai/claude-code plugin install feature-dev@claude-plugins-official)",
+      "Bash(ls \"D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\docs\\\\superpowers\\\\specs\"\" 2>/dev/null || echo \"DIR_NOT_EXISTS \")"
     ]
   }
 }

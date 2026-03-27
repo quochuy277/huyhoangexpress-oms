@@ -17,7 +17,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if ((session.user as any).role !== "ADMIN") {
+  if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
   }
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       url,
       description: description || null,
       sortOrder,
-      createdBy: (session.user as any).name || "Admin",
+      createdBy: session.user.name || "Admin",
     },
   });
   return NextResponse.json({ link });
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if ((session.user as any).role !== "ADMIN") {
+  if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
   }
 

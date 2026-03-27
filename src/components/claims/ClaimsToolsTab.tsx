@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileText, Link2, Upload, Trash2, Pencil, Download, Plus, X,
   Loader2, Check, GripVertical, ExternalLink, Clock, User,
@@ -73,53 +74,47 @@ function Dialog({ open, onClose, title, children }: {
    MAIN COMPONENT
    ============================================================ */
 export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: boolean; onOpenClaim?: (claimId: string) => void }) {
-  // Documents state
-  const [docs, setDocs] = useState<any[]>([]);
-  const [docsLoading, setDocsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Dialog/form state
   const [uploadDialog, setUploadDialog] = useState(false);
   const [renameDialog, setRenameDialog] = useState<{ id: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
-
-  // Links state
-  const [links, setLinks] = useState<any[]>([]);
-  const [linksLoading, setLinksLoading] = useState(true);
   const [linkDialog, setLinkDialog] = useState<{ id?: string; title: string; url: string; description: string } | null>(null);
   const [linkSaving, setLinkSaving] = useState(false);
 
-  // History state
-  const [activities, setActivities] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [staffNames, setStaffNames] = useState<string[]>([]);
-  const [historyPagination, setHistoryPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
+  // History pagination/filter state
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize] = useState(20);
   const [historyFilters, setHistoryFilters] = useState({ search: "", action: "", staff: "", dateFrom: "", dateTo: "" });
 
-  // Fetch documents
-  const fetchDocs = useCallback(async () => {
-    setDocsLoading(true);
-    try {
+  // Documents — React Query
+  const { data: docsData, isLoading: docsLoading } = useQuery({
+    queryKey: ["claims-documents"],
+    queryFn: async () => {
       const res = await fetch("/api/documents");
-      const data = await res.json();
-      setDocs(data.documents || []);
-    } finally { setDocsLoading(false); }
-  }, []);
+      return res.json();
+    },
+  });
+  const docs = docsData?.documents || [];
 
-  // Fetch links
-  const fetchLinks = useCallback(async () => {
-    setLinksLoading(true);
-    try {
+  // Links — React Query
+  const { data: linksData, isLoading: linksLoading } = useQuery({
+    queryKey: ["claims-links"],
+    queryFn: async () => {
       const res = await fetch("/api/links");
-      const data = await res.json();
-      setLinks(data.links || []);
-    } finally { setLinksLoading(false); }
-  }, []);
+      return res.json();
+    },
+  });
+  const links = linksData?.links || [];
 
-  // Fetch history
-  const fetchHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    try {
+  // History — React Query with pagination/filter keys
+  const { data: historyData, isLoading: historyLoading } = useQuery({
+    queryKey: ["claims-history", historyPage, historyPageSize, historyFilters],
+    queryFn: async () => {
       const params = new URLSearchParams({
-        page: String(historyPagination.page),
-        pageSize: String(historyPagination.pageSize),
+        page: String(historyPage),
+        pageSize: String(historyPageSize),
       });
       if (historyFilters.search) params.set("search", historyFilters.search);
       if (historyFilters.action) params.set("action", historyFilters.action);
@@ -127,15 +122,13 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
       if (historyFilters.dateFrom) params.set("dateFrom", historyFilters.dateFrom);
       if (historyFilters.dateTo) params.set("dateTo", historyFilters.dateTo);
       const res = await fetch(`/api/claims/history?${params}`);
-      const data = await res.json();
-      setActivities(data.activities || []);
-      setStaffNames((data.staffNames || []).map((s: any) => s.name).filter(Boolean));
-      setHistoryPagination(prev => ({ ...prev, ...data.pagination }));
-    } finally { setHistoryLoading(false); }
-  }, [historyPagination.page, historyPagination.pageSize, historyFilters]);
-
-  useEffect(() => { fetchDocs(); fetchLinks(); }, [fetchDocs, fetchLinks]);
-  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+      return res.json();
+    },
+    placeholderData: (prev) => prev, // Keep previous data while loading
+  });
+  const activities = historyData?.activities || [];
+  const staffNames = (historyData?.staffNames || []).map((s: any) => s.name).filter(Boolean);
+  const historyPagination = { page: historyPage, pageSize: historyPageSize, total: historyData?.pagination?.total || 0, totalPages: historyData?.pagination?.totalPages || 0 };
 
   // Upload document
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -146,7 +139,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
     setUploading(true);
     try {
       const res = await fetch("/api/documents", { method: "POST", body: formData });
-      if (res.ok) { setUploadDialog(false); fetchDocs(); }
+      if (res.ok) { setUploadDialog(false); queryClient.invalidateQueries({ queryKey: ["claims-documents"] }); }
     } finally { setUploading(false); }
   };
 
@@ -159,14 +152,14 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
       body: JSON.stringify({ name: renameDialog.name }),
     });
     setRenameDialog(null);
-    fetchDocs();
+    queryClient.invalidateQueries({ queryKey: ["claims-documents"] });
   };
 
   // Delete document
   const handleDeleteDoc = async (id: string, name: string) => {
     if (!confirm(`Bạn có chắc muốn xóa tài liệu '${name}'?`)) return;
     await fetch(`/api/documents/${id}`, { method: "DELETE" });
-    fetchDocs();
+    queryClient.invalidateQueries({ queryKey: ["claims-documents"] });
   };
 
   // Save link (create or update)
@@ -188,7 +181,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
         });
       }
       setLinkDialog(null);
-      fetchLinks();
+      queryClient.invalidateQueries({ queryKey: ["claims-links"] });
     } finally { setLinkSaving(false); }
   };
 
@@ -196,7 +189,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
   const handleDeleteLink = async (id: string, title: string) => {
     if (!confirm(`Bạn có chắc muốn xóa đường dẫn '${title}'?`)) return;
     await fetch(`/api/links/${id}`, { method: "DELETE" });
-    fetchLinks();
+    queryClient.invalidateQueries({ queryKey: ["claims-links"] });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -245,7 +238,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             <div style={{ textAlign: "center", padding: "30px", color: "#9ca3af", fontSize: "13px" }}>Chưa có tài liệu nào</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-              {docs.map((doc, i) => (
+              {docs.map((doc: any, i: number) => (
                 <div key={doc.id} className="claims-tools-doc-row" style={{
                   display: "flex", alignItems: "center", gap: "12px", padding: "10px 12px",
                   borderRadius: "8px", transition: "background 0.15s",
@@ -300,7 +293,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             <div style={{ textAlign: "center", padding: "30px", color: "#9ca3af", fontSize: "13px" }}>Chưa có đường dẫn nào</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-              {links.map((link, i) => (
+              {links.map((link: any, i: number) => (
                 <div key={link.id} style={{
                   display: "flex", alignItems: "flex-start", gap: "12px", padding: "10px 12px",
                   borderRadius: "8px", background: i % 2 === 0 ? "#f9fafb" : "#fff",
@@ -358,17 +351,17 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
           <select
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.action}
-            onChange={e => { setHistoryFilters(f => ({ ...f, action: e.target.value })); setHistoryPagination(p => ({ ...p, page: 1 })); }}
+            onChange={e => { setHistoryFilters(f => ({ ...f, action: e.target.value })); setHistoryPage(1); }}
           >
             {ACTION_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <select
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.staff}
-            onChange={e => { setHistoryFilters(f => ({ ...f, staff: e.target.value })); setHistoryPagination(p => ({ ...p, page: 1 })); }}
+            onChange={e => { setHistoryFilters(f => ({ ...f, staff: e.target.value })); setHistoryPage(1); }}
           >
             <option value="">Tất cả NV</option>
-            {staffNames.map(n => <option key={n} value={n}>{n}</option>)}
+            {staffNames.map((n: string) => <option key={n} value={n}>{n}</option>)}
           </select>
           <input
             type="date"
@@ -491,7 +484,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               <span>Hiển thị</span>
               <select
                 value={historyPagination.pageSize}
-                onChange={e => setHistoryPagination(p => ({ ...p, pageSize: Number(e.target.value), page: 1 }))}
+                onChange={e => { setHistoryPage(1); }}
                 style={{ border: "1px solid #d1d5db", borderRadius: "6px", padding: "4px 8px", fontSize: "12px" }}
               >
                 {[20, 50].map(n => <option key={n} value={n}>{n}</option>)}
@@ -500,7 +493,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <button
-                onClick={() => setHistoryPagination(p => ({ ...p, page: Math.max(1, p.page - 1) }))}
+                onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
                 disabled={historyPagination.page <= 1}
                 style={{ ...btnSecondary, opacity: historyPagination.page <= 1 ? 0.4 : 1 }}
               >
@@ -508,7 +501,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               </button>
               <span style={{ fontWeight: 600 }}>{historyPagination.page} / {historyPagination.totalPages}</span>
               <button
-                onClick={() => setHistoryPagination(p => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
+                onClick={() => setHistoryPage(p => Math.min(historyPagination.totalPages, p + 1))}
                 disabled={historyPagination.page >= historyPagination.totalPages}
                 style={{ ...btnSecondary, opacity: historyPagination.page >= historyPagination.totalPages ? 0.4 : 1 }}
               >

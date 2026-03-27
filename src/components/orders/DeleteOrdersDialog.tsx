@@ -25,7 +25,7 @@ export function DeleteOrdersDialog({
       onClick={onCancel}
     >
       <div
-        style={{ background: "#fff", border: "1.5px solid #2563EB", borderRadius: "12px", padding: "24px", width: "480px", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}
+        style={{ background: "#fff", border: "1.5px solid #2563EB", borderRadius: "12px", padding: "20px", width: "min(480px, calc(100vw - 32px))", maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#1a1a1a", marginBottom: "8px" }}>
@@ -49,7 +49,7 @@ export function DeleteOrdersDialog({
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
           <button
             onClick={onCancel}
-            style={{ padding: "8px 16px", fontSize: "13px", border: "1px solid #d1d5db", borderRadius: "8px", background: "#fff", color: "#374151", cursor: "pointer" }}
+            style={{ padding: "10px 16px", fontSize: "13px", border: "1px solid #d1d5db", borderRadius: "8px", background: "#fff", color: "#374151", cursor: "pointer" }}
             disabled={isDeleting}
           >
             Hủy
@@ -58,7 +58,7 @@ export function DeleteOrdersDialog({
             onClick={onConfirm}
             disabled={isDeleting}
             style={{
-              padding: "8px 20px", fontSize: "13px", fontWeight: 600, border: "none", borderRadius: "8px",
+              padding: "10px 20px", fontSize: "13px", fontWeight: 600, border: "none", borderRadius: "8px",
               background: isDeleting ? "#9ca3af" : "#dc2626", color: "#fff",
               cursor: isDeleting ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", gap: "6px",

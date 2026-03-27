@@ -6,7 +6,7 @@ export default async function AttendancePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { id, role, permissions } = session.user as any;
+  const { id, role, permissions } = session.user;
 
   const canViewAll = role === "ADMIN" || role === "MANAGER" || permissions?.canViewAllAttendance;
   const canEdit = role === "ADMIN" || role === "MANAGER" || permissions?.canEditAttendance;

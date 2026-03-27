@@ -27,7 +27,7 @@ export async function PUT(req: NextRequest) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-    const userRole = (session.user as any).role;
+    const userRole = session.user.role;
     if (userRole !== "ADMIN" && userRole !== "MANAGER") {
       return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
     }

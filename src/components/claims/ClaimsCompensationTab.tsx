@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, DollarSign, AlertCircle, Download,
   Loader2, ChevronDown, ChevronRight, Search,
@@ -26,36 +27,19 @@ const PERIOD_OPTIONS = [
 
 const formatVND = (n: number) => n.toLocaleString("vi-VN") + "đ";
 
-// Cache compensation data by period to avoid re-fetching on period switch
-const compensationCache = new Map<string, { data: any; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 export default function ClaimsCompensationTab() {
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
-  const [data, setData] = useState<any>(null);
   const [expandedShop, setExpandedShop] = useState<string | null>(null);
   const [shopSearch, setShopSearch] = useState("");
 
-  const fetchData = useCallback(async () => {
-    // Check cache first
-    const cached = compensationCache.get(period);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
-      setData(cached.data);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ["claims-compensation", period],
+    queryFn: async () => {
       const res = await fetch(`/api/claims/compensation?period=${period}`);
-      const d = await res.json();
-      setData(d);
-      compensationCache.set(period, { data: d, ts: Date.now() });
-    } finally { setLoading(false); }
-  }, [period]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 phút cache
+  });
 
   const handleExportExcel = () => {
     if (!data?.shops) return;

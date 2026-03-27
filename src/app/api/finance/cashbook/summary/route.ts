@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { format } from "date-fns";
 import { requireFinanceAccess } from "@/lib/finance-auth";
 import { parsePeriodFromURL } from "@/lib/finance-period";
 
@@ -65,22 +64,30 @@ export async function GET(req: NextRequest) {
       amount: Math.abs(Number(g._sum.amount || 0)),
     }));
 
-    // Daily chart — fetch only needed fields, limit to reasonable range
-    const dailyEntries = await prisma.cashbookEntry.findMany({
-      where: timeFilter,
-      orderBy: { transactionTime: "asc" },
-      select: { transactionTime: true, groupType: true, amount: true, balance: true },
-    });
+    // Daily chart — aggregate at DB level using raw SQL
+    const dailyRows = await prisma.$queryRaw<Array<{
+      day: string;
+      cod_in: number;
+      shop_out: number;
+      last_balance: number;
+    }>>`
+      SELECT
+        TO_CHAR("transactionTime", 'DD/MM') as day,
+        COALESCE(SUM(CASE WHEN "groupType" = 'COD' THEN "amount" ELSE 0 END), 0)::float8 as cod_in,
+        COALESCE(SUM(CASE WHEN "groupType" = 'SHOP_PAYOUT' THEN ABS("amount") ELSE 0 END), 0)::float8 as shop_out,
+        (ARRAY_AGG("balance" ORDER BY "transactionTime" DESC))[1]::float8 as last_balance
+      FROM "CashbookEntry"
+      WHERE "transactionTime" >= ${from} AND "transactionTime" <= ${to}
+      GROUP BY TO_CHAR("transactionTime", 'DD/MM'), DATE("transactionTime")
+      ORDER BY DATE("transactionTime") ASC
+    `;
 
-    const dailyMap: Record<string, { codIn: number; shopOut: number; balance: number }> = {};
-    dailyEntries.forEach(e => {
-      const day = format(e.transactionTime, "dd/MM");
-      if (!dailyMap[day]) dailyMap[day] = { codIn: 0, shopOut: 0, balance: Number(e.balance) };
-      if (e.groupType === "COD") dailyMap[day].codIn += Number(e.amount);
-      if (e.groupType === "SHOP_PAYOUT") dailyMap[day].shopOut += Math.abs(Number(e.amount));
-      dailyMap[day].balance = Number(e.balance);
-    });
-    const dailyChart = Object.entries(dailyMap).map(([date, v]) => ({ date, ...v }));
+    const dailyChart = dailyRows.map(r => ({
+      date: r.day,
+      codIn: r.cod_in,
+      shopOut: r.shop_out,
+      balance: r.last_balance,
+    }));
 
     // Shop payout summary — use groupBy for aggregation
     const [shopPayouts, shopFees] = await Promise.all([

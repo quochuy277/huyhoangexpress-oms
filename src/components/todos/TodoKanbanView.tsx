@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Circle } from "lucide-react";
+import { Circle, GripVertical, UserCheck } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { PRIORITY_CONFIG, SOURCE_CONFIG } from "./constants";
 import type { TodoItemData } from "@/types/todo";
@@ -72,22 +72,28 @@ export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewPro
                         <div
                           ref={prov.innerRef}
                           {...prov.draggableProps}
-                          {...prov.dragHandleProps}
                           onClick={() => onSelect(t)}
                           className={`bg-white border border-gray-200 rounded-[10px] p-3 mb-2 cursor-pointer transition-shadow ${
                             snap.isDragging ? "shadow-lg" : "shadow-sm hover:shadow-md"
                           } ${col.statusKey === "DONE" ? "opacity-60" : ""}`}
                           style={prov.draggableProps.style}
                         >
-                          {/* Title + Priority dot */}
-                          <div className="flex justify-between items-start gap-2 mb-1.5">
-                            <div className="text-[13px] font-semibold text-slate-800 leading-snug line-clamp-2">
-                              {t.title}
+                          {/* Title + Priority dot with drag handle */}
+                          <div className="flex items-start gap-1">
+                            <div {...prov.dragHandleProps} className="flex items-center p-1.5 -ml-1 shrink-0 text-gray-300 hover:text-gray-500 touch-none">
+                              <GripVertical size={14} />
                             </div>
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0 mt-1"
-                              style={{ background: PRIORITY_CONFIG[t.priority]?.dot }}
-                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start gap-2 mb-1.5">
+                                <div className="text-[13px] font-semibold text-slate-800 leading-snug line-clamp-2">
+                                  {t.title}
+                                </div>
+                                <span
+                                  className="w-2 h-2 rounded-full shrink-0 mt-1"
+                                  style={{ background: PRIORITY_CONFIG[t.priority]?.dot }}
+                                />
+                              </div>
+                            </div>
                           </div>
 
                           {/* Linked order */}
@@ -97,15 +103,31 @@ export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewPro
                             </div>
                           )}
 
+                          {/* Admin assigned indicator */}
+                          {t.createdBy && t.assignee && t.createdById !== t.assigneeId && (
+                            <div className="flex items-center gap-0.5 text-[11px] text-purple-600 bg-purple-50 rounded px-1.5 py-0.5 mt-1 w-fit">
+                              <UserCheck size={9} />
+                              <span className="font-medium truncate max-w-[120px]">Giao bởi {t.createdBy.name}</span>
+                            </div>
+                          )}
+
+                          {/* Dates: created + completed */}
+                          <div className="flex gap-2 items-center mt-1 text-[11px] text-gray-400">
+                            <span>Tạo: {format(new Date(t.createdAt), "dd/MM HH:mm")}</span>
+                            {t.completedAt && (
+                              <span className="text-green-600">✓ {format(new Date(t.completedAt), "dd/MM HH:mm")}</span>
+                            )}
+                          </div>
+
                           {/* Footer: source + due + assignee */}
                           <div className="flex justify-between items-center mt-1">
                             <div className="flex gap-1.5 items-center flex-wrap">
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}>
+                              <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}>
                                 {SOURCE_CONFIG[t.source]?.label}
                               </span>
                               {t.dueDate && (
                                 <span
-                                  className={`text-[10px] font-medium flex items-center gap-0.5 ${
+                                  className={`text-[11px] font-medium flex items-center gap-0.5 ${
                                     isDueOverdue(t.dueDate) ? "text-red-600" : isDueToday(t.dueDate) ? "text-amber-600" : "text-gray-500"
                                   }`}
                                 >
@@ -114,7 +136,7 @@ export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewPro
                               )}
                             </div>
                             {t.assignee?.name && (
-                              <span className="text-[10px] text-gray-400 font-medium truncate max-w-[60px]">
+                              <span className="text-[11px] text-gray-400 font-medium truncate max-w-[60px]">
                                 {t.assignee.name.split(" ").pop()}
                               </span>
                             )}

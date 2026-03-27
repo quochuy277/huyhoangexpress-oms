@@ -251,7 +251,7 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
             {detail.linkedOrder && (
               <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3.5">
                 <div className="text-xs font-bold text-slate-600 mb-2">🔗 Đơn hàng liên kết</div>
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
                   <div><span className="text-gray-400">Mã YC: </span><span className="text-blue-600 font-semibold">{detail.linkedOrder.requestCode}</span></div>
                   <div><span className="text-gray-400">Shop: </span><span className="font-medium">{detail.linkedOrder.shopName}</span></div>
                   <div><span className="text-gray-400">Trạng thái: </span><span className="font-medium">{detail.linkedOrder.status}</span></div>

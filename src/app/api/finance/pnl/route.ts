@@ -51,19 +51,33 @@ export async function GET(req: NextRequest) {
 
     const grossProfit = netRevenue + claimDiff;
 
-    // Manual expenses grouped by category
-    const expenses = await prisma.expense.findMany({
+    // Manual expenses grouped by category — aggregate at DB level
+    const expenseGroups = await prisma.expense.groupBy({
+      by: ["categoryId"],
       where: { date: { gte: from, lte: to } },
-      include: { category: { select: { name: true, sortOrder: true } } },
+      _sum: { amount: true },
     });
 
-    const categoryTotals: Record<string, { name: string; total: number; sortOrder: number }> = {};
-    expenses.forEach(e => {
-      const cid = e.categoryId;
-      if (!categoryTotals[cid]) categoryTotals[cid] = { name: e.category.name, total: 0, sortOrder: e.category.sortOrder };
-      categoryTotals[cid].total += Number(e.amount);
-    });
-    const operatingExpenses = Object.values(categoryTotals).sort((a, b) => a.sortOrder - b.sortOrder);
+    // Fetch category names for the groups (only categories that have expenses)
+    const catIds = expenseGroups.map(g => g.categoryId);
+    const catRecords = catIds.length > 0
+      ? await prisma.expenseCategory.findMany({
+          where: { id: { in: catIds } },
+          select: { id: true, name: true, sortOrder: true },
+        })
+      : [];
+    const catMap = new Map(catRecords.map(c => [c.id, c]));
+
+    const operatingExpenses = expenseGroups
+      .map(g => {
+        const cat = catMap.get(g.categoryId);
+        return {
+          name: cat?.name || "Khác",
+          total: Number(g._sum.amount || 0),
+          sortOrder: cat?.sortOrder || 999,
+        };
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder);
     const totalOperatingExpenses = operatingExpenses.reduce((s, c) => s + c.total, 0);
 
     const netProfit = grossProfit - totalOperatingExpenses;

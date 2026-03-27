@@ -133,7 +133,101 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
-      <div className="overflow-x-auto flex-1">
+      {/* Mobile card view */}
+      <div className="block sm:hidden flex-1 overflow-y-auto divide-y divide-slate-100">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-4 animate-pulse">
+              <div className="h-4 bg-slate-100 rounded w-3/4 mb-2" />
+              <div className="h-3 bg-slate-100 rounded w-1/2" />
+            </div>
+          ))
+        ) : data?.orders.length === 0 ? (
+          <div className="text-center py-10 text-sm text-slate-400">Không tìm thấy đơn hàng nào</div>
+        ) : (
+          data?.orders.map((order) => (
+            <div
+              key={order.id}
+              className={`px-4 py-3 ${selectedRows.includes(order.requestCode) ? "bg-blue-50/50" : ""}`}
+            >
+              <div className="flex items-start gap-3">
+                {isAdminOrManager && (
+                  <input
+                    type="checkbox"
+                    className="mt-1 w-[18px] h-[18px] rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                    checked={selectedRows.includes(order.requestCode)}
+                    onChange={() => handleSelectRow(order.requestCode)}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => setDetailRequestCode(order.requestCode)}
+                      className="font-mono text-xs font-semibold text-blue-600 hover:underline text-left truncate"
+                    >
+                      {order.requestCode}
+                    </button>
+                    <span
+                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                        STATUS_COLORS[order.deliveryStatus] || "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {mapStatusToVietnamese(order.deliveryStatus)}
+                    </span>
+                  </div>
+                  {order.claimOrder && (
+                    <div className="mt-1"><ClaimBadge issueType={order.claimOrder.issueType} /></div>
+                  )}
+                  <div className="mt-1.5 text-xs text-slate-600">
+                    {order.receiverName && <span className="font-medium">{order.receiverName}</span>}
+                    {order.receiverPhone && <span className="text-slate-400 ml-2">{order.receiverPhone}</span>}
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-xs">
+                    <span className="text-slate-500">{order.shopName || "—"}</span>
+                    {order.carrierOrderCode && (
+                      <span className="text-slate-400 font-mono truncate max-w-[100px]">{order.carrierOrderCode}</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="font-semibold text-slate-700">{formatVND(order.codAmount)}</span>
+                      <span className="text-slate-400">Phí: {formatVND(order.totalFee)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setClaimOrder(order); }}
+                        className="p-2 text-orange-500 hover:bg-orange-50 rounded transition-colors"
+                        title="Đơn có vấn đề"
+                      >
+                        <AlertTriangle className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setTodoModalOrder(order); }}
+                        className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                        title="Công Việc"
+                      >
+                        <CheckSquare className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setTrackingCode(order.requestCode); }}
+                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                        title="Hành trình"
+                      >
+                        <Truck className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {order.createdTime && (
+                    <div className="mt-1 text-[11px] text-slate-400">{formatDate(order.createdTime)}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="overflow-x-auto flex-1 hidden sm:block">
         <table className="w-full text-sm min-w-[1000px]">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
@@ -296,7 +390,7 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
                           e.stopPropagation();
                           setClaimOrder(order);
                         }}
-                        className="p-1.5 text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
+                        className="p-2 text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
                         title="Chuyển vào Đơn có vấn đề"
                       >
                         <AlertTriangle className="w-4 h-4" />
@@ -306,7 +400,7 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
                           e.stopPropagation();
                           setTodoModalOrder(order);
                         }}
-                        className="p-1.5 text-blue-500 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-colors rounded"
+                        className="p-2 text-blue-500 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-colors rounded"
                         title="Thêm vào Công Việc"
                       >
                         <CheckSquare className="w-4 h-4" />
@@ -316,7 +410,7 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
                           e.stopPropagation();
                           setTrackingCode(order.requestCode);
                         }}
-                        className="p-1.5 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-colors rounded"
+                        className="p-2 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-colors rounded"
                         title="Tra hành trình"
                       >
                         <Truck className="w-4 h-4" />
@@ -336,7 +430,7 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span>Hiển thị</span>
               <select
-                className="border border-slate-300 rounded px-1 min-w-[50px] bg-white h-7 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="border border-slate-300 rounded px-1 min-w-[50px] bg-white h-9 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 value={data.pageSize}
                 onChange={(e) => {
                   const params = new URLSearchParams(searchParams.toString());
@@ -360,14 +454,14 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
             <button
               onClick={() => goToPage(1)}
               disabled={data.page <= 1}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronsLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => goToPage(data.page - 1)}
               disabled={data.page <= 1}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -377,14 +471,14 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
             <button
               onClick={() => goToPage(data.page + 1)}
               disabled={data.page >= data.totalPages}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => goToPage(data.totalPages)}
               disabled={data.page >= data.totalPages}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronsRight className="w-4 h-4" />
             </button>

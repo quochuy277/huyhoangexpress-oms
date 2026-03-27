@@ -10,6 +10,6 @@ export async function GET() {
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
-    role: (session.user as any).role || "STAFF",
+    role: session.user.role || "STAFF",
   });
 }

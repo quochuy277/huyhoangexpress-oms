@@ -316,10 +316,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
             {[STAT_ROW_1, STAT_ROW_2, STAT_ROW_3].map((row, rowIdx) => (
               <div
                 key={rowIdx}
-                className="grid gap-2"
-                style={{
-                  gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))`,
-                }}
+                className={`grid gap-2 grid-cols-3 ${row.length === 6 ? "sm:grid-cols-6" : "sm:grid-cols-5"}`}
               >
                 {row.map((type) => {
                   const config = CHANGE_TYPE_CONFIG[type];
@@ -367,7 +364,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
               placeholder="Mã yêu cầu..."
               value={searchCode}
               onChange={(e) => setSearchCode(e.target.value)}
-              className="pl-8 pr-7 py-1.5 text-xs border border-slate-300 rounded-lg w-[160px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+              className="pl-8 pr-7 py-2 text-xs border border-slate-300 rounded-lg w-[160px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
             />
             {searchCode && (
               <button
@@ -383,7 +380,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
           <div className="relative">
             <button
               onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg hover:bg-slate-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs border border-slate-300 rounded-lg hover:bg-slate-50"
             >
               Loại thay đổi
               {selectedTypes.length > 0 && (
@@ -393,7 +390,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
               )}
             </button>
             {showTypeDropdown && (
-              <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-[220px] max-h-[320px] overflow-y-auto">
+              <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-[220px] max-w-[calc(100vw-32px)] max-h-[320px] overflow-y-auto">
                 <button
                   onClick={() => setSelectedTypes([])}
                   className="w-full text-left px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded mb-1"
@@ -425,14 +422,14 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
             placeholder="Cửa hàng..."
             value={shopFilter}
             onChange={(e) => setShopFilter(e.target.value)}
-            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg w-[130px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+            className="px-3 py-2 text-xs border border-slate-300 rounded-lg w-[130px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
           />
 
           {/* Carrier */}
           <select
             value={carrierFilter}
             onChange={(e) => setCarrierFilter(e.target.value)}
-            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+            className="px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
           >
             <option value="">Tất cả NVC</option>
             {CARRIERS.map((c) => (
@@ -464,7 +461,87 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
-        <div className="overflow-x-auto flex-1">
+        {/* Mobile card view */}
+        <div className="block sm:hidden divide-y divide-slate-100 flex-1 overflow-y-auto">
+          {loadingChanges ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="p-4 animate-pulse">
+                <div className="h-4 bg-slate-100 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-slate-100 rounded w-1/2" />
+              </div>
+            ))
+          ) : !changesData?.data?.length ? (
+            <div className="text-center py-10 text-sm text-slate-400">
+              {statsData?.totalChanges === 0
+                ? "Không có thay đổi nào trong đợt upload này"
+                : "Không tìm thấy kết quả phù hợp với bộ lọc"}
+            </div>
+          ) : (
+            changesData.data.map((log) => {
+              const config = CHANGE_TYPE_CONFIG[log.changeType];
+              return (
+                <div key={log.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${config.bgColor} ${config.color} border ${config.borderColor}`}>
+                      {config.icon} {config.label}
+                    </span>
+                    <span className="text-[11px] text-slate-400 shrink-0">
+                      {log.changeTimestamp
+                        ? formatDate(log.changeTimestamp)
+                        : formatDate(log.detectedAt)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setDetailRequestCode(log.requestCode)}
+                    className="mt-1.5 text-xs font-mono font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {log.requestCode}
+                  </button>
+                  {log.order.shopName && (
+                    <div className="text-xs text-slate-500 mt-0.5">{log.order.shopName}</div>
+                  )}
+                  {log.order.receiverName && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {log.order.receiverName}
+                      {log.order.receiverPhone && (
+                        <span className="text-slate-400 ml-1 font-mono">{log.order.receiverPhone}</span>
+                      )}
+                    </div>
+                  )}
+                  <div className="mt-1 text-xs text-slate-600 line-clamp-2">
+                    {log.changeType === "CLAIM_RELATED" ? (
+                      <button
+                        onClick={() => router.push("/claims")}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        Xem tại trang Khiếu nại
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    ) : log.previousValue && log.newValue ? (
+                      <>
+                        <span className="text-red-500 line-through">{log.previousValue}</span>
+                        <span className="text-slate-400 mx-1">&rarr;</span>
+                        <span className="text-green-600 font-medium">{log.newValue}</span>
+                      </>
+                    ) : log.newValue ? (
+                      <span className="text-green-600 font-medium">{log.newValue}</span>
+                    ) : log.changeDetail ? (
+                      <span>{log.changeDetail}</span>
+                    ) : (
+                      <span className="text-slate-400">&mdash;</span>
+                    )}
+                  </div>
+                  {log.order.carrierName && (
+                    <div className="mt-1 text-[11px] text-slate-500 font-medium">{log.order.carrierName}</div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop table view */}
+        <div className="hidden sm:block overflow-x-auto flex-1">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
@@ -620,19 +697,19 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
                 : "0 thay đổi"}
             </p>
             <div className="flex items-center gap-1">
-              <button onClick={() => goToPage(1)} disabled={page <= 1} className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => goToPage(1)} disabled={page <= 1} className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronsLeft className="w-4 h-4" />
               </button>
-              <button onClick={() => goToPage(page - 1)} disabled={page <= 1} className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => goToPage(page - 1)} disabled={page <= 1} className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="px-3 py-1 text-xs font-medium text-slate-600">
                 {changesData.page} / {changesData.totalPages || 1}
               </span>
-              <button onClick={() => goToPage(page + 1)} disabled={page >= changesData.totalPages} className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => goToPage(page + 1)} disabled={page >= changesData.totalPages} className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button onClick={() => goToPage(changesData.totalPages)} disabled={page >= changesData.totalPages} className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => goToPage(changesData.totalPages)} disabled={page >= changesData.totalPages} className="p-2 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronsRight className="w-4 h-4" />
               </button>
             </div>

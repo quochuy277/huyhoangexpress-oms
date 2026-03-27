@@ -7,6 +7,7 @@ import { BackButton } from "@/components/shared/BackButton";
 import { TrackingTimelineSection } from "@/components/tracking/TrackingTimelineSection";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getOrderDetailPageGridClassNames } from "@/components/orders/ordersResponsive";
 
 interface Props {
   params: Promise<{ requestCode: string }>;
@@ -35,6 +36,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   });
 
   if (!order) return notFound();
+  const responsiveClasses = getOrderDetailPageGridClassNames();
 
   const sections = [
     {
@@ -157,7 +159,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       </div>
 
       {/* Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className={responsiveClasses.sectionsWrapper}>
         {sections.map((section) => {
           const Icon = section.icon;
           return (
@@ -171,7 +173,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   {section.title}
                 </h2>
               </div>
-              <div className="p-4 grid grid-cols-2 gap-x-4 gap-y-2.5">
+              <div className={responsiveClasses.fieldsWrapper}>
                 {section.fields.map((field) => (
                   <div key={field.label}>
                     <p className="text-xs text-slate-400">{field.label}</p>

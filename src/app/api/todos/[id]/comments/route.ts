@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     data: {
       todoItemId: id,
       content: content.trim(),
-      authorName: (session.user as any).name || "User",
+      authorName: session.user.name || "User",
       authorId: session.user.id,
     },
   });

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { buildCarrierSummary, buildNegativeRevenueSummary, buildShopSummary } from "./financeResponsive";
 
 const PERIODS = [
   { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
@@ -85,43 +86,52 @@ export default function AnalysisTab() {
 
   const cardStyle: React.CSSProperties = { background: "#fff", borderRadius: 12, padding: "16px 20px", borderLeft: "4px solid #2563eb", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", flex: "1 1 200px" };
   const tableHeaderStyle: React.CSSProperties = { padding: 10, textAlign: "left", borderBottom: "2px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 700 };
+  const panelClass = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
+  const toggleButtonClass = (active: boolean) =>
+    `whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
+      active
+        ? "border-blue-200 bg-blue-600 text-white"
+        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800"
+    }`;
 
   return (
     <>
-    <div>
-      {/* Period + View toggle */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-        <div style={{ display: "flex", gap: 6 }}>
+    <div className="space-y-5 sm:space-y-6">
+      <div className={`${panelClass} space-y-4`}>
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max gap-2">
           {PERIODS.map(p => (
-            <button key={p.value} onClick={() => setPeriod(p.value)} style={{
-              padding: "6px 14px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
-              background: period === p.value ? "#2563eb" : "#fff", color: period === p.value ? "#fff" : "#64748b", fontWeight: 600, fontSize: 13,
-            }}>{p.label}</button>
+            <button key={p.value} onClick={() => setPeriod(p.value)} className={toggleButtonClass(period === p.value)}>
+              {p.label}
+            </button>
           ))}
+          </div>
         </div>
         {period === "custom" && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Từ:</label>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
-            <label style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Đến:</label>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[auto,1fr,auto,1fr] xl:items-center">
+            <label className="text-sm font-semibold text-slate-600">Từ</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            <label className="text-sm font-semibold text-slate-600">Đến</label>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </div>
         )}
-        <div style={{ display: "flex", gap: 4 }}>
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max gap-2">
           {VIEWS.map(v => (
-            <button key={v.id} onClick={() => switchView(v.id)} style={{
-              padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
-              background: view === v.id ? "#2563eb" : "#fff", color: view === v.id ? "#fff" : "#64748b", fontWeight: 600, fontSize: 13,
-            }}>{v.label}</button>
+            <button key={v.id} onClick={() => switchView(v.id)} className={toggleButtonClass(view === v.id)}>
+              {v.label}
+            </button>
           ))}
+          </div>
         </div>
       </div>
 
       {/* VIEW 1: Carrier */}
       {view === "carrier" && (
         <>
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflowX: "auto" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>📊 So sánh Đối tác</h3>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📊 So sánh Đối tác</h3>
+            <div className="hidden overflow-x-auto md:block">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr>
                 <th style={tableHeaderStyle}>#</th><th style={tableHeaderStyle}>Đối Tác</th><th style={tableHeaderStyle}>Số Đơn</th>
@@ -145,11 +155,42 @@ export default function AnalysisTab() {
                 ))}
               </tbody>
             </table>
+            </div>
+            <div className="space-y-3 md:hidden">
+              {carriers.map((carrier) => {
+                const summary = buildCarrierSummary(carrier);
+                return (
+                  <div key={carrier.carrier} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800">{summary.title}</div>
+                        <div className="mt-1 text-xs text-slate-500">{summary.orderCountLabel} đơn</div>
+                      </div>
+                      <div className="text-right text-sm font-bold text-emerald-600">{summary.revenueLabel}</div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-slate-500">Margin</div>
+                        <div className="font-semibold text-slate-800">{summary.marginLabel}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Đơn lỗ</div>
+                        <div className="font-semibold text-slate-800">{summary.negativeCountLabel}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-xs text-slate-500">COD tổng</div>
+                        <div className="font-semibold text-slate-800">{summary.codTotalLabel}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           {carriers.length > 0 && (
-            <div style={{ background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>📊 Biểu đồ so sánh</h3>
-              <ResponsiveContainer width="100%" height={280}>
+            <div className={panelClass}>
+              <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📊 Biểu đồ so sánh</h3>
+              <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={carriers}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="carrier" fontSize={12} /><YAxis fontSize={11} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} /><Tooltip formatter={(v: any) => fmtVND(Number(v))} /><Legend /><Bar dataKey="totalFee" name="Tổng Phí" fill="#2563eb" /><Bar dataKey="carrierFee" name="Phí ĐT" fill="#ef4444" /><Bar dataKey="revenue" name="Doanh Thu" fill="#10b981" /></BarChart>
               </ResponsiveContainer>
             </div>
@@ -160,11 +201,12 @@ export default function AnalysisTab() {
       {/* VIEW 2: Shop */}
       {view === "shop" && (
         <>
-          <div style={{ marginBottom: 16 }}>
-            <input placeholder="🔍 Tìm cửa hàng..." value={shopSearch} onChange={e => setShopSearch(e.target.value)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #d1d5db", width: "100%", maxWidth: 300, fontSize: 14 }} />
+          <div className={panelClass}>
+            <input placeholder="🔍 Tìm cửa hàng..." value={shopSearch} onChange={e => setShopSearch(e.target.value)} className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm sm:max-w-sm" />
           </div>
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflowX: "auto" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>🏪 Xếp hạng Cửa hàng</h3>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">🏪 Xếp hạng Cửa hàng</h3>
+            <div className="hidden overflow-x-auto md:block">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr>
                 <th style={tableHeaderStyle}>#</th><th style={tableHeaderStyle}>Cửa Hàng</th><th style={{ ...tableHeaderStyle, textAlign: "center" }}>Xu Hướng</th>
@@ -199,23 +241,69 @@ export default function AnalysisTab() {
                 })}
               </tbody>
             </table>
+            </div>
+            <div className="space-y-3 md:hidden">
+              {shops.map((shop) => {
+                const summary = buildShopSummary(shop);
+                const tr = getTrend(shop.shop);
+                return (
+                  <div key={shop.shop} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800">{summary.title}</div>
+                        <div className="mt-1 text-xs text-slate-500">{summary.totalLabel} đơn</div>
+                      </div>
+                      <div className="text-right text-sm font-bold text-emerald-600">{summary.revenueLabel}</div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-slate-500">Giao TC</div>
+                        <div className="font-semibold text-slate-800">{summary.deliveryRateLabel}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Hoàn</div>
+                        <div className="font-semibold text-slate-800">{summary.returnRateLabel}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">COD tổng</div>
+                        <div className="font-semibold text-slate-800">{summary.codTotalLabel}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">TB phí/đơn</div>
+                        <div className="font-semibold text-slate-800">{summary.avgFeeLabel}</div>
+                      </div>
+                      {tr && (
+                        <div className="col-span-2">
+                          <div className="text-xs text-slate-500">Xu hướng</div>
+                          <div className={`font-semibold ${tr.alertLevel === "critical" || tr.alertLevel === "warning" ? "text-red-600" : tr.alertLevel === "growing" ? "text-emerald-600" : "text-slate-700"}`}>
+                            {tr.alertLevel === "new"
+                              ? "Mới"
+                              : `${tr.changePercent > 0 ? "+" : ""}${tr.changePercent}%`}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Shop trend chart */}
           {chartData.length > 0 && (
-            <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700 }}>📈 Xu hướng đơn hàng — Top shops</h3>
-                <div style={{ display: "flex", gap: 4 }}>
+            <div className={panelClass}>
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-sm font-bold text-slate-800 sm:text-[15px]">📈 Xu hướng đơn hàng — Top shops</h3>
+                <div className="overflow-x-auto pb-1">
+                  <div className="flex min-w-max gap-2">
                   {["day", "week", "month"].map(g => (
-                    <button key={g} onClick={() => { setGranularity(g); updateChart(chartShops, g); }} style={{
-                      padding: "4px 10px", borderRadius: 6, border: "1px solid #e2e8f0", cursor: "pointer", fontSize: 12,
-                      background: granularity === g ? "#2563eb" : "#fff", color: granularity === g ? "#fff" : "#64748b",
-                    }}>{g === "day" ? "Ngày" : g === "week" ? "Tuần" : "Tháng"}</button>
+                    <button key={g} onClick={() => { setGranularity(g); updateChart(chartShops, g); }} className={toggleButtonClass(granularity === g)}>
+                      {g === "day" ? "Ngày" : g === "week" ? "Tuần" : "Tháng"}
+                    </button>
                   ))}
+                  </div>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="period" fontSize={11} /><YAxis fontSize={11} /><Tooltip /><Legend />
                   {chartShops.map((shop, i) => <Line key={shop} type="monotone" dataKey={shop} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} />)}
                 </LineChart>
@@ -223,9 +311,8 @@ export default function AnalysisTab() {
             </div>
           )}
 
-          {/* Drop alerts */}
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>⚠ Cảnh báo shop giảm đơn</h3>
+          <div className={panelClass}>
+            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">⚠ Cảnh báo shop giảm đơn</h3>
             {(() => {
               const critical = trends.filter(t => t.alertLevel === "critical");
               const warning = trends.filter(t => t.alertLevel === "warning");
@@ -264,14 +351,15 @@ export default function AnalysisTab() {
       {/* VIEW 3: Negative Revenue */}
       {view === "negative" && negData && (
         <>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div style={{ ...cardStyle, borderLeftColor: "#ef4444" }}><div style={{ fontSize: 12, color: "#64748b" }}>Tổng đơn lỗ</div><div style={{ fontSize: 22, fontWeight: 700, color: "#ef4444" }}>{negData.summary.totalOrders}</div></div>
             <div style={{ ...cardStyle, borderLeftColor: "#ef4444" }}><div style={{ fontSize: 12, color: "#64748b" }}>Tổng số tiền lỗ</div><div style={{ fontSize: 22, fontWeight: 700, color: "#ef4444" }}>{fmtVND(negData.summary.totalLoss)}</div></div>
             <div style={cardStyle}><div style={{ fontSize: 12, color: "#64748b" }}>ĐT nhiều đơn lỗ nhất</div><div style={{ fontSize: 18, fontWeight: 700 }}>{negData.summary.topCarrier}</div></div>
             <div style={cardStyle}><div style={{ fontSize: 12, color: "#64748b" }}>Lý do phổ biến</div><div style={{ fontSize: 18, fontWeight: 700 }}>{negData.summary.topReason}</div></div>
           </div>
-          <div style={{ background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div className={panelClass}>
+            <div className="hidden overflow-x-auto md:block">
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr>
                 <th style={tableHeaderStyle}>#</th><th style={tableHeaderStyle}>Mã Yêu Cầu</th><th style={tableHeaderStyle}>Đối Tác</th>
                 <th style={tableHeaderStyle}>Cửa Hàng</th><th style={tableHeaderStyle}>Trạng Thái</th>
@@ -296,7 +384,49 @@ export default function AnalysisTab() {
                 ))}
                 {(negData.orders || []).length === 0 && <tr><td colSpan={10} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>Không có đơn doanh thu âm</td></tr>}
               </tbody>
-            </table>
+              </table>
+            </div>
+            <div className="space-y-3 md:hidden">
+              {(negData.orders || []).length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
+                  Không có đơn doanh thu âm
+                </div>
+              )}
+              {(negData.orders || []).map((order: any) => {
+                const summary = buildNegativeRevenueSummary(order);
+                return (
+                  <div key={order.requestCode} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <button
+                        onClick={() => setDetailRequestCode(order.requestCode)}
+                        className="text-left text-sm font-semibold text-blue-700"
+                      >
+                        {summary.title}
+                      </button>
+                      <div className="text-right text-sm font-bold text-red-600">{summary.revenueLabel}</div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-slate-500">Đối tác</div>
+                        <div className="font-semibold text-slate-800">{summary.carrierName}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Shop</div>
+                        <div className="font-semibold text-slate-800">{summary.shopName}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Trạng thái</div>
+                        <div className="font-semibold text-slate-800">{summary.status}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">COD</div>
+                        <div className="font-semibold text-slate-800">{summary.codLabel}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
