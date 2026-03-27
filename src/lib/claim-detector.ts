@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { AUTO_SCAN_EXCLUDED_ISSUE_TYPES } from "@/lib/claims-config";
 
 const FINAL_STATUSES = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"];
 
 /**
  * Auto-complete existing claims whose orders have reached a final delivery status.
- * Rule 1: Only SLOW_JOURNEY claims are auto-completed by delivery status
- *         (SUSPICIOUS, DAMAGED, LOST, OTHER are excluded — require manual handling).
+ * Rule 1: Only non-excluded auto-scan groups are auto-completed by delivery status
+ *         (SUSPICIOUS, DAMAGED, LOST, OTHER, FEE_COMPLAINT are excluded — require manual handling).
  * Rule 2: Claims of ANY issueType with claimStatus RESOLVED or CUSTOMER_COMPENSATED
  *         are also auto-completed.
  * Returns count of auto-completed claims.
@@ -15,7 +16,7 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
   const byDeliveryStatus = await prisma.claimOrder.findMany({
     where: {
       isCompleted: false,
-      issueType: "SLOW_JOURNEY" as any,
+      issueType: { notIn: AUTO_SCAN_EXCLUDED_ISSUE_TYPES as any[] },
       order: { deliveryStatus: { in: FINAL_STATUSES as any[] } },
     },
     select: { id: true },

@@ -391,6 +391,7 @@ enum IssueType {
   LOST
   DAMAGED
   OTHER
+  FEE_COMPLAINT
 }
 
 enum ClaimStatus {

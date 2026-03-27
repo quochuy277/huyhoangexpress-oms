@@ -299,7 +299,13 @@ async function main() {
   // ============================================================
   // 3. Create 5 Claims
   // ============================================================
-  const claimTypes = [IssueType.LOST, IssueType.DAMAGED, IssueType.SLOW_JOURNEY, IssueType.SUSPICIOUS, IssueType.OTHER];
+  const claimTypes = [
+    IssueType.LOST,
+    IssueType.DAMAGED,
+    IssueType.SLOW_JOURNEY,
+    IssueType.SUSPICIOUS,
+    IssueType.FEE_COMPLAINT,
+  ];
   const claimDescriptions = [
     "Đơn hàng bị mất trong quá trình vận chuyển",
     "Hàng bị hư hỏng khi giao đến khách",

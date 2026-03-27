@@ -1,28 +1,10 @@
+import type { Prisma } from "@prisma/client";
+import * as XLSX from "xlsx";
 import { NextRequest, NextResponse } from "next/server";
+
+import { CLAIM_STATUS_CONFIG, ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import * as XLSX from "xlsx";
-import type { Prisma } from "@prisma/client";
-
-const ISSUE_TYPE_LABELS: Record<string, string> = {
-  SLOW_JOURNEY: "Hành trình chậm",
-  SUSPICIOUS: "Nghi ngờ",
-  LOST: "Thất lạc",
-  DAMAGED: "Hư hỏng",
-  OTHER: "Vấn đề khác",
-};
-
-const CLAIM_STATUS_LABELS: Record<string, string> = {
-  PENDING: "Chưa xử lý",
-  VERIFYING_CARRIER: "Đang xác minh",
-  CLAIM_SUBMITTED: "Đã gửi KN",
-  COMPENSATION_REQUESTED: "Đã yêu cầu ĐB",
-  RESOLVED: "Đã xử lý",
-  CARRIER_COMPENSATED: "NVC đã đền bù",
-  CARRIER_REJECTED: "NVC từ chối",
-  CUSTOMER_COMPENSATED: "Đã đền bù KH",
-  CUSTOMER_REJECTED: "Từ chối ĐB KH",
-};
 
 const SOURCE_LABELS: Record<string, string> = {
   AUTO_SLOW_JOURNEY: "Tự động (hành trình chậm)",
@@ -35,16 +17,17 @@ const SOURCE_LABELS: Record<string, string> = {
 
 function formatDateVN(date: Date | string | null): string {
   if (!date) return "";
-  const d = new Date(date);
-  return d.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+  return new Date(date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 function formatDateTimeVN(date: Date | string | null): string {
   if (!date) return "";
-  const d = new Date(date);
-  return d.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) +
-    " " +
-    d.toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
+  const value = new Date(date);
+  return `${value.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} ${value.toLocaleTimeString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -54,24 +37,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const url = req.nextUrl.searchParams;
-    const search = url.get("search") || "";
-    const issueType = url.get("issueType") || "";
-    const claimStatus = url.get("claimStatus") || "";
-    const showCompleted = url.get("showCompleted") === "true";
+    const params = req.nextUrl.searchParams;
+    const search = params.get("search") || "";
+    const issueType = params.get("issueType") || "";
+    const claimStatus = params.get("claimStatus") || "";
+    const shopName = params.get("shopName") || "";
+    const orderStatus = params.get("orderStatus") || "";
+    const showCompleted = params.get("showCompleted") === "true";
 
-    // Build where clause (same logic as GET /api/claims)
-    const where: Prisma.ClaimOrderWhereInput = {};
-
-    if (!showCompleted) {
-      where.isCompleted = false;
-    } else {
-      where.isCompleted = true;
-    }
+    const where: Prisma.ClaimOrderWhereInput = {
+      isCompleted: showCompleted,
+    };
 
     if (issueType) {
-      const types = issueType.split(",");
-      where.issueType = { in: types as any[] };
+      where.issueType = { in: issueType.split(",") as any[] };
     }
 
     if (claimStatus) {
@@ -87,12 +66,16 @@ export async function GET(req: NextRequest) {
         { shopName: { contains: search, mode: "insensitive" } },
       ];
     }
-
+    if (shopName) {
+      orderWhere.shopName = shopName;
+    }
+    if (orderStatus) {
+      orderWhere.status = orderStatus;
+    }
     if (Object.keys(orderWhere).length > 0) {
       where.order = orderWhere;
     }
 
-    // Fetch all claims matching filters (max 10000)
     const claims = await prisma.claimOrder.findMany({
       where,
       include: {
@@ -120,65 +103,55 @@ export async function GET(req: NextRequest) {
       take: 10000,
     });
 
-    // Build Excel rows
-    const rows = claims.map((c, idx) => {
-      const daysPending = Math.floor(
-        (Date.now() - new Date(c.detectedDate).getTime()) / 86400000
-      );
+    const rows = claims.map((claim, index) => {
+      const daysPending = Math.floor((Date.now() - new Date(claim.detectedDate).getTime()) / 86400000);
 
       return {
-        "STT": idx + 1,
-        "Mã Yêu Cầu": c.order?.requestCode || "",
-        "Mã ĐT Đối Tác": c.order?.carrierOrderCode || "",
-        "Cửa Hàng": c.order?.shopName || "",
-        "Đối Tác Vận Chuyển": c.order?.carrierName || "",
-        "Trạng Thái Đơn": c.order?.status || "",
-        "COD (đ)": Number(c.order?.codAmount || 0),
-        "Tổng Phí (đ)": Number(c.order?.totalFee || 0),
-        "Nhóm Vùng Miền": c.order?.regionGroup || "",
-        "Thời Gian Lấy Hàng": formatDateTimeVN(c.order?.pickupTime || null),
-        "Loại Vấn Đề": ISSUE_TYPE_LABELS[c.issueType] || c.issueType,
-        "Nội Dung Vấn Đề": c.issueDescription || "",
-        "Ngày Phát Hiện": formatDateVN(c.detectedDate),
+        STT: index + 1,
+        "Mã Yêu Cầu": claim.order?.requestCode || "",
+        "Mã ĐT Đối Tác": claim.order?.carrierOrderCode || "",
+        "Cửa Hàng": claim.order?.shopName || "",
+        "Đối Tác Vận Chuyển": claim.order?.carrierName || "",
+        "Trạng Thái Đơn": claim.order?.status || "",
+        "COD (đ)": Number(claim.order?.codAmount || 0),
+        "Tổng Phí (đ)": Number(claim.order?.totalFee || 0),
+        "Nhóm Vùng Miền": claim.order?.regionGroup || "",
+        "Thời Gian Lấy Hàng": formatDateTimeVN(claim.order?.pickupTime || null),
+        "Loại Vấn Đề": ISSUE_TYPE_CONFIG[claim.issueType as keyof typeof ISSUE_TYPE_CONFIG]?.label || claim.issueType,
+        "Nội Dung Vấn Đề": claim.issueDescription || "",
+        "Ngày Phát Hiện": formatDateVN(claim.detectedDate),
         "Ngày Tồn Đọng": `${daysPending} ngày`,
-        "TT Xử Lý": CLAIM_STATUS_LABELS[c.claimStatus] || c.claimStatus,
-        "Nội Dung Xử Lý": c.processingContent || "",
-        "Thời Hạn": formatDateVN(c.deadline),
-        "Số Tiền NVC Đền Bù (đ)": Number(c.carrierCompensation || 0),
-        "Số Tiền Đền Bù KH (đ)": Number(c.customerCompensation || 0),
-        "Hoàn Tất": c.isCompleted ? "Đã hoàn tất" : "Chưa",
-        "Nguồn": SOURCE_LABELS[c.source] || c.source,
-        "Người Tạo": c.createdBy?.name || "",
-        "Ngày Tạo": formatDateVN(c.createdAt),
-        "Người Nhận": c.order?.receiverName || "",
-        "SĐT Người Nhận": c.order?.receiverPhone || "",
-        "Ghi Chú NB": c.order?.staffNotes || "",
+        "TT Xử Lý":
+          CLAIM_STATUS_CONFIG[claim.claimStatus as keyof typeof CLAIM_STATUS_CONFIG]?.label || claim.claimStatus,
+        "Nội Dung Xử Lý": claim.processingContent || "",
+        "Thời Hạn": formatDateVN(claim.deadline),
+        "Số Tiền NVC Đền Bù (đ)": Number(claim.carrierCompensation || 0),
+        "Số Tiền Đền Bù KH (đ)": Number(claim.customerCompensation || 0),
+        "Hoàn Tất": claim.isCompleted ? "Đã hoàn tất" : "Chưa",
+        Nguồn: SOURCE_LABELS[claim.source] || claim.source,
+        "Người Tạo": claim.createdBy?.name || "",
+        "Ngày Tạo": formatDateVN(claim.createdAt),
+        "Người Nhận": claim.order?.receiverName || "",
+        "SĐT Người Nhận": claim.order?.receiverPhone || "",
+        "Ghi Chú NB": claim.order?.staffNotes || "",
       };
     });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
-
-    // Auto-size columns
     const headers = Object.keys(rows[0] || {});
-    worksheet["!cols"] = headers.map((key) => ({
-      wch: Math.max(key.length + 2, 14),
-    }));
+    worksheet["!cols"] = headers.map((key) => ({ wch: Math.max(key.length + 2, 14) }));
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn Có Vấn Đề");
 
-    const buf = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const timestamp = new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).replace(/\//g, "");
 
-    const timestamp = new Date()
-      .toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-      .replace(/\//g, "");
-
-    return new NextResponse(buf, {
+    return new NextResponse(buffer, {
       status: 200,
       headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="don-co-van-de-${timestamp}.xlsx"`,
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename=\"don-co-van-de-${timestamp}.xlsx\"`,
       },
     });
   } catch (error) {

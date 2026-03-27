@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +17,6 @@ export async function GET(req: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where: {
-        claimOrder: null, // Not already claimed
         OR: [
           { requestCode: { contains: q, mode: "insensitive" } },
           { carrierOrderCode: { contains: q, mode: "insensitive" } },
@@ -36,12 +36,30 @@ export async function GET(req: NextRequest) {
         totalFee: true,
         receiverPhone: true,
         staffNotes: true,
+        claimOrder: {
+          select: {
+            id: true,
+            claimStatus: true,
+            isCompleted: true,
+          },
+        },
       },
       take: 10,
       orderBy: { createdTime: "desc" },
     });
 
-    return NextResponse.json({ orders });
+    return NextResponse.json({
+      orders: orders.map((order) => ({
+        ...order,
+        existingClaim: order.claimOrder
+          ? {
+              id: order.claimOrder.id,
+              claimStatus: order.claimOrder.claimStatus,
+              isCompleted: order.claimOrder.isCompleted,
+            }
+          : null,
+      })),
+    });
   } catch (error) {
     console.error("GET /api/claims/search-orders error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

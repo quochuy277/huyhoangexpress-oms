@@ -1,7 +1,8 @@
+import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,37 +11,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const url = req.nextUrl.searchParams;
-    const page = parseInt(url.get("page") || "1");
-    const pageSize = parseInt(url.get("pageSize") || "20");
-    const search = url.get("search") || "";
-    const issueType = url.get("issueType") || "";
-    const claimStatus = url.get("claimStatus") || "";
-    const shopName = url.get("shopName") || "";
-    const carrier = url.get("carrier") || "";
-    const showCompleted = url.get("showCompleted") === "true";
-    const sortBy = url.get("sortBy") || "deadline";
-    const sortDir = (url.get("sortDir") || "asc") as "asc" | "desc";
+    const params = req.nextUrl.searchParams;
+    const page = parseInt(params.get("page") || "1", 10);
+    const pageSize = parseInt(params.get("pageSize") || "20", 10);
+    const search = params.get("search") || "";
+    const issueType = params.get("issueType") || "";
+    const claimStatus = params.get("claimStatus") || "";
+    const shopName = params.get("shopName") || "";
+    const orderStatus = params.get("orderStatus") || "";
+    const carrier = params.get("carrier") || "";
+    const showCompleted = params.get("showCompleted") === "true";
+    const sortBy = params.get("sortBy") || "deadline";
+    const sortDir = (params.get("sortDir") || "asc") as "asc" | "desc";
 
-    // Build where clause
-    const where: Prisma.ClaimOrderWhereInput = {};
-
-    if (!showCompleted) {
-      where.isCompleted = false;
-    } else {
-      where.isCompleted = true;
-    }
+    const where: Prisma.ClaimOrderWhereInput = {
+      isCompleted: showCompleted,
+    };
 
     if (issueType) {
-      const types = issueType.split(",");
-      where.issueType = { in: types as any[] };
+      where.issueType = { in: issueType.split(",") as any[] };
     }
 
     if (claimStatus) {
       where.claimStatus = claimStatus as any;
     }
 
-    // Order-level filters
     const orderWhere: Prisma.OrderWhereInput = {};
     if (search) {
       orderWhere.OR = [
@@ -53,33 +48,24 @@ export async function GET(req: NextRequest) {
     if (shopName) {
       orderWhere.shopName = shopName;
     }
+    if (orderStatus) {
+      orderWhere.status = orderStatus;
+    }
     if (carrier) {
       orderWhere.carrierName = carrier;
     }
-
     if (Object.keys(orderWhere).length > 0) {
       where.order = orderWhere;
     }
 
-    // Build orderBy
-    let orderBy: Prisma.ClaimOrderOrderByWithRelationInput = {};
-    if (sortBy === "deadline") {
-      orderBy = { deadline: sortDir };
-    } else if (sortBy === "detectedDate") {
-      orderBy = { detectedDate: sortDir };
-    } else if (sortBy === "claimStatus") {
-      orderBy = { claimStatus: sortDir };
-    } else if (sortBy === "issueType") {
-      orderBy = { issueType: sortDir };
-    } else if (sortBy === "shopName") {
-      orderBy = { order: { shopName: sortDir } };
-    } else if (sortBy === "status") {
-      orderBy = { order: { status: sortDir } };
-    } else if (sortBy === "codAmount") {
-      orderBy = { order: { codAmount: sortDir } };
-    } else {
-      orderBy = { deadline: "asc" };
-    }
+    let orderBy: Prisma.ClaimOrderOrderByWithRelationInput = { deadline: "asc" };
+    if (sortBy === "deadline") orderBy = { deadline: sortDir };
+    if (sortBy === "detectedDate") orderBy = { detectedDate: sortDir };
+    if (sortBy === "claimStatus") orderBy = { claimStatus: sortDir };
+    if (sortBy === "issueType") orderBy = { issueType: sortDir };
+    if (sortBy === "shopName") orderBy = { order: { shopName: sortDir } };
+    if (sortBy === "status") orderBy = { order: { status: sortDir } };
+    if (sortBy === "codAmount") orderBy = { order: { codAmount: sortDir } };
 
     const [claims, total] = await Promise.all([
       prisma.claimOrder.findMany({
@@ -137,7 +123,7 @@ export async function POST(req: NextRequest) {
       orderId,
       issueType,
       issueDescription,
-      claimStatus: status,
+      claimStatus,
       processingContent,
       carrierCompensation,
       customerCompensation,
@@ -146,29 +132,38 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!orderId || !issueType) {
-      return NextResponse.json(
-        { error: "Thiếu thông tin bắt buộc" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
     }
 
-    // Check if order already has a claim
     const existing = await prisma.claimOrder.findUnique({
       where: { orderId },
+      include: {
+        order: {
+          select: {
+            requestCode: true,
+          },
+        },
+      },
     });
+
     if (existing) {
       return NextResponse.json(
-        { error: "Đơn này đã có trong mục Đơn có vấn đề" },
+        {
+          error: "Đơn đã có trong đơn có vấn đề",
+          code: "CLAIM_ALREADY_EXISTS",
+          claim: {
+            id: existing.id,
+            claimStatus: existing.claimStatus,
+            isCompleted: existing.isCompleted,
+            requestCode: existing.order?.requestCode || null,
+          },
+        },
         { status: 409 }
       );
     }
 
     const now = new Date();
-    const defaultDeadline = deadline
-      ? new Date(deadline)
-      : new Date(now.getTime() + 15 * 86400000);
-
-    // Set claimLocked for SUSPICIOUS, LOST, DAMAGED
+    const defaultDeadline = deadline ? new Date(deadline) : new Date(now.getTime() + 15 * 86400000);
     const shouldLock = ["SUSPICIOUS", "LOST", "DAMAGED"].includes(issueType);
 
     const [claim] = await prisma.$transaction([
@@ -179,7 +174,7 @@ export async function POST(req: NextRequest) {
           issueDescription: issueDescription || null,
           detectedDate: now,
           deadline: defaultDeadline,
-          claimStatus: status || "PENDING",
+          claimStatus: claimStatus || "PENDING",
           processingContent: processingContent || null,
           carrierCompensation: carrierCompensation || 0,
           customerCompensation: customerCompensation || 0,
@@ -187,7 +182,7 @@ export async function POST(req: NextRequest) {
           createdById: session.user.id,
           statusHistory: {
             create: {
-              toStatus: status || "PENDING",
+              toStatus: claimStatus || "PENDING",
               changedBy: session.user.name || "Unknown",
               note: "Tạo mới",
             },

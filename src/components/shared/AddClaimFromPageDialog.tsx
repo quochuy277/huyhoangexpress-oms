@@ -1,60 +1,86 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, X, Search, Loader2, Check } from "lucide-react";
+import { Check, Loader2, Plus, X } from "lucide-react";
 
-const ISSUE_TYPE_OPTIONS = [
-  { value: "SLOW_JOURNEY", label: "Hành trình chậm" },
-  { value: "SUSPICIOUS", label: "Nghi ngờ" },
-  { value: "LOST", label: "Thất lạc" },
-  { value: "DAMAGED", label: "Hư hỏng" },
-  { value: "OTHER", label: "Vấn đề khác" },
-];
-
-const CLAIM_STATUS_OPTIONS = [
-  { value: "PENDING", label: "Chưa xử lý" },
-  { value: "VERIFYING_CARRIER", label: "Đang xác minh" },
-  { value: "CLAIM_SUBMITTED", label: "Đã gửi KN" },
-  { value: "COMPENSATION_REQUESTED", label: "Đã yêu cầu ĐB" },
-  { value: "RESOLVED", label: "Đã xử lý" },
-  { value: "CARRIER_COMPENSATED", label: "NVC đã đền bù" },
-  { value: "CARRIER_REJECTED", label: "NVC từ chối" },
-  { value: "CUSTOMER_COMPENSATED", label: "Đã đền bù KH" },
-  { value: "CUSTOMER_REJECTED", label: "Từ chối ĐB KH" },
-];
+import { ClaimDetailDrawer } from "@/components/claims/ClaimDetailDrawer";
+import { CLAIM_STATUS_OPTIONS, ISSUE_TYPE_OPTIONS } from "@/lib/claims-config";
 
 const overlayStyle: React.CSSProperties = {
-  position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.5)",
+  position: "fixed",
+  inset: 0,
+  zIndex: 9998,
+  backgroundColor: "rgba(0,0,0,0.5)",
 };
+
 const dialogBase: React.CSSProperties = {
-  position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-  zIndex: 9999, width: "560px", maxWidth: "calc(100vw - 32px)",
-  background: "#FFFFFF", border: "1.5px solid #2563EB", borderRadius: "12px",
-  boxShadow: "0 8px 30px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column",
+  position: "fixed",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  zIndex: 9999,
+  width: "560px",
+  maxWidth: "calc(100vw - 32px)",
+  background: "#FFFFFF",
+  border: "1.5px solid #2563EB",
+  borderRadius: "12px",
+  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+  display: "flex",
+  flexDirection: "column",
   maxHeight: "90vh",
 };
+
 const headerStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", justifyContent: "space-between",
-  borderBottom: "1px solid #e5e7eb", padding: "16px 24px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  borderBottom: "1px solid #e5e7eb",
+  padding: "16px 24px",
 };
+
 const titleStyle: React.CSSProperties = { fontSize: "18px", fontWeight: 700, color: "#1a1a1a" };
+
 const inputStyle: React.CSSProperties = {
-  width: "100%", background: "#FFFFFF", border: "1.5px solid #d1d5db",
-  borderRadius: "8px", padding: "10px 12px", fontSize: "14px", color: "#1a1a1a",
-  outline: "none", boxSizing: "border-box",
+  width: "100%",
+  background: "#FFFFFF",
+  border: "1.5px solid #d1d5db",
+  borderRadius: "8px",
+  padding: "10px 12px",
+  fontSize: "14px",
+  color: "#1a1a1a",
+  outline: "none",
+  boxSizing: "border-box",
 };
+
 const labelStyle: React.CSSProperties = {
-  display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px",
+  display: "block",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#374151",
+  marginBottom: "6px",
 };
+
 const footerStyle: React.CSSProperties = {
-  display: "flex", justifyContent: "flex-end", gap: "12px",
-  borderTop: "1px solid #e5e7eb", padding: "16px 24px",
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "12px",
+  borderTop: "1px solid #e5e7eb",
+  padding: "16px 24px",
 };
+
 const primaryBtn: React.CSSProperties = {
-  background: "#2563EB", color: "#FFFFFF", border: "none", padding: "8px 20px",
-  borderRadius: "8px", fontSize: "14px", fontWeight: 600, cursor: "pointer",
-  display: "flex", alignItems: "center", gap: "6px",
+  background: "#2563EB",
+  color: "#FFFFFF",
+  border: "none",
+  padding: "8px 20px",
+  borderRadius: "8px",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 interface OrderForClaim {
@@ -71,9 +97,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  /** Pre-filled order (skips search step) */
   order?: OrderForClaim;
-  /** Source context */
   source?: string;
 }
 
@@ -84,31 +108,69 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
   const [deadline, setDeadline] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [duplicateClaimId, setDuplicateClaimId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
-      setIssueType(""); setClaimStatus("PENDING"); setIssueDesc(""); setDeadline(""); setError("");
+      setIssueType("");
+      setClaimStatus("PENDING");
+      setIssueDesc("");
+      setDeadline("");
+      setError("");
+      setDuplicateClaimId(null);
     }
   }, [open]);
 
+  const handleDuplicateClaim = (payload: any) => {
+    setError(payload?.error || "Đơn đã có trong đơn có vấn đề.");
+    const requestCode = order?.requestCode || payload?.claim?.requestCode || "đơn này";
+    const confirmed = window.confirm(
+      `Đơn ${requestCode} đã có trong Đơn có vấn đề. Bạn có muốn mở chi tiết đơn hiện có để sửa lại không?`
+    );
+    if (confirmed && payload?.claim?.id) {
+      setDuplicateClaimId(payload.claim.id);
+    }
+  };
+
   const handleSave = async () => {
-    if (!order || !issueType) { setError("Vui lòng chọn Loại Vấn Đề"); return; }
-    setSaving(true); setError("");
+    if (!order || !issueType) {
+      setError("Vui lòng chọn Loại Vấn Đề");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
     try {
-      const res = await fetch("/api/claims", {
+      const response = await fetch("/api/claims", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderId: order.id, issueType, claimStatus,
+          orderId: order.id,
+          issueType,
+          claimStatus,
           issueDescription: issueDesc || null,
-          deadline: deadline || null, source,
+          deadline: deadline || null,
+          source,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Lỗi"); return; }
+
+      const payload = await response.json();
+      if (!response.ok) {
+        if (response.status === 409) {
+          handleDuplicateClaim(payload);
+          return;
+        }
+        setError(payload.error || "Lỗi");
+        return;
+      }
+
       onSuccess?.();
       onClose();
-    } catch { setError("Lỗi kết nối"); } finally { setSaving(false); }
+    } catch {
+      setError("Lỗi kết nối");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!open || !order) return null;
@@ -124,10 +186,15 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
             </div>
             <span style={titleStyle}>Chuyển vào Đơn Có Vấn Đề</span>
           </div>
-          <button style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", borderRadius: "6px", color: "#666", display: "flex" }} onClick={onClose}><X size={18} /></button>
+          <button
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", borderRadius: "6px", color: "#666", display: "flex" }}
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
         </div>
+
         <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-          {/* Order summary */}
           <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", marginBottom: "16px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }} className="resp-grid-1-2">
               <div><span style={{ color: "#6b7280" }}>Mã YC: </span><strong>{order.requestCode}</strong></div>
@@ -137,32 +204,62 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
             </div>
           </div>
 
-          {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "10px 14px", marginBottom: "12px", color: "#dc2626", fontSize: "13px" }}>{error}</div>}
+          {error && (
+            <div
+              style={{
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                padding: "10px 14px",
+                marginBottom: "12px",
+                color: "#dc2626",
+                fontSize: "13px",
+              }}
+            >
+              {error}
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }} className="resp-grid-1-2">
             <div>
               <label style={labelStyle}>Loại Vấn Đề *</label>
-              <select style={inputStyle} value={issueType} onChange={e => setIssueType(e.target.value)}>
+              <select style={inputStyle} value={issueType} onChange={(event) => setIssueType(event.target.value)}>
                 <option value="">— Chọn —</option>
-                {ISSUE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {ISSUE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label style={labelStyle}>Trạng Thái XL</label>
-              <select style={inputStyle} value={claimStatus} onChange={e => setClaimStatus(e.target.value)}>
-                {CLAIM_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <select style={inputStyle} value={claimStatus} onChange={(event) => setClaimStatus(event.target.value)}>
+                {CLAIM_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
+
           <div style={{ marginBottom: "14px" }}>
             <label style={labelStyle}>Nội Dung Vấn Đề</label>
-            <textarea style={{ ...inputStyle, minHeight: "60px", resize: "vertical" }} value={issueDesc} onChange={e => setIssueDesc(e.target.value)} placeholder="Mô tả vấn đề..." />
+            <textarea
+              style={{ ...inputStyle, minHeight: "60px", resize: "vertical" }}
+              value={issueDesc}
+              onChange={(event) => setIssueDesc(event.target.value)}
+              placeholder="Mô tả vấn đề..."
+            />
           </div>
+
           <div style={{ marginBottom: "14px" }}>
             <label style={labelStyle}>Thời Hạn</label>
-            <input style={inputStyle} type="date" value={deadline} onChange={e => setDeadline(e.target.value)} />
+            <input style={inputStyle} type="date" value={deadline} onChange={(event) => setDeadline(event.target.value)} />
           </div>
         </div>
+
         <div style={footerStyle}>
           <button style={{ ...primaryBtn, background: "transparent", color: "#374151", border: "1px solid #d1d5db" }} onClick={onClose}>Hủy</button>
           <button style={primaryBtn} onClick={handleSave} disabled={saving}>
@@ -171,6 +268,13 @@ export function AddClaimFromPageDialog({ open, onClose, onSuccess, order, source
           </button>
         </div>
       </div>
+
+      <ClaimDetailDrawer
+        claimId={duplicateClaimId || ""}
+        open={Boolean(duplicateClaimId)}
+        onClose={() => setDuplicateClaimId(null)}
+        onUpdate={onSuccess}
+      />
     </>,
     document.body
   );
