@@ -22,6 +22,7 @@ import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { useClaimMutations } from "@/hooks/useClaimMutations";
 import { useClaimsFilters } from "@/hooks/useClaimsFilters";
 import { useClaimsList } from "@/hooks/useClaimsList";
+import { syncExternalClaimDetail } from "@/lib/claim-detail-navigation";
 import {
   CLAIM_STATUS_CONFIG as SHARED_CLAIM_STATUS_CONFIG,
   COMPLETION_STATUSES as SHARED_COMPLETION_STATUSES,
@@ -689,6 +690,18 @@ function ClaimsClientInner({
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  useEffect(() => {
+    const syncResult = syncExternalClaimDetail(detailClaimId, externalDetailClaimId);
+
+    if (syncResult.nextDetailClaimId !== detailClaimId) {
+      setDetailClaimId(syncResult.nextDetailClaimId);
+    }
+
+    if (syncResult.shouldConsume) {
+      onExternalDetailConsumed?.();
+    }
+  }, [detailClaimId, externalDetailClaimId, onExternalDetailConsumed]);
 
 
   const handleOpenTodoFromClaim = (data: ClaimDetailData) => {
