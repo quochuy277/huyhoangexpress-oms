@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -40,6 +41,10 @@ const ACTION_FILTER_FIELDS: Record<string, string[]> = {
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const denied = requireClaimsPermission(session.user, "canViewClaims");
+  if (denied) {
+    return denied;
+  }
 
   const url = new URL(req.url);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
@@ -98,6 +103,21 @@ export async function GET(req: NextRequest) {
       dateWhere.fromStatus = null;
     } else if (actionFilter === "status") {
       dateWhere.fromStatus = { not: null };
+    } else if (actionFilter === "auto") {
+      const existingAnd = Array.isArray(dateWhere.AND)
+        ? dateWhere.AND
+        : dateWhere.AND
+          ? [dateWhere.AND]
+          : [];
+      dateWhere.AND = [
+        ...existingAnd,
+        {
+          OR: [
+            { changedBy: "Hệ thống" },
+            { note: { contains: "Tự động", mode: "insensitive" } },
+          ],
+        },
+      ];
     }
 
     // Build select for claimOrder to avoid over-fetching

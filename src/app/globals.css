@@ -133,3 +133,9 @@
     padding: 12px !important;
   }
 }
+
+@media (max-width: 768px) {
+  .resp-grid-1-2 {
+    grid-template-columns: 1fr !important;
+  }
+}

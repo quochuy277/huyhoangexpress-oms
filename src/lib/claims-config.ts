@@ -100,6 +100,12 @@ export const CLAIM_STATUS_OPTIONS = (Object.entries(CLAIM_STATUS_CONFIG) as Arra
   label: config.label,
 }));
 
+export const COMPLETION_STATUSES: ClaimStatusKey[] = [
+  "RESOLVED",
+  "CUSTOMER_COMPENSATED",
+  "CUSTOMER_REJECTED",
+];
+
 export const AUTO_SCAN_EXCLUDED_ISSUE_TYPES: IssueTypeKey[] = [
   "SUSPICIOUS",
   "DAMAGED",
@@ -111,4 +117,8 @@ export const AUTO_SCAN_EXCLUDED_ISSUE_TYPES: IssueTypeKey[] = [
 export function getIssueTypeLabel(issueType: string | null | undefined) {
   return ISSUE_TYPE_CONFIG[(issueType as IssueTypeKey) || DEFAULT_ISSUE_TYPE]?.label
     || ISSUE_TYPE_CONFIG[DEFAULT_ISSUE_TYPE].label;
+}
+
+export function formatClaimMoney(value: number) {
+  return `${value.toLocaleString("vi-VN")}đ`;
 }

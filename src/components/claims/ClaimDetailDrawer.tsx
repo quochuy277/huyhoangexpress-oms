@@ -23,11 +23,11 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { getUnsavedClaimDialogCopy } from "@/lib/confirm-dialog";
 import {
   CLAIM_STATUS_CONFIG,
+  COMPLETION_STATUSES,
   DEFAULT_ISSUE_TYPE,
   ISSUE_TYPE_CONFIG,
+  formatClaimMoney,
 } from "@/lib/claims-config";
-
-const COMPLETION_STATUSES = ["RESOLVED", "CUSTOMER_COMPENSATED", "CUSTOMER_REJECTED"];
 
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
@@ -122,7 +122,7 @@ type LocalEdits = {
 };
 
 function formatVND(n: number) {
-  return n.toLocaleString("vi-VN") + "đ";
+  return formatClaimMoney(n);
 }
 
 function daysBetween(d: string | Date) {
@@ -227,7 +227,9 @@ export function ClaimDetailDrawer({
   const canEditCustomerComp = ["CARRIER_COMPENSATED", "CARRIER_REJECTED", "CUSTOMER_COMPENSATED"].includes(
     edits?.claimStatus || ""
   );
-  const canComplete = Boolean(data && COMPLETION_STATUSES.includes(data.claimStatus));
+  const canComplete = Boolean(
+    data && COMPLETION_STATUSES.includes(data.claimStatus as (typeof COMPLETION_STATUSES)[number])
+  );
   const canToggleComplete = Boolean(data && (data.isCompleted || canComplete));
   const canTriggerCompleteToggle = canToggleComplete && !isDirty;
   const canOpenNestedOverlay = !closeOnNestedOverlayOpen || !isDirty;

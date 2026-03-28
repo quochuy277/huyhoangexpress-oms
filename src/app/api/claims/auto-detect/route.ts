@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { createAutoDetectedClaims } from "@/lib/claim-detector";
 
 export async function POST() {
@@ -8,6 +9,10 @@ export async function POST() {
 
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    const denied = requireClaimsPermission(session.user, "canUpdateClaim");
+    if (denied) {
+      return denied;
     }
 
     const result = await createAutoDetectedClaims(session.user.id);

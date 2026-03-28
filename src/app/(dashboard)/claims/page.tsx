@@ -8,11 +8,17 @@ export default async function ClaimsPage() {
 
   const user = session.user;
   const canViewCompensation = user.role === "ADMIN" || user.role === "MANAGER" || !!user.permissions?.canViewCompensation || !!user.permissions?.canViewFinancePage;
+  const canCreateClaim = !!user.permissions?.canCreateClaim || user.role === "ADMIN";
+  const canUpdateClaim = !!user.permissions?.canUpdateClaim || user.role === "ADMIN";
+  const canDeleteClaim = !!user.permissions?.canDeleteClaim || user.role === "ADMIN";
 
   return (
     <ClaimsPageWrapper
       userRole={user.role || "STAFF"}
       canViewCompensation={canViewCompensation}
+      canCreateClaim={canCreateClaim}
+      canUpdateClaim={canUpdateClaim}
+      canDeleteClaim={canDeleteClaim}
     />
   );
 }

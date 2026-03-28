@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: NextRequest) {
@@ -7,6 +8,10 @@ export async function PATCH(req: NextRequest) {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    const denied = requireClaimsPermission(session.user, "canUpdateClaim");
+    if (denied) {
+      return denied;
     }
 
     const body = await req.json();
@@ -65,6 +70,10 @@ export async function DELETE(req: NextRequest) {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    const denied = requireClaimsPermission(session.user, "canDeleteClaim");
+    if (denied) {
+      return denied;
     }
 
     const body = await req.json();

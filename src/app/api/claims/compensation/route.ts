@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
+import { hasClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 import { ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
 
@@ -11,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const user = session.user;
   if (
-    !user.permissions?.canViewCompensation
+    !hasClaimsPermission(user, "canViewCompensation")
     && !user.permissions?.canViewFinancePage
     && user.role !== "ADMIN"
     && user.role !== "MANAGER"
@@ -135,31 +137,41 @@ export async function GET(req: NextRequest) {
 
     const shops = Array.from(shopMap.values()).sort((a, b) => b.totalClaims - a.totalClaims);
 
-    const monthlyPromises = [];
-    for (let i = 5; i >= 0; i--) {
-      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-      const monthLabel = `${String(monthStart.getMonth() + 1).padStart(2, "0")}/${monthStart.getFullYear()}`;
+    const monthlyWindowFrom = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const monthlyRows = await prisma.$queryRaw<Array<{ month: string; carrier_total: unknown; customer_total: unknown }>>(
+      Prisma.sql`
+        SELECT
+          to_char(date_trunc('month', "detectedDate"), 'MM/YYYY') AS month,
+          COALESCE(SUM(CASE WHEN "claimStatus" = 'CARRIER_COMPENSATED' THEN "carrierCompensation" ELSE 0 END), 0) AS carrier_total,
+          COALESCE(SUM(CASE WHEN "claimStatus" = 'CUSTOMER_COMPENSATED' THEN "customerCompensation" ELSE 0 END), 0) AS customer_total
+        FROM "ClaimOrder"
+        WHERE "detectedDate" >= ${monthlyWindowFrom}
+        GROUP BY date_trunc('month', "detectedDate")
+        ORDER BY date_trunc('month', "detectedDate") ASC
+      `,
+    );
 
-      monthlyPromises.push(
-        Promise.all([
-          prisma.claimOrder.aggregate({
-            where: { detectedDate: { gte: monthStart, lte: monthEnd }, claimStatus: "CARRIER_COMPENSATED" },
-            _sum: { carrierCompensation: true },
-          }),
-          prisma.claimOrder.aggregate({
-            where: { detectedDate: { gte: monthStart, lte: monthEnd }, claimStatus: "CUSTOMER_COMPENSATED" },
-            _sum: { customerCompensation: true },
-          }),
-        ]).then(([carrierMonth, customerMonth]) => ({
-          month: monthLabel,
-          carrier: Number(carrierMonth._sum.carrierCompensation || 0),
-          customer: Number(customerMonth._sum.customerCompensation || 0),
-        }))
-      );
-    }
+    const monthlyMap = new Map(
+      monthlyRows.map((row) => [
+        row.month,
+        {
+          carrier: Number(row.carrier_total || 0),
+          customer: Number(row.customer_total || 0),
+        },
+      ]),
+    );
 
-    const monthlyData = await Promise.all(monthlyPromises);
+    const monthlyData = Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      const monthLabel = `${String(monthDate.getMonth() + 1).padStart(2, "0")}/${monthDate.getFullYear()}`;
+      const monthTotals = monthlyMap.get(monthLabel);
+
+      return {
+        month: monthLabel,
+        carrier: monthTotals?.carrier || 0,
+        customer: monthTotals?.customer || 0,
+      };
+    });
 
     const issueDistribution = Object.entries(ISSUE_TYPE_CONFIG).map(([type, config]) => {
       const found = issueTypeBreakdown.find((group) => group.issueType === type);

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { CLAIM_STATUS_CONFIG, ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
 import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -35,6 +36,10 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    const denied = requireClaimsPermission(session.user, "canViewClaims");
+    if (denied) {
+      return denied;
     }
 
     const params = req.nextUrl.searchParams;
