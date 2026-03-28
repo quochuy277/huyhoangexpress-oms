@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, DollarSign, AlertCircle, Download,
   Loader2, ChevronDown, ChevronRight, Search,
 } from "lucide-react";
+import { CLAIMS_MOBILE_BREAKPOINT } from "@/components/claims/claims-table/claimsResponsive";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -106,6 +107,16 @@ export default function ClaimsCompensationTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <style>{`
+        @media (max-width: ${CLAIMS_MOBILE_BREAKPOINT - 1}px) {
+          .claims-compensation-shop-table { display: none !important; }
+          .claims-compensation-shop-cards { display: flex !important; }
+        }
+
+        @media (min-width: ${CLAIMS_MOBILE_BREAKPOINT}px) {
+          .claims-compensation-shop-cards { display: none !important; }
+        }
+      `}</style>
       {/* Period filter */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <select
@@ -143,9 +154,9 @@ export default function ClaimsCompensationTab() {
 
       {/* Shop compensation table */}
       <div style={cardStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ fontSize: "14px", fontWeight: 700, color: "#1e293b" }}>📊 Đối soát theo Cửa hàng</div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", width: "100%", justifyContent: "flex-end" }}>
             <div style={{ position: "relative" }}>
               <Search size={14} style={{ position: "absolute", left: "10px", top: "8px", color: "#9ca3af" }} />
               <input
@@ -153,19 +164,20 @@ export default function ClaimsCompensationTab() {
                 placeholder="Tìm cửa hàng..."
                 value={shopSearch}
                 onChange={e => setShopSearch(e.target.value)}
+                aria-label="Tìm cửa hàng bồi hoàn"
               />
             </div>
             <button onClick={handleExportExcel} style={{
               display: "flex", alignItems: "center", gap: "4px", padding: "6px 12px",
               borderRadius: "8px", border: "1px solid #BFDBFE", background: "#EFF6FF",
               fontSize: "12px", fontWeight: 600, color: "#2563EB", cursor: "pointer",
-            }}>
+            }} aria-label="Xuất CSV đối soát đền bù">
               <Download size={13} /> Xuất Excel
             </button>
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        <div className="claims-compensation-shop-table" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e5e7eb" }}>
@@ -178,31 +190,78 @@ export default function ClaimsCompensationTab() {
               {filteredShops.length === 0 ? (
                 <tr><td colSpan={8} style={{ textAlign: "center", padding: "30px", color: "#9ca3af" }}>Không có dữ liệu</td></tr>
               ) : filteredShops.map((s: any, i: number) => (
-                <tr key={s.shopName} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                  <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.shopName}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 600 }}>{s.totalClaims}</td>
-                  <td style={{ padding: "8px 10px" }}>{s.processing}</td>
-                  <td style={{ padding: "8px 10px", color: "#16a34a", fontWeight: 600 }}>{s.compensated}</td>
-                  <td style={{ padding: "8px 10px", color: "#dc2626", fontWeight: 600 }}>{s.rejected}</td>
-                  <td style={{ padding: "8px 10px", color: "#16a34a", fontWeight: 600 }}>{formatVND(s.totalPaid)}</td>
-                  <td style={{ padding: "8px 10px", color: "#d97706", fontWeight: 600 }}>{formatVND(s.totalPending)}</td>
-                  <td style={{ padding: "8px 10px" }}>
-                    <button
-                      onClick={() => setExpandedShop(expandedShop === s.shopName ? null : s.shopName)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px",
-                        borderRadius: "6px", border: "1px solid #d1d5db", background: "#fff",
-                        fontSize: "11px", fontWeight: 600, color: "#2563EB", cursor: "pointer",
-                      }}
-                    >
-                      {expandedShop === s.shopName ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                      Xem
-                    </button>
-                  </td>
-                </tr>
+                <Fragment key={s.shopName}>
+                  <tr key={`${s.shopName}-row`} style={{ borderBottom: expandedShop === s.shopName ? "none" : "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.shopName}</td>
+                    <td style={{ padding: "8px 10px", fontWeight: 600 }}>{s.totalClaims}</td>
+                    <td style={{ padding: "8px 10px" }}>{s.processing}</td>
+                    <td style={{ padding: "8px 10px", color: "#16a34a", fontWeight: 600 }}>{s.compensated}</td>
+                    <td style={{ padding: "8px 10px", color: "#dc2626", fontWeight: 600 }}>{s.rejected}</td>
+                    <td style={{ padding: "8px 10px", color: "#16a34a", fontWeight: 600 }}>{formatVND(s.totalPaid)}</td>
+                    <td style={{ padding: "8px 10px", color: "#d97706", fontWeight: 600 }}>{formatVND(s.totalPending)}</td>
+                    <td style={{ padding: "8px 10px" }}>
+                      <button
+                        onClick={() => setExpandedShop(expandedShop === s.shopName ? null : s.shopName)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px",
+                          borderRadius: "6px", border: "1px solid #d1d5db", background: "#fff",
+                          fontSize: "11px", fontWeight: 600, color: "#2563EB", cursor: "pointer",
+                        }}
+                        aria-label={`Xem shop ${s.shopName}`}
+                      >
+                        {expandedShop === s.shopName ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        Xem
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedShop === s.shopName && (
+                    <tr key={`${s.shopName}-detail`} style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                      <td colSpan={8} style={{ padding: "12px 14px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }} className="resp-grid-1-2">
+                          <div><strong style={{ display: "block", color: "#1e293b" }}>Tổng đơn</strong><span style={{ fontSize: "12px", color: "#64748b" }}>{s.totalClaims} đơn vấn đề</span></div>
+                          <div><strong style={{ display: "block", color: "#1e293b" }}>Đang xử lý</strong><span style={{ fontSize: "12px", color: "#64748b" }}>{s.processing} đơn</span></div>
+                          <div><strong style={{ display: "block", color: "#1e293b" }}>Đã đền bù KH</strong><span style={{ fontSize: "12px", color: "#16a34a" }}>{formatVND(s.totalPaid)}</span></div>
+                          <div><strong style={{ display: "block", color: "#1e293b" }}>Chờ xử lý</strong><span style={{ fontSize: "12px", color: "#d97706" }}>{formatVND(s.totalPending)}</span></div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="claims-compensation-shop-cards" data-testid="claims-compensation-shop-cards" style={{ display: "none", flexDirection: "column", gap: "10px" }}>
+          {filteredShops.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af" }}>Không có dữ liệu</div>
+          ) : filteredShops.map((s: any) => (
+            <article key={`${s.shopName}-card`} style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", background: "#fff" }}>
+              <button
+                onClick={() => setExpandedShop(expandedShop === s.shopName ? null : s.shopName)}
+                style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+                aria-label={`Xem shop ${s.shopName}`}
+              >
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b" }}>{s.shopName}</div>
+                  <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{s.totalClaims} đơn vấn đề</div>
+                </div>
+                {expandedShop === s.shopName ? <ChevronDown size={16} color="#2563EB" /> : <ChevronRight size={16} color="#2563EB" />}
+              </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "10px" }}>
+                <div style={{ fontSize: "12px", color: "#475569" }}>Đang xử lý: <strong>{s.processing}</strong></div>
+                <div style={{ fontSize: "12px", color: "#475569" }}>Đã ĐB KH: <strong>{s.compensated}</strong></div>
+                <div style={{ fontSize: "12px", color: "#16a34a" }}>Đã trả: <strong>{formatVND(s.totalPaid)}</strong></div>
+                <div style={{ fontSize: "12px", color: "#d97706" }}>Chờ xử lý: <strong>{formatVND(s.totalPending)}</strong></div>
+              </div>
+              {expandedShop === s.shopName && (
+                <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid #e5e7eb", fontSize: "12px", color: "#64748b", lineHeight: "1.5" }}>
+                  <div>Từ chối đền bù: <strong style={{ color: "#dc2626" }}>{s.rejected}</strong></div>
+                  <div>Tổng shop payout theo kỳ đã chọn: <strong style={{ color: "#1e293b" }}>{formatVND(s.totalPaid + s.totalPending)}</strong></div>
+                </div>
+              )}
+            </article>
+          ))}
         </div>
       </div>
 

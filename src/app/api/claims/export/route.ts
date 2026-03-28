@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { CLAIM_STATUS_CONFIG, ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
 import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -14,6 +15,8 @@ const SOURCE_LABELS: Record<string, string> = {
   FROM_ORDERS: "Từ đơn hàng",
   MANUAL: "Thủ công",
 };
+
+const EXPORT_LIMIT = 3000;
 
 function formatDateVN(date: Date | string | null): string {
   if (!date) return "";
@@ -35,6 +38,10 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    const denied = requireClaimsPermission(session.user, "canViewClaims");
+    if (denied) {
+      return denied;
     }
 
     const params = req.nextUrl.searchParams;
@@ -100,7 +107,7 @@ export async function GET(req: NextRequest) {
         createdBy: { select: { name: true } },
       },
       orderBy: { deadline: "asc" },
-      take: 10000,
+      take: EXPORT_LIMIT,
     });
 
     const rows = claims.map((claim, index) => {
@@ -138,8 +145,8 @@ export async function GET(req: NextRequest) {
     });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    const headers = Object.keys(rows[0] || {});
-    worksheet["!cols"] = headers.map((key) => ({ wch: Math.max(key.length + 2, 14) }));
+    const worksheetHeaders = Object.keys(rows[0] || {});
+    worksheet["!cols"] = worksheetHeaders.map((key) => ({ wch: Math.max(key.length + 2, 14) }));
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn Có Vấn Đề");
@@ -147,12 +154,19 @@ export async function GET(req: NextRequest) {
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     const timestamp = new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).replace(/\//g, "");
 
+    const headers = new Headers({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename=\"don-co-van-de-${timestamp}.xlsx\"`,
+    });
+
+    if (claims.length === EXPORT_LIMIT) {
+      headers.set("X-Claims-Export-Truncated", "true");
+    }
+    headers.set("X-Claims-Export-Limit", String(EXPORT_LIMIT));
+
     return new NextResponse(buffer, {
       status: 200,
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename=\"don-co-van-de-${timestamp}.xlsx\"`,
-      },
+      headers,
     });
   } catch (error) {
     console.error("GET /api/claims/export error:", error);

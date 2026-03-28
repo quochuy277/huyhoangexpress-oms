@@ -8,6 +8,7 @@ import {
   Search, Filter, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
+import { CLAIMS_MOBILE_BREAKPOINT } from "@/components/claims/claims-table/claimsResponsive";
 
 /* ============================================================
    STYLES
@@ -85,7 +86,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
 
   // History pagination/filter state
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize] = useState(20);
+  const [historyPageSize, setHistoryPageSize] = useState(20);
   const [historyFilters, setHistoryFilters] = useState({ search: "", action: "", staff: "", dateFrom: "", dateTo: "" });
 
   // Documents — React Query
@@ -201,14 +202,13 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
   return (
     <div className="claims-tools-tab" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: ${CLAIMS_MOBILE_BREAKPOINT - 1}px) {
           .claims-tools-cards { flex-direction: column !important; }
           .claims-tools-cards > div { min-width: 0 !important; }
           .claims-tools-doc-row { flex-wrap: wrap !important; gap: 8px !important; }
           .claims-tools-doc-actions { width: 100% !important; justify-content: flex-end !important; margin-top: 4px !important; }
           .claims-tools-filters { gap: 6px !important; }
-          .claims-tools-filters > * { flex: 1 1 calc(50% - 6px) !important; min-width: 0 !important; }
-          .claims-tools-filters > div:first-child { flex: 1 1 100% !important; }
+          .claims-tools-filters > * { flex: 1 1 100% !important; min-width: 0 !important; }
           .claims-tools-history-table { display: none !important; }
           .claims-tools-history-cards { display: flex !important; }
           .claims-tools-pagination { flex-direction: column !important; gap: 8px !important; align-items: stretch !important; }
@@ -345,13 +345,18 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               style={{ ...inputStyle, paddingLeft: "32px", padding: "7px 10px 7px 32px" }}
               placeholder="Mã đơn, Nhân viên..."
               value={historyFilters.search}
-              onChange={e => setHistoryFilters(f => ({ ...f, search: e.target.value }))}
+              onChange={e => {
+                setHistoryFilters(f => ({ ...f, search: e.target.value }));
+                setHistoryPage(1);
+              }}
+              aria-label="Tìm kiếm lịch sử claims"
             />
           </div>
           <select
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.action}
             onChange={e => { setHistoryFilters(f => ({ ...f, action: e.target.value })); setHistoryPage(1); }}
+            aria-label="Lọc hành động claims"
           >
             {ACTION_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -359,6 +364,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.staff}
             onChange={e => { setHistoryFilters(f => ({ ...f, staff: e.target.value })); setHistoryPage(1); }}
+            aria-label="Lọc nhân viên claims"
           >
             <option value="">Tất cả NV</option>
             {staffNames.map((n: string) => <option key={n} value={n}>{n}</option>)}
@@ -367,15 +373,23 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             type="date"
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.dateFrom}
-            onChange={e => setHistoryFilters(f => ({ ...f, dateFrom: e.target.value }))}
+            onChange={e => {
+              setHistoryFilters(f => ({ ...f, dateFrom: e.target.value }));
+              setHistoryPage(1);
+            }}
             placeholder="Từ ngày"
+            aria-label="Từ ngày lịch sử claims"
           />
           <input
             type="date"
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.dateTo}
-            onChange={e => setHistoryFilters(f => ({ ...f, dateTo: e.target.value }))}
+            onChange={e => {
+              setHistoryFilters(f => ({ ...f, dateTo: e.target.value }));
+              setHistoryPage(1);
+            }}
             placeholder="Đến ngày"
+            aria-label="Đến ngày lịch sử claims"
           />
         </div>
 
@@ -484,8 +498,12 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               <span>Hiển thị</span>
               <select
                 value={historyPagination.pageSize}
-                onChange={e => { setHistoryPage(1); }}
+                onChange={e => {
+                  setHistoryPageSize(Number(e.target.value));
+                  setHistoryPage(1);
+                }}
                 style={{ border: "1px solid #d1d5db", borderRadius: "6px", padding: "4px 8px", fontSize: "12px" }}
+                aria-label="Số dòng lịch sử mỗi trang"
               >
                 {[20, 50].map(n => <option key={n} value={n}>{n}</option>)}
               </select>

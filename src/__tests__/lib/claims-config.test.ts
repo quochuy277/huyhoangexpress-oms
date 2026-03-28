@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   AUTO_SCAN_EXCLUDED_ISSUE_TYPES,
+  CLAIM_STATUS_OPTIONS,
+  COMPLETION_STATUSES,
   DEFAULT_ISSUE_TYPE,
   ISSUE_TYPE_CONFIG,
   ISSUE_TYPE_OPTIONS,
+  formatClaimMoney,
   getIssueTypeLabel,
 } from "@/lib/claims-config";
 
@@ -32,5 +35,18 @@ describe("claims-config", () => {
       "OTHER",
       "FEE_COMPLAINT",
     ]);
+  });
+
+  it("exports shared status options and completion statuses for claims views", () => {
+    expect(CLAIM_STATUS_OPTIONS.some((option) => option.value === "PENDING")).toBe(true);
+    expect(COMPLETION_STATUSES).toEqual([
+      "RESOLVED",
+      "CUSTOMER_COMPENSATED",
+      "CUSTOMER_REJECTED",
+    ]);
+  });
+
+  it("formats claim money in vi-VN currency style", () => {
+    expect(formatClaimMoney(1250000)).toBe("1.250.000đ");
   });
 });

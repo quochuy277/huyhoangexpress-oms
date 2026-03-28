@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Wrench, DollarSign } from "lucide-react";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const ClaimsClient = dynamic(() => import("@/components/claims/ClaimsClient"), { ssr: false });
 const ClaimsToolsTab = dynamic(() => import("@/components/claims/ClaimsToolsTab"), { ssr: false });
@@ -13,19 +14,40 @@ type TabKey = "claims" | "tools" | "compensation";
 interface Props {
   userRole: string;
   canViewCompensation: boolean;
+  canCreateClaim: boolean;
+  canUpdateClaim: boolean;
+  canDeleteClaim: boolean;
 }
 
-export default function ClaimsPageWrapper({ userRole, canViewCompensation }: Props) {
-  const [activeTab, setActiveTab] = useState<TabKey>("claims");
+export default function ClaimsPageWrapper({
+  userRole,
+  canViewCompensation,
+  canCreateClaim,
+  canUpdateClaim,
+  canDeleteClaim,
+}: Props) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchTab = searchParams.get("claimTab");
+  const initialTab = searchTab === "tools" || searchTab === "compensation" ? searchTab : "claims";
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [claimCount, setClaimCount] = useState(0);
   const [externalDetailClaimId, setExternalDetailClaimId] = useState<string | null>(null);
   // Lazy mount: chỉ mount tab khi user mở lần đầu, sau đó giữ mounted để tránh re-fetch
-  const [mountedTabs, setMountedTabs] = useState<Set<TabKey>>(new Set(["claims"]));
+  const [mountedTabs, setMountedTabs] = useState<Set<TabKey>>(new Set(["claims", initialTab as TabKey]));
 
   const isAdmin = userRole === "ADMIN";
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
+    const params = new URLSearchParams(searchParams.toString());
+    if (key === "claims") {
+      params.delete("claimTab");
+    } else {
+      params.set("claimTab", key);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     setMountedTabs(prev => {
       if (prev.has(key)) return prev;
       const next = new Set(prev);
@@ -49,11 +71,13 @@ export default function ClaimsPageWrapper({ userRole, canViewCompensation }: Pro
         display: "flex", borderBottom: "2px solid #e5e7eb",
         background: "#fff", paddingLeft: "4px", marginBottom: "12px",
         overflowX: "auto", WebkitOverflowScrolling: "touch",
-      }}>
+      }} role="tablist" aria-label="Claims tabs">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => handleTabChange(t.key)}
+            role="tab"
+            aria-selected={activeTab === t.key}
             style={{
               display: "flex", alignItems: "center", gap: "6px",
               padding: "10px 14px", fontSize: "13px",
@@ -62,7 +86,7 @@ export default function ClaimsPageWrapper({ userRole, canViewCompensation }: Pro
               background: "transparent", border: "none",
               borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent",
               marginBottom: "-2px", cursor: "pointer",
-              transition: "all 0.15s",
+              transition: "color 0.15s, border-color 0.15s",
               whiteSpace: "nowrap", flexShrink: 0,
             }}
           >
@@ -79,6 +103,9 @@ export default function ClaimsPageWrapper({ userRole, canViewCompensation }: Pro
               onCountChange={setClaimCount}
               externalDetailClaimId={externalDetailClaimId}
               onExternalDetailConsumed={() => setExternalDetailClaimId(null)}
+              canCreateClaim={canCreateClaim}
+              canUpdateClaim={canUpdateClaim}
+              canDeleteClaim={canDeleteClaim}
             />
           </div>
         )}

@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
 
-// Helper: map ClaimChangeLog fieldName → action label
-function getActionFromField(fieldName: string, newValue: string | null): { action: string; dotColor: string; actionType: string } {
+import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { prisma } from "@/lib/prisma";
+
+function getActionFromField(fieldName: string, newValue: string | null): {
+  action: string;
+  dotColor: string;
+  actionType: string;
+} {
   switch (fieldName) {
     case "claimStatus":
       return { action: "Chuyển trạng thái", dotColor: "yellow", actionType: "Chuyển trạng thái" };
@@ -29,226 +34,265 @@ function getActionFromField(fieldName: string, newValue: string | null): { actio
   }
 }
 
-// Map action filter → allowed fieldNames for ClaimChangeLog
 const ACTION_FILTER_FIELDS: Record<string, string[]> = {
   update: ["issueType", "issueDescription", "processingContent", "deadline"],
   compensation: ["carrierCompensation", "customerCompensation"],
   complete: ["isCompleted"],
 };
 
-// GET — Claims activity history with DB-level filtering & pagination
+type ActivityFeedRow = {
+  id: string;
+  claimId: string;
+  timestamp: Date;
+  staff: string;
+  requestCode: string | null;
+  sourceType: "status" | "change";
+  fieldName: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  issueType: string | null;
+  isNew: boolean;
+};
+
+function buildStatusActivityQuery(
+  search: string,
+  staffFilter: string,
+  dateFrom: string,
+  dateTo: string,
+  actionFilter: string,
+) {
+  const conditions: Prisma.Sql[] = [];
+
+  if (dateFrom) {
+    conditions.push(Prisma.sql`sh."changedAt" >= ${new Date(dateFrom)}`);
+  }
+
+  if (dateTo) {
+    const toDate = new Date(dateTo);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push(Prisma.sql`sh."changedAt" <= ${toDate}`);
+  }
+
+  if (staffFilter) {
+    conditions.push(Prisma.sql`sh."changedBy" = ${staffFilter}`);
+  }
+
+  if (search) {
+    const searchLike = `%${search}%`;
+    conditions.push(
+      Prisma.sql`(sh."changedBy" ILIKE ${searchLike} OR o."requestCode" ILIKE ${searchLike})`,
+    );
+  }
+
+  if (actionFilter === "new") {
+    conditions.push(Prisma.sql`sh."fromStatus" IS NULL`);
+  } else if (actionFilter === "status") {
+    conditions.push(Prisma.sql`sh."fromStatus" IS NOT NULL`);
+  } else if (actionFilter === "auto") {
+    conditions.push(
+      Prisma.sql`(sh."changedBy" = ${"Hệ thống"} OR COALESCE(sh."note", '') ILIKE ${"%Tự động%"})`,
+    );
+  }
+
+  const whereClause = conditions.length
+    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+    : Prisma.empty;
+
+  return Prisma.sql`
+    SELECT
+      sh.id,
+      sh."claimOrderId" AS "claimId",
+      sh."changedAt" AS timestamp,
+      sh."changedBy" AS staff,
+      o."requestCode" AS "requestCode",
+      'status' AS "sourceType",
+      NULL::text AS "fieldName",
+      sh."fromStatus"::text AS "oldValue",
+      sh."toStatus"::text AS "newValue",
+      co."issueType"::text AS "issueType",
+      (sh."fromStatus" IS NULL) AS "isNew"
+    FROM "ClaimStatusHistory" sh
+    INNER JOIN "ClaimOrder" co ON co.id = sh."claimOrderId"
+    INNER JOIN "Order" o ON o.id = co."orderId"
+    ${whereClause}
+  `;
+}
+
+function buildChangeActivityQuery(
+  search: string,
+  staffFilter: string,
+  dateFrom: string,
+  dateTo: string,
+  actionFilter: string,
+) {
+  const conditions: Prisma.Sql[] = [Prisma.sql`cl."fieldName" <> 'claimStatus'`];
+
+  if (dateFrom) {
+    conditions.push(Prisma.sql`cl."changedAt" >= ${new Date(dateFrom)}`);
+  }
+
+  if (dateTo) {
+    const toDate = new Date(dateTo);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push(Prisma.sql`cl."changedAt" <= ${toDate}`);
+  }
+
+  if (staffFilter) {
+    conditions.push(Prisma.sql`cl."changedBy" = ${staffFilter}`);
+  }
+
+  if (search) {
+    const searchLike = `%${search}%`;
+    conditions.push(
+      Prisma.sql`(cl."changedBy" ILIKE ${searchLike} OR o."requestCode" ILIKE ${searchLike})`,
+    );
+  }
+
+  if (actionFilter && ACTION_FILTER_FIELDS[actionFilter]) {
+    conditions.push(Prisma.sql`cl."fieldName" IN (${Prisma.join(ACTION_FILTER_FIELDS[actionFilter])})`);
+  }
+
+  const whereClause = conditions.length
+    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+    : Prisma.empty;
+
+  return Prisma.sql`
+    SELECT
+      cl.id,
+      cl."claimOrderId" AS "claimId",
+      cl."changedAt" AS timestamp,
+      cl."changedBy" AS staff,
+      o."requestCode" AS "requestCode",
+      'change' AS "sourceType",
+      cl."fieldName" AS "fieldName",
+      cl."oldValue" AS "oldValue",
+      cl."newValue" AS "newValue",
+      NULL::text AS "issueType",
+      FALSE AS "isNew"
+    FROM "ClaimChangeLog" cl
+    INNER JOIN "ClaimOrder" co ON co.id = cl."claimOrderId"
+    INNER JOIN "Order" o ON o.id = co."orderId"
+    ${whereClause}
+  `;
+}
+
+function mapActivityRow(row: ActivityFeedRow) {
+  if (row.sourceType === "status") {
+    const isNew = Boolean(row.isNew);
+    return {
+      id: row.id,
+      claimId: row.claimId,
+      timestamp: row.timestamp,
+      staff: row.staff,
+      requestCode: row.requestCode || "—",
+      action: isNew ? "Thêm đơn có vấn đề" : "Chuyển trạng thái",
+      detail: isNew
+        ? `Tạo đơn mới - ${row.issueType || ""}`
+        : `${row.oldValue || "—"} → ${row.newValue || "—"}`,
+      dotColor: isNew ? "blue" : "yellow",
+      actionType: isNew ? "Thêm đơn có vấn đề" : "Chuyển trạng thái",
+    };
+  }
+
+  const actionMeta = getActionFromField(row.fieldName || "", row.newValue);
+  return {
+    id: row.id,
+    claimId: row.claimId,
+    timestamp: row.timestamp,
+    staff: row.staff,
+    requestCode: row.requestCode || "—",
+    action: actionMeta.action,
+    detail: `${row.oldValue || "—"} → ${row.newValue || "—"}`,
+    dotColor: actionMeta.dotColor,
+    actionType: actionMeta.actionType,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
+
+  const denied = requireClaimsPermission(session.user, "canViewClaims");
+  if (denied) {
+    return denied;
+  }
 
   const url = new URL(req.url);
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20")));
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
+  const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20", 10)));
   const actionFilter = url.searchParams.get("action") || "";
   const staffFilter = url.searchParams.get("staff") || "";
-  const search = url.searchParams.get("search") || "";
+  const search = url.searchParams.get("search")?.trim() || "";
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
 
   try {
-    // Build shared date filter
-    const dateWhere: Prisma.ClaimStatusHistoryWhereInput = {};
-    const clDateWhere: Prisma.ClaimChangeLogWhereInput = {};
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      (dateWhere.changedAt as Prisma.DateTimeFilter) = { ...(dateWhere.changedAt as Prisma.DateTimeFilter), gte: from };
-      (clDateWhere.changedAt as Prisma.DateTimeFilter) = { ...(clDateWhere.changedAt as Prisma.DateTimeFilter), gte: from };
-    }
-    if (dateTo) {
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      (dateWhere.changedAt as Prisma.DateTimeFilter) = { ...(dateWhere.changedAt as Prisma.DateTimeFilter), lte: toDate };
-      (clDateWhere.changedAt as Prisma.DateTimeFilter) = { ...(clDateWhere.changedAt as Prisma.DateTimeFilter), lte: toDate };
-    }
-
-    // Build staff filter at DB level
-    if (staffFilter) {
-      dateWhere.changedBy = staffFilter;
-      clDateWhere.changedBy = staffFilter;
-    }
-
-    // Build search filter at DB level (search by requestCode or staff name)
-    if (search) {
-      dateWhere.OR = [
-        { changedBy: { contains: search, mode: "insensitive" } },
-        { claimOrder: { order: { requestCode: { contains: search, mode: "insensitive" } } } },
-      ];
-      clDateWhere.OR = [
-        { changedBy: { contains: search, mode: "insensitive" } },
-        { claimOrder: { order: { requestCode: { contains: search, mode: "insensitive" } } } },
-      ];
-    }
-
-    // Determine which sources to query based on action filter
     const includeStatusHistory = !actionFilter || ["new", "status", "auto"].includes(actionFilter);
     const includeChangeLogs = !actionFilter || ["update", "compensation", "complete"].includes(actionFilter);
+    const offset = (page - 1) * pageSize;
 
-    // Add fieldName filter for change logs based on action type
-    if (actionFilter && ACTION_FILTER_FIELDS[actionFilter]) {
-      clDateWhere.fieldName = { in: ACTION_FILTER_FIELDS[actionFilter] };
+    if (!includeStatusHistory && !includeChangeLogs) {
+      return NextResponse.json({
+        activities: [],
+        staffNames: [],
+        pagination: { page, pageSize, total: 0, totalPages: 0 },
+      });
     }
 
-    // For status history: filter by fromStatus for "new" vs "status"
-    if (actionFilter === "new") {
-      dateWhere.fromStatus = null;
-    } else if (actionFilter === "status") {
-      dateWhere.fromStatus = { not: null };
-    }
-
-    // Build select for claimOrder to avoid over-fetching
-    const claimOrderSelect = {
-      id: true,
-      issueType: true,
-      order: { select: { requestCode: true } },
-    };
-
-    // Step 1: Count both sources + fetch staff names in parallel
-    const countPromises: Promise<any>[] = [];
-
+    const sources: Prisma.Sql[] = [];
     if (includeStatusHistory) {
-      countPromises.push(prisma.claimStatusHistory.count({ where: dateWhere }));
-    } else {
-      countPromises.push(Promise.resolve(0));
+      sources.push(buildStatusActivityQuery(search, staffFilter, dateFrom, dateTo, actionFilter));
     }
-
     if (includeChangeLogs) {
-      countPromises.push(prisma.claimChangeLog.count({
-        where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
-      }));
-    } else {
-      countPromises.push(Promise.resolve(0));
+      sources.push(buildChangeActivityQuery(search, staffFilter, dateFrom, dateTo, actionFilter));
     }
 
-    countPromises.push(
-      prisma.claimStatusHistory.findMany({
-        select: { changedBy: true },
-        distinct: ["changedBy"],
-        orderBy: { changedBy: "asc" },
-      }),
-    );
+    const unionFeed = Prisma.join(sources, " UNION ALL ");
 
-    const [statusCount, changeLogCount, staffList] = await Promise.all(countPromises);
+    const [countRows, activityRows, staffRows] = await Promise.all([
+      prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+        SELECT COUNT(*)::int AS total
+        FROM (${unionFeed}) AS activities
+      `),
+      prisma.$queryRaw<ActivityFeedRow[]>(Prisma.sql`
+        SELECT *
+        FROM (${unionFeed}) AS activities
+        ORDER BY timestamp DESC, id DESC
+        OFFSET ${offset}
+        LIMIT ${pageSize}
+      `),
+      prisma.$queryRaw<Array<{ staff: string }>>(Prisma.sql`
+        SELECT DISTINCT staff
+        FROM (
+          SELECT sh."changedBy" AS staff FROM "ClaimStatusHistory" sh
+          UNION
+          SELECT cl."changedBy" AS staff FROM "ClaimChangeLog" cl
+        ) AS staff_feed
+        WHERE staff IS NOT NULL AND staff <> ''
+        ORDER BY staff ASC
+      `),
+    ]);
 
-    // Step 2: Calculate skip estimates per source based on ratio
-    const dbTotal = statusCount + changeLogCount;
-    const skipTotal = (page - 1) * pageSize;
-    const statusRatio = dbTotal > 0 ? statusCount / dbTotal : 0.5;
-    // Fetch pageSize * 2 from each source to handle interleaving, with proportional skip
-    const TAKE_PER_SOURCE = pageSize * 2;
-    const statusSkip = Math.max(0, Math.floor(skipTotal * statusRatio) - pageSize);
-    const clSkip = Math.max(0, Math.floor(skipTotal * (1 - statusRatio)) - pageSize);
-
-    // Step 3: Fetch data with bounded skip/take
-    const dataPromises: Promise<any>[] = [];
-
-    if (includeStatusHistory && statusCount > 0) {
-      dataPromises.push(
-        prisma.claimStatusHistory.findMany({
-          where: dateWhere,
-          include: { claimOrder: { select: claimOrderSelect } },
-          orderBy: { changedAt: "desc" },
-          skip: statusSkip,
-          take: TAKE_PER_SOURCE,
-        }),
-      );
-    } else {
-      dataPromises.push(Promise.resolve([]));
-    }
-
-    if (includeChangeLogs && changeLogCount > 0) {
-      dataPromises.push(
-        prisma.claimChangeLog.findMany({
-          where: { fieldName: { not: "claimStatus" }, ...clDateWhere },
-          include: { claimOrder: { select: claimOrderSelect } },
-          orderBy: { changedAt: "desc" },
-          skip: clSkip,
-          take: TAKE_PER_SOURCE,
-        }),
-      );
-    } else {
-      dataPromises.push(Promise.resolve([]));
-    }
-
-    const [statusHistories, changeLogs] = await Promise.all(dataPromises);
-
-    // Transform into unified activities
-    type Activity = {
-      id: string;
-      claimId: string;
-      timestamp: Date;
-      staff: string;
-      requestCode: string;
-      action: string;
-      detail: string;
-      dotColor: string;
-      actionType: string;
-    };
-
-    const activities: Activity[] = [];
-
-    for (const sh of statusHistories) {
-      const requestCode = sh.claimOrder?.order?.requestCode || "—";
-      const isNew = sh.fromStatus === null;
-      activities.push({
-        id: sh.id,
-        claimId: sh.claimOrder?.id || "",
-        timestamp: sh.changedAt,
-        staff: sh.changedBy,
-        requestCode,
-        action: isNew ? "Thêm đơn có vấn đề" : "Chuyển trạng thái",
-        detail: isNew
-          ? `Tạo đơn mới - ${sh.claimOrder?.issueType || ""}`
-          : `${sh.fromStatus || ""} → ${sh.toStatus}`,
-        dotColor: isNew ? "blue" : "yellow",
-        actionType: isNew ? "Thêm đơn có vấn đề" : "Chuyển trạng thái",
-      });
-    }
-
-    for (const cl of changeLogs) {
-      const requestCode = cl.claimOrder?.order?.requestCode || "—";
-      const { action, dotColor, actionType } = getActionFromField(cl.fieldName, cl.newValue);
-      activities.push({
-        id: cl.id,
-        claimId: cl.claimOrder?.id || "",
-        timestamp: cl.changedAt,
-        staff: cl.changedBy,
-        requestCode,
-        action,
-        detail: `${cl.oldValue || "—"} → ${cl.newValue || "—"}`,
-        dotColor,
-        actionType,
-      });
-    }
-
-    // Sort merged results by timestamp descending
-    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    // Paginate using DB total for accurate page count
-    const total = dbTotal;
-    const totalPages = Math.ceil(total / pageSize);
-    const paged = activities.slice(0, pageSize);
-
-    // Staff names from distinct query
-    const staffNames = (staffList || [])
-      .map((s: any) => ({ name: s.changedBy }))
-      .filter((s: any) => s.name);
-
+    const total = countRows[0]?.total ?? 0;
     return NextResponse.json({
-      activities: paged,
-      staffNames,
-      pagination: { page, pageSize, total, totalPages },
+      activities: activityRows.map(mapActivityRow),
+      staffNames: staffRows.map((row) => ({ name: row.staff })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     });
-  } catch (e) {
-    console.error("History error:", e);
+  } catch (error) {
+    console.error("History error:", error);
     return NextResponse.json({
+      error: "Không thể tải lịch sử claims",
       activities: [],
-      pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+      pagination: { page, pageSize, total: 0, totalPages: 0 },
       staffNames: [],
-    });
+    }, { status: 500 });
   }
 }

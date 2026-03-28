@@ -2,7 +2,16 @@ import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
+import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
+
+function normalizeSearchInput(value: string) {
+  return value.trim();
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "");
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,11 +19,16 @@ export async function GET(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
+    const denied = requireClaimsPermission(session.user, "canViewClaims");
+    if (denied) {
+      return denied;
+    }
 
     const params = req.nextUrl.searchParams;
-    const page = parseInt(params.get("page") || "1", 10);
-    const pageSize = parseInt(params.get("pageSize") || "20", 10);
-    const search = params.get("search") || "";
+    const page = Math.max(1, parseInt(params.get("page") || "1", 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(params.get("pageSize") || "20", 10)));
+    const search = normalizeSearchInput(params.get("search") || "");
+    const normalizedPhone = normalizePhone(search);
     const issueType = params.get("issueType") || "";
     const claimStatus = params.get("claimStatus") || "";
     const shopName = params.get("shopName") || "";
@@ -39,9 +53,12 @@ export async function GET(req: NextRequest) {
     const orderWhere: Prisma.OrderWhereInput = {};
     if (search) {
       orderWhere.OR = [
-        { requestCode: { contains: search, mode: "insensitive" } },
-        { carrierOrderCode: { contains: search, mode: "insensitive" } },
-        { receiverPhone: { contains: search, mode: "insensitive" } },
+        { requestCode: { startsWith: search, mode: "insensitive" } },
+        { requestCode: { equals: search, mode: "insensitive" } },
+        { carrierOrderCode: { startsWith: search, mode: "insensitive" } },
+        { carrierOrderCode: { equals: search, mode: "insensitive" } },
+        ...(normalizedPhone ? [{ receiverPhone: { contains: normalizedPhone, mode: "insensitive" as const } }] : []),
+        ...(normalizedPhone !== search && search ? [{ receiverPhone: { contains: search, mode: "insensitive" as const } }] : []),
         { shopName: { contains: search, mode: "insensitive" } },
       ];
     }
@@ -116,6 +133,10 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    const denied = requireClaimsPermission(session.user, "canCreateClaim");
+    if (denied) {
+      return denied;
     }
 
     const body = await req.json();
