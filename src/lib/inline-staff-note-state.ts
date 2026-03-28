@@ -27,7 +27,7 @@ export function buildInlineStaffNoteSaveState({
     value: previousValue,
     previousValue,
     saved: false,
-    error: errorMessage || "Khong the luu ghi chu",
+    error: errorMessage || "Không thể lưu ghi chú",
     editing: true,
   };
 }

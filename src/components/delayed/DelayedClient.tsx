@@ -5,7 +5,6 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, PackageX } from "lucide-react";
-import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { DelayedFiltersState, DelayedResponse } from "@/types/delayed";
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
@@ -160,7 +159,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-center text-sm font-medium text-red-600">
-        Khong the tai du lieu delayed. Vui long thu lai sau.
+        Không thể tải dữ liệu delayed. Vui lòng thử lại sau.
       </div>
     );
   }
@@ -171,10 +170,10 @@ export function DelayedClient({ userRole }: { userRole: string }) {
         <div>
           <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-800 sm:text-2xl lg:text-3xl">
             <PackageX className="h-6 w-6 text-amber-500 sm:h-8 sm:w-8" />
-            Cham Soc Don Hoan
+            Chăm Sóc Đơn Hoãn
           </h2>
           <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-            Theo doi don hoan theo muc do rui ro, ly do hoan va thao tac xu ly tren ca desktop lan mobile.
+            Theo dõi đơn hoãn theo mức độ rủi ro, lý do hoãn và thao tác xử lý trên cả desktop lẫn mobile.
           </p>
         </div>
       </div>
@@ -197,7 +196,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
                 : "text-slate-500 hover:bg-slate-50"
             }`}
           >
-            Thong ke
+            Thống kê
           </button>
           <button
             type="button"
@@ -208,7 +207,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
                 : "text-slate-500 hover:bg-slate-50"
             }`}
           >
-            Ly do
+            Lý do
           </button>
         </div>
         {mobileChartTab === "delay" ? (
@@ -237,7 +236,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
       {isLoading && !delayedData ? (
         <div className="flex h-64 flex-col items-center justify-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-amber-500" />
-          <p className="text-sm font-medium text-slate-500">Dang tai delayed orders...</p>
+          <p className="text-sm font-medium text-slate-500">Đang tải delayed orders...</p>
         </div>
       ) : (
         <>
@@ -254,12 +253,12 @@ export function DelayedClient({ userRole }: { userRole: string }) {
           {delayedData?.pagination && delayedData.pagination.totalPages > 1 && (
             <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">
-                Dang hien thi {(delayedData.pagination.page - 1) * delayedData.pagination.pageSize + 1}-
+                Đang hiển thị {(delayedData.pagination.page - 1) * delayedData.pagination.pageSize + 1}-
                 {Math.min(
                   delayedData.pagination.page * delayedData.pagination.pageSize,
                   delayedData.pagination.total,
                 )}{" "}
-                / {delayedData.pagination.total} don
+                / {delayedData.pagination.total} đơn
               </p>
               <div className="flex items-center gap-2 self-end sm:self-auto">
                 <button
@@ -269,7 +268,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Truoc
+                  Trước
                 </button>
                 <span className="min-w-[96px] text-center text-sm font-semibold text-slate-700">
                   Trang {delayedData.pagination.page} / {delayedData.pagination.totalPages}

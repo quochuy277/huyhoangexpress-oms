@@ -153,10 +153,10 @@ export function buildDelayedFacets(orders: ProcessedDelayedOrder[]): DelayedFace
     statuses: [...statuses].sort(),
     reasons: [...reasons].sort(),
     delayDistribution: [
-      { name: "1 lan", count: count1 },
-      { name: "2 lan", count: count2 },
-      { name: "3 lan", count: count3 },
-      { name: "4+ lan", count: count4 },
+      { name: "1 lần", count: count1 },
+      { name: "2 lần", count: count2 },
+      { name: "3 lần", count: count3 },
+      { name: "4+ lần", count: count4 },
     ],
     reasonDistribution: [...reasonCounts.entries()]
       .map(([name, count]) => ({ name, count }))
@@ -242,18 +242,18 @@ export function sortDelayedOrders(
 export function buildDelayedExportRows(orders: ProcessedDelayedOrder[]) {
   return orders.map((order, index) => ({
     STT: index + 1,
-    "Ma Yeu Cau": order.requestCode,
-    "Ma Don KH": order.customerOrderCode || "",
-    "Ma Don Doi Tac": order.carrierOrderCode || "",
+    "Mã Yêu Cầu": order.requestCode,
+    "Mã Đơn KH": order.customerOrderCode || "",
+    "Mã Đơn Đối Tác": order.carrierOrderCode || "",
     Shop: order.shopName || "",
-    "Nguoi Nhan": order.receiverName || "",
+    "Người Nhận": order.receiverName || "",
     SDT: order.receiverPhone || "",
-    "Dia Chi": order.fullAddress || "",
-    "Trang Thai": order.status,
-    "So Lan Hoan": order.delayCount,
-    "Muc Do Rui Ro":
-      order.risk === "high" ? "CAO" : order.risk === "medium" ? "TRUNG BINH" : "THAP",
+    "Địa Chỉ": order.fullAddress || "",
+    "Trạng Thái": order.status,
+    "Số Lần Hoãn": order.delayCount,
+    "Mức Độ Rủi Ro":
+      order.risk === "high" ? "CAO" : order.risk === "medium" ? "TRUNG BÌNH" : "THẤP",
     "COD (VND)": order.codAmount,
-    "Ly Do": order.uniqueReasons.join(", "),
+    "Lý Do": order.uniqueReasons.join(", "),
   }));
 }

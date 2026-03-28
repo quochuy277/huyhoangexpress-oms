@@ -22,9 +22,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
 
   return createPortal(
     <>
-      {/* Backdrop */}
       <div
-        className="tracking-popup-shell"
         style={{
           position: "fixed",
           inset: 0,
@@ -35,8 +33,8 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
         onClick={onClose}
       />
 
-      {/* Dialog */}
       <div
+        className="tracking-popup-shell"
         style={{
           position: "fixed",
           top: "50%",
@@ -54,9 +52,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
           animation: "trackingPopIn 0.2s ease-out",
         }}
       >
-        {/* Header */}
         <div
-          className="tracking-popup-footer"
           style={{
             display: "flex",
             alignItems: "center",
@@ -110,12 +106,12 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
               display: "flex",
               alignItems: "center",
             }}
+            aria-label="Đóng hành trình đơn hàng"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Content — scrollable */}
         <div
           style={{
             flex: 1,
@@ -123,15 +119,11 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
             padding: "16px",
           }}
         >
-          <TrackingTimeline
-            key={refreshKey}
-            requestCode={requestCode}
-            showHeader={false}
-          />
+          <TrackingTimeline key={refreshKey} requestCode={requestCode} showHeader={false} />
         </div>
 
-        {/* Footer */}
         <div
+          className="tracking-popup-footer"
           style={{
             display: "flex",
             justifyContent: "flex-end",
