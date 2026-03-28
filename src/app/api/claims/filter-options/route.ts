@@ -16,28 +16,33 @@ export async function GET() {
     }
 
     const [shops, statuses] = await Promise.all([
-      prisma.order.findMany({
-        where: {
-          claimOrder: { isNot: null },
-          shopName: { not: null },
+      prisma.claimOrder.findMany({
+        select: {
+          order: {
+            select: {
+              shopName: true,
+            },
+          },
         },
-        select: { shopName: true },
-        distinct: ["shopName"],
-        orderBy: { shopName: "asc" },
+        distinct: ["orderId"],
+        orderBy: { orderId: "asc" },
       }),
-      prisma.order.findMany({
-        where: {
-          claimOrder: { isNot: null },
+      prisma.claimOrder.findMany({
+        select: {
+          order: {
+            select: {
+              status: true,
+            },
+          },
         },
-        select: { status: true },
-        distinct: ["status"],
-        orderBy: { status: "asc" },
+        distinct: ["orderId"],
+        orderBy: { orderId: "asc" },
       }),
     ]);
 
     return NextResponse.json({
-      shops: shops.map((shop) => shop.shopName).filter(Boolean),
-      statuses: statuses.map((item) => item.status).filter(Boolean),
+      shops: [...new Set(shops.map((item) => item.order?.shopName).filter(Boolean))],
+      statuses: [...new Set(statuses.map((item) => item.order?.status).filter(Boolean))],
     });
   } catch (error) {
     console.error("GET /api/claims/filter-options error:", error);

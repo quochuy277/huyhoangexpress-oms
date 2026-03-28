@@ -4,6 +4,14 @@ import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
+function normalizeSearchInput(value: string) {
+  return value.trim();
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -15,7 +23,8 @@ export async function GET(req: NextRequest) {
       return denied;
     }
 
-    const q = req.nextUrl.searchParams.get("q") || "";
+    const q = normalizeSearchInput(req.nextUrl.searchParams.get("q") || "");
+    const normalizedPhone = normalizePhone(q);
     if (q.length < 2) {
       return NextResponse.json({ orders: [] });
     }
@@ -23,9 +32,12 @@ export async function GET(req: NextRequest) {
     const orders = await prisma.order.findMany({
       where: {
         OR: [
-          { requestCode: { contains: q, mode: "insensitive" } },
-          { carrierOrderCode: { contains: q, mode: "insensitive" } },
-          { receiverPhone: { contains: q, mode: "insensitive" } },
+          { requestCode: { startsWith: q, mode: "insensitive" } },
+          { requestCode: { equals: q, mode: "insensitive" } },
+          { carrierOrderCode: { startsWith: q, mode: "insensitive" } },
+          { carrierOrderCode: { equals: q, mode: "insensitive" } },
+          ...(normalizedPhone ? [{ receiverPhone: { contains: normalizedPhone, mode: "insensitive" as const } }] : []),
+          ...(normalizedPhone !== q && q ? [{ receiverPhone: { contains: q, mode: "insensitive" as const } }] : []),
           { shopName: { contains: q, mode: "insensitive" } },
         ],
       },

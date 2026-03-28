@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, memo } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   Search, Plus, Download, X, ChevronLeft, ChevronRight,
@@ -12,9 +11,17 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { ClaimDetailDrawer, type ClaimDetailData } from "@/components/claims/ClaimDetailDrawer";
+import { ClaimsBulkBar } from "@/components/claims/claims-table/ClaimsBulkBar";
+import { ClaimsDesktopTable } from "@/components/claims/claims-table/ClaimsDesktopTable";
+import { ClaimsFiltersBar } from "@/components/claims/claims-table/ClaimsFiltersBar";
+import { ClaimsMobileList } from "@/components/claims/claims-table/ClaimsMobileList";
+import { ClaimsToolbar } from "@/components/claims/claims-table/ClaimsToolbar";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { TrackingPopup } from "@/components/tracking/TrackingPopup";
+import { useClaimMutations } from "@/hooks/useClaimMutations";
+import { useClaimsFilters } from "@/hooks/useClaimsFilters";
+import { useClaimsList } from "@/hooks/useClaimsList";
 import { formatClaimMoney } from "@/lib/claims-config";
 import { getClaimCompleteDialogCopy, getClaimReopenDialogCopy } from "@/lib/confirm-dialog";
 
@@ -638,22 +645,6 @@ function ConfirmActionDialog({
   );
 }
 
-/* ============================================================
-   MAIN COMPONENT
-   ============================================================ */
-type ClaimFilters = {
-  page: number;
-  pageSize: number;
-  search: string;
-  issueType: string[];
-  status: string;
-  shopName: string;
-  orderStatus: string;
-  showCompleted: boolean;
-  sortBy: string;
-  sortDir: "asc" | "desc";
-};
-
 interface ClaimsClientProps {
   onCountChange?: (count: number) => void;
   externalDetailClaimId?: string | null;
@@ -671,68 +662,32 @@ function ClaimsClientInner({
   canUpdateClaim = true,
   canDeleteClaim = true,
 }: ClaimsClientProps = {}) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [claims, setClaims] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
-  const initialPage = Number(searchParams.get("claimPage")) || 1;
-  const initialSearch = searchParams.get("claimSearch") || "";
-  const initialIssueType = searchParams.get("claimIssueType")?.split(",").filter(Boolean) || [];
-  const initialStatus = searchParams.get("claimStatus") || "";
-  const initialShop = searchParams.get("claimShop") || "";
-  const initialOrderStatus = searchParams.get("claimOrderStatus") || "";
-  const initialShowCompleted = searchParams.get("claimCompleted") === "true";
-  const initialSortBy = searchParams.get("claimSortBy") || "deadline";
-  const initialSortDir = searchParams.get("claimSortDir") === "desc" ? "desc" : "asc";
-  const [filters, setFilters] = useState<ClaimFilters>({
-    page: initialPage,
-    pageSize: 20,
-    search: initialSearch,
-    issueType: initialIssueType,
-    status: initialStatus,
-    shopName: initialShop,
-    orderStatus: initialOrderStatus,
-    showCompleted: initialShowCompleted,
-    sortBy: initialSortBy,
-    sortDir: initialSortDir,
+  const { filters, setFilters, searchInput, setSearchInput } = useClaimsFilters();
+  const {
+    claims,
+    setClaims,
+    loading,
+    pagination,
+    shopOptions,
+    orderStatusOptions,
+    fetchClaims,
+  } = useClaimsList({ filters, onCountChange });
+  const {
+    detecting,
+    exporting,
+    handleExport,
+    updateClaimLocal,
+    handleInlineEdit,
+    handleInlineEditField,
+    runAutoDetect,
+  } = useClaimMutations({
+    filters,
+    claims,
+    setClaims,
+    fetchClaims,
+    canUpdateClaim,
   });
-
-  // Sync filters to URL
-  const prevQueryRef = useRef("");
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    const syncValue = (key: string, value: string) => {
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
-    };
-
-    syncValue("claimPage", filters.page > 1 ? String(filters.page) : "");
-    syncValue("claimSearch", filters.search);
-    syncValue("claimIssueType", filters.issueType.join(","));
-    syncValue("claimStatus", filters.status);
-    syncValue("claimShop", filters.shopName);
-    syncValue("claimOrderStatus", filters.orderStatus);
-    syncValue("claimCompleted", filters.showCompleted ? "true" : "");
-    syncValue("claimSortBy", filters.sortBy !== "deadline" ? filters.sortBy : "");
-    syncValue("claimSortDir", filters.sortDir !== "asc" ? filters.sortDir : "");
-
-    const nextQuery = params.toString();
-    if (nextQuery !== prevQueryRef.current) {
-      prevQueryRef.current = nextQuery;
-      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-    }
-  }, [filters, pathname, router, searchParams]);
-  // Controlled input value for search (debounced before applying to filters)
-  const [searchInput, setSearchInput] = useState(initialSearch);
-  const [shopOptions, setShopOptions] = useState<string[]>([]);
-  const [orderStatusOptions, setOrderStatusOptions] = useState<string[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const lastFetchRef = useRef<number>(0);
 
   // Dialogs
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -748,12 +703,8 @@ function ClaimsClientInner({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
-  // Auto-detect
-  const [detecting, setDetecting] = useState(false);
 
-  // Export
-  const [exporting, setExporting] = useState(false);
-
+  /* legacy logic moved to hooks
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -866,6 +817,7 @@ function ClaimsClientInner({
 
   // Auto-detect chỉ chạy khi user bấm nút hoặc sau khi upload Excel - không chạy tự động khi mount
 
+  */
   const handleOpenTodoFromClaim = (data: ClaimDetailData) => {
     setTodoClaimOrder({
       order: data.order,
@@ -937,6 +889,7 @@ function ClaimsClientInner({
   };
 
   // Cập nhật optimistic: chỉ cập nhật row trong state, không reload toàn bảng
+  /* legacy mutation logic moved to hooks
   const updateClaimLocal = useCallback((id: string, changes: Record<string, any>) => {
     setClaims(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
   }, []);
@@ -971,6 +924,7 @@ function ClaimsClientInner({
   const handleInlineEditField = async (claimId: string, field: string, value: string | null) => {
     await patchClaimField(claimId, { [field]: value });
   };
+  */
 
   const handleDelete = (claimId: string, requestCode: string) => {
     if (!canDeleteClaim) return;
@@ -1083,6 +1037,21 @@ function ClaimsClientInner({
         }
       `}</style>
       {/* Header */}
+      <ClaimsToolbar
+        detecting={detecting}
+        exporting={exporting}
+        canCreateClaim={canCreateClaim}
+        canUpdateClaim={canUpdateClaim}
+        onRunAutoDetect={runAutoDetect}
+        onExport={handleExport}
+        onOpenAddDialog={() => {
+          if (canCreateClaim) {
+            setShowAddDialog(true);
+          }
+        }}
+        primaryBtnStyle={primaryBtnStyle}
+      />
+      {false && (
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: "8px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a1a", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1130,8 +1099,31 @@ function ClaimsClientInner({
           </button>
         </div>
       </div>
+      )}
 
       {/* Filters */}
+      <ClaimsFiltersBar
+        filters={filters}
+        searchInput={searchInput}
+        shopOptions={shopOptions}
+        orderStatusOptions={orderStatusOptions}
+        issueTypeConfig={ISSUE_TYPE_CONFIG}
+        claimStatusConfig={CLAIM_STATUS_CONFIG}
+        inputStyle={inputStyle}
+        onSearchInputChange={(value) => {
+          setSearchInput(value);
+          clearTimeout(searchTimerRef.current);
+          searchTimerRef.current = setTimeout(() => {
+            setFilters((current) => ({ ...current, search: value, page: 1 }));
+          }, 400);
+        }}
+        onToggleIssueFilter={toggleIssueFilter}
+        onStatusChange={(value) => setFilters((current) => ({ ...current, status: value, page: 1 }))}
+        onShopChange={(value) => setFilters((current) => ({ ...current, shopName: value, page: 1 }))}
+        onOrderStatusChange={(value) => setFilters((current) => ({ ...current, orderStatus: value, page: 1 }))}
+        onShowCompletedChange={(value) => setFilters((current) => ({ ...current, showCompleted: value, page: 1 }))}
+      />
+      {false && (
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "16px", alignItems: "center" }}>
         {/* Search */}
         <div style={{ position: "relative", flex: "1 1 auto", minWidth: "140px" }}>
@@ -1226,12 +1218,24 @@ function ClaimsClientInner({
           </button>
         </div>
       </div>
+      )}
 
       {/* Keyframe for InlineStaffNote save animation */}
       <style>{`@keyframes fadeInOut { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1)} 75%{opacity:1} 100%{opacity:0;transform:scale(0.8)} }`}</style>
 
       {/* Bulk Actions Bar */}
-      {selectedIds.size > 0 && canBulkSelect && (
+      <ClaimsBulkBar
+        selectedCount={selectedIds.size}
+        bulkProcessing={bulkProcessing}
+        canUpdateClaim={canUpdateClaim}
+        canDeleteClaim={canDeleteClaim}
+        issueTypeConfig={ISSUE_TYPE_CONFIG}
+        claimStatusConfig={CLAIM_STATUS_CONFIG}
+        onBulkAction={handleBulkAction}
+        onBulkDelete={handleBulkDelete}
+        onClearSelection={() => setSelectedIds(new Set())}
+      />
+      {false && selectedIds.size > 0 && canBulkSelect && (
         <div style={{
           display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px",
           marginBottom: "10px", background: "#eff6ff", border: "1.5px solid #93c5fd",
@@ -1298,7 +1302,7 @@ function ClaimsClientInner({
 
       {/* Table */}
       <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>
-        <div className="claims-mobile-list" style={{ display: "none", flexDirection: "column", gap: "10px", padding: "10px" }}>
+        <ClaimsMobileList>
           {loading ? (
             <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Dang tai...</div>
           ) : claims.length === 0 ? (
@@ -1432,8 +1436,8 @@ function ClaimsClientInner({
               );
             })
           )}
-        </div>
-        <div className="claims-desktop-table" style={{ overflowX: "auto" }}>
+        </ClaimsMobileList>
+        <ClaimsDesktopTable>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed", minWidth: "1100px" }}>
             {/* Checkbox | STT | Mã YC | Mã ĐT | Tên CH | TT Đơn | COD | Loại VĐ | ND VĐ | Ngày PH | Ngày TĐ | TT Xử Lý | ND XL | Thời Hạn | Thao Tác */}
             <colgroup><col style={{ width: "32px" }} /><col style={{ width: "36px" }} /><col style={{ width: "105px" }} /><col style={{ width: "90px" }} /><col style={{ width: "90px" }} /><col style={{ width: "85px" }} /><col style={{ width: "80px" }} /><col style={{ width: "90px" }} /><col style={{ width: "120px" }} /><col style={{ width: "70px" }} /><col style={{ width: "55px" }} /><col style={{ width: "105px" }} /><col style={{ width: "55px" }} /><col style={{ width: "85px" }} /><col style={{ width: "120px" }} /></colgroup>
@@ -1730,7 +1734,7 @@ function ClaimsClientInner({
               )}
             </tbody>
           </table>
-        </div>
+        </ClaimsDesktopTable>
       </div>
 
       {/* Pagination */}

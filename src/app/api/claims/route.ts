@@ -5,6 +5,14 @@ import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
+function normalizeSearchInput(value: string) {
+  return value.trim();
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -17,9 +25,10 @@ export async function GET(req: NextRequest) {
     }
 
     const params = req.nextUrl.searchParams;
-    const page = parseInt(params.get("page") || "1", 10);
-    const pageSize = parseInt(params.get("pageSize") || "20", 10);
-    const search = params.get("search") || "";
+    const page = Math.max(1, parseInt(params.get("page") || "1", 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(params.get("pageSize") || "20", 10)));
+    const search = normalizeSearchInput(params.get("search") || "");
+    const normalizedPhone = normalizePhone(search);
     const issueType = params.get("issueType") || "";
     const claimStatus = params.get("claimStatus") || "";
     const shopName = params.get("shopName") || "";
@@ -44,9 +53,12 @@ export async function GET(req: NextRequest) {
     const orderWhere: Prisma.OrderWhereInput = {};
     if (search) {
       orderWhere.OR = [
-        { requestCode: { contains: search, mode: "insensitive" } },
-        { carrierOrderCode: { contains: search, mode: "insensitive" } },
-        { receiverPhone: { contains: search, mode: "insensitive" } },
+        { requestCode: { startsWith: search, mode: "insensitive" } },
+        { requestCode: { equals: search, mode: "insensitive" } },
+        { carrierOrderCode: { startsWith: search, mode: "insensitive" } },
+        { carrierOrderCode: { equals: search, mode: "insensitive" } },
+        ...(normalizedPhone ? [{ receiverPhone: { contains: normalizedPhone, mode: "insensitive" as const } }] : []),
+        ...(normalizedPhone !== search && search ? [{ receiverPhone: { contains: search, mode: "insensitive" as const } }] : []),
         { shopName: { contains: search, mode: "insensitive" } },
       ];
     }

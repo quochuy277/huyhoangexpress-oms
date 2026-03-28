@@ -353,6 +353,10 @@ model ClaimOrder {
   @@index([isCompleted])
   @@index([isCompleted, claimStatus])
   @@index([detectedDate])
+  @@index([isCompleted, deadline])
+  @@index([isCompleted, detectedDate])
+  @@index([claimStatus, detectedDate])
+  @@index([issueType, isCompleted])
 }
 
 model ClaimStatusHistory {
@@ -367,6 +371,7 @@ model ClaimStatusHistory {
 
   @@index([claimOrderId])
   @@index([changedAt])
+  @@index([changedBy, changedAt])
 }
 
 model ClaimChangeLog {
@@ -383,6 +388,7 @@ model ClaimChangeLog {
   @@index([fieldName])
   @@index([changedAt])
   @@index([fieldName, changedAt])
+  @@index([changedBy, changedAt])
 }
 
 enum IssueType {

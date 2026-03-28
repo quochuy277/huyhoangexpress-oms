@@ -15,9 +15,11 @@ vi.mock("@/lib/prisma", () => ({
       delete: vi.fn(),
       deleteMany: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
     },
     order: {
       update: vi.fn(),
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -93,5 +95,74 @@ describe("claims api permissions", () => {
 
     expect(response.status).toBe(403);
     expect(prisma.claimOrder.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns distinct filter options from claim rows only", async () => {
+    vi.mocked(auth).mockResolvedValue(makeSession({}) as never);
+    vi.mocked(prisma.claimOrder.findMany)
+      .mockResolvedValueOnce([
+        { order: { shopName: "Shop A" } },
+        { order: { shopName: "Shop B" } },
+      ] as never)
+      .mockResolvedValueOnce([
+        { order: { status: "DELIVERED" } },
+        { order: { status: "RETURNING" } },
+      ] as never);
+
+    const { GET } = await import("@/app/api/claims/filter-options/route");
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.shops).toEqual(expect.arrayContaining(["Shop A", "Shop B"]));
+    expect(body.statuses).toEqual(expect.arrayContaining(["DELIVERED", "RETURNING"]));
+  });
+
+  it("caps export volume and marks truncated exports", async () => {
+    vi.mocked(auth).mockResolvedValue(makeSession({}) as never);
+    vi.mocked(prisma.claimOrder.findMany).mockResolvedValue([
+      {
+        id: "claim-1",
+        issueType: "LOST",
+        claimStatus: "PENDING",
+        issueDescription: null,
+        detectedDate: new Date("2026-03-28T00:00:00.000Z"),
+        deadline: null,
+        processingContent: null,
+        carrierCompensation: 0,
+        customerCompensation: 0,
+        isCompleted: false,
+        source: "MANUAL",
+        createdAt: new Date("2026-03-28T00:00:00.000Z"),
+        createdBy: { name: "Tester" },
+        order: {
+          requestCode: "REQ-001",
+          carrierOrderCode: "C-001",
+          carrierName: "GHN",
+          shopName: "Shop A",
+          status: "DELIVERED",
+          deliveryStatus: "DELIVERED",
+          codAmount: 100000,
+          totalFee: 25000,
+          staffNotes: "",
+          receiverPhone: "0900000000",
+          receiverName: "A",
+          receiverAddress: "HN",
+          pickupTime: null,
+          regionGroup: "HN",
+        },
+      },
+    ] as never);
+
+    const { GET } = await import("@/app/api/claims/export/route");
+    const response = await GET(new NextRequest("http://localhost/api/claims/export"));
+
+    expect(response.status).toBe(200);
+    expect(prisma.claimOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 3000,
+      }),
+    );
+    expect(response.headers.get("Content-Type")).toContain("spreadsheetml");
   });
 });
