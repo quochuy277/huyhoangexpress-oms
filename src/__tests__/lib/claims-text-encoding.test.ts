@@ -6,8 +6,14 @@ import { describe, expect, it } from "vitest";
 const CLAIM_FILES = [
   "src/components/claims/ClaimsClient.tsx",
   "src/components/claims/ClaimDetailDrawer.tsx",
+  "src/components/claims/ClaimsToolsTab.tsx",
+  "src/components/claims/ClaimsCompensationTab.tsx",
   "src/components/shared/AddClaimFromPageDialog.tsx",
+  "src/app/api/claims/route.ts",
+  "src/app/api/claims/export/route.ts",
+  "src/app/api/claims/history/route.ts",
   "src/lib/claims-config.ts",
+  "src/lib/claims-permissions.ts",
 ];
 
 const MOJIBAKE_PATTERN = /Ã|Â|â€|áº|á»|Æ°|Æ¡/;

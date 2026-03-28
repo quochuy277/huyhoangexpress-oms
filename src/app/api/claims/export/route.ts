@@ -162,6 +162,7 @@ export async function GET(req: NextRequest) {
     if (claims.length === EXPORT_LIMIT) {
       headers.set("X-Claims-Export-Truncated", "true");
     }
+    headers.set("X-Claims-Export-Limit", String(EXPORT_LIMIT));
 
     return new NextResponse(buffer, {
       status: 200,

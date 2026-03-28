@@ -12,6 +12,28 @@ type UseClaimMutationsOptions = {
   canUpdateClaim: boolean;
 };
 
+async function readJsonSafely(response: Response) {
+  const contentType = response.headers.get("Content-Type") || "";
+  if (!contentType.includes("application/json")) {
+    return null;
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+export function getClaimsExportTruncationMessage(response: Response) {
+  if (response.headers.get("X-Claims-Export-Truncated") !== "true") {
+    return null;
+  }
+
+  const limit = response.headers.get("X-Claims-Export-Limit") || "3000";
+  return `File export chỉ bao gồm ${limit} dòng đầu tiên. Vui lòng thu hẹp bộ lọc để xuất đầy đủ dữ liệu claims.`;
+}
+
 export function useClaimMutations({
   filters,
   claims,
@@ -36,12 +58,20 @@ export function useClaimMutations({
       if (filters.orderStatus) params.set("orderStatus", filters.orderStatus);
 
       const response = await fetch(`/api/claims/export?${params}`);
-      if (!response.ok) throw new Error("Export failed");
+      if (!response.ok) {
+        const errorData = await readJsonSafely(response);
+        throw new Error(
+          typeof errorData?.error === "string"
+            ? errorData.error
+            : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+        );
+      }
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       const disposition = response.headers.get("Content-Disposition") || "";
+      const truncationMessage = getClaimsExportTruncationMessage(response);
       const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
 
       anchor.href = url;
@@ -50,8 +80,15 @@ export function useClaimMutations({
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-    } catch {
-      alert("Loi khi xuat file Excel. Vui long thu lai.");
+      if (truncationMessage) {
+        alert(truncationMessage);
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+      );
     } finally {
       setExporting(false);
     }
@@ -79,7 +116,7 @@ export function useClaimMutations({
       if (previousClaim) {
         setClaims((prev) => prev.map((claim) => (claim.id === claimId ? previousClaim : claim)));
       }
-      alert("Cap nhat that bai. Du lieu da duoc khoi phuc.");
+      alert("Cập nhật thất bại. Dữ liệu đã được khôi phục.");
       throw new Error("Patch failed");
     }
   }, [claims, setClaims, updateClaimLocal]);

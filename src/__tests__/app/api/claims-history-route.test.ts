@@ -7,14 +7,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    claimStatusHistory: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-    },
-    claimChangeLog: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-    },
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -41,10 +34,10 @@ function makeSession(canViewClaims = true) {
 describe("claims history route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.claimStatusHistory.count).mockResolvedValue(0 as never);
-    vi.mocked(prisma.claimChangeLog.count).mockResolvedValue(0 as never);
-    vi.mocked(prisma.claimStatusHistory.findMany).mockResolvedValue([] as never);
-    vi.mocked(prisma.claimChangeLog.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.$queryRaw as any)
+      .mockResolvedValueOnce([{ total: 0 }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
   });
 
   it("rejects GET /api/claims/history when canViewClaims is false", async () => {
@@ -56,50 +49,84 @@ describe("claims history route", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(prisma.claimStatusHistory.count).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("queries the merged activity feed with database pagination", async () => {
+    vi.mocked(auth).mockResolvedValue(makeSession(true) as never);
+    vi.mocked(prisma.$queryRaw as any).mockReset();
+    vi.mocked(prisma.$queryRaw as any)
+      .mockResolvedValueOnce([{ total: 3 }] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "cl-2",
+          claimId: "claim-2",
+          timestamp: new Date("2026-03-27T10:00:00.000Z"),
+          staff: "Tester",
+          requestCode: "REQ-002",
+          action: "Cập nhật",
+          detail: "A → B",
+          dotColor: "blue",
+          actionType: "Cập nhật",
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ staff: "Tester" }] as never);
+    const { GET } = await import("@/app/api/claims/history/route");
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/claims/history?page=2&pageSize=1", { method: "GET" }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.activities).toEqual([
+      expect.objectContaining({
+        id: "cl-2",
+        requestCode: "REQ-002",
+      }),
+    ]);
+    expect(body.pagination).toMatchObject({
+      page: 2,
+      pageSize: 1,
+      total: 3,
+      totalPages: 3,
+    });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
   it("adds system-only predicates when filtering auto activities", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession(true) as never);
-    vi.mocked(prisma.claimStatusHistory.count).mockResolvedValue(1 as never);
-    vi.mocked(prisma.claimStatusHistory.findMany).mockResolvedValue([
-      {
-        id: "sh-1",
-        changedAt: new Date("2026-03-28T10:00:00.000Z"),
-        changedBy: "Hệ thống",
-        fromStatus: "VERIFYING_CARRIER",
-        toStatus: "RESOLVED",
-        note: "Tự động hoàn tất",
-        claimOrder: {
-          id: "claim-1",
-          issueType: "LOST",
-          order: { requestCode: "REQ-001" },
+    vi.mocked(prisma.$queryRaw as any).mockReset();
+    vi.mocked(prisma.$queryRaw as any)
+      .mockResolvedValueOnce([{ total: 1 }] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "sh-1",
+          claimId: "claim-1",
+          timestamp: new Date("2026-03-28T10:00:00.000Z"),
+          staff: "Hệ thống",
+          requestCode: "REQ-001",
+          action: "Chuyển trạng thái",
+          detail: "VERIFYING_CARRIER → RESOLVED",
+          dotColor: "yellow",
+          actionType: "Chuyển trạng thái",
         },
-      },
-    ] as never);
+      ] as never)
+      .mockResolvedValueOnce([{ staff: "Hệ thống" }] as never);
     const { GET } = await import("@/app/api/claims/history/route");
 
     const response = await GET(
       new NextRequest("http://localhost/api/claims/history?action=auto", { method: "GET" }),
     );
     const body = await response.json();
-    const countArgs = vi.mocked(prisma.claimStatusHistory.count).mock.calls[0]?.[0];
+    const dataQuery = vi.mocked(prisma.$queryRaw as any).mock.calls[1]?.[0];
+    const sqlText = Array.isArray(dataQuery?.strings) ? dataQuery.strings.join(" ") : "";
 
     expect(response.status).toBe(200);
     expect(body.activities).toHaveLength(1);
-    expect(countArgs).toBeDefined();
-    expect(countArgs?.where).toBeDefined();
-    expect(countArgs?.where?.AND).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          OR: expect.arrayContaining([
-            expect.objectContaining({ changedBy: "Hệ thống" }),
-            expect.objectContaining({
-              note: expect.objectContaining({ contains: "Tự động", mode: "insensitive" }),
-            }),
-          ]),
-        }),
-      ]),
+    expect(sqlText).toContain(`sh."changedBy" =`);
+    expect(dataQuery.values).toEqual(
+      expect.arrayContaining(["Hệ thống", "%Tự động%"]),
     );
   });
 });

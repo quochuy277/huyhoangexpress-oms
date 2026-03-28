@@ -655,6 +655,8 @@ function ClaimsClientInner({
     pagination,
     shopOptions,
     orderStatusOptions,
+    listError,
+    filterOptionsError,
     fetchClaims,
   } = useClaimsList({ filters, onCountChange });
   const {
@@ -909,6 +911,23 @@ function ClaimsClientInner({
         onOrderStatusChange={(value) => setFilters((current) => ({ ...current, orderStatus: value, page: 1 }))}
         onShowCompletedChange={(value) => setFilters((current) => ({ ...current, showCompleted: value, page: 1 }))}
       />
+
+      {[listError, filterOptionsError].filter(Boolean).map((message) => (
+        <div
+          key={message}
+          style={{
+            border: "1px solid #fecaca",
+            background: "#fef2f2",
+            color: "#b91c1c",
+            borderRadius: "10px",
+            padding: "10px 12px",
+            fontSize: "13px",
+            lineHeight: "1.5",
+          }}
+        >
+          {message}
+        </div>
+      ))}
 
       {/* Keyframe for InlineStaffNote save animation */}
       <style>{`@keyframes fadeInOut { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1)} 75%{opacity:1} 100%{opacity:0;transform:scale(0.8)} }`}</style>
