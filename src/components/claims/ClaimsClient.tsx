@@ -22,35 +22,20 @@ import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { useClaimMutations } from "@/hooks/useClaimMutations";
 import { useClaimsFilters } from "@/hooks/useClaimsFilters";
 import { useClaimsList } from "@/hooks/useClaimsList";
-import { formatClaimMoney } from "@/lib/claims-config";
+import {
+  CLAIM_STATUS_CONFIG as SHARED_CLAIM_STATUS_CONFIG,
+  COMPLETION_STATUSES as SHARED_COMPLETION_STATUSES,
+  ISSUE_TYPE_CONFIG as SHARED_ISSUE_TYPE_CONFIG,
+  formatClaimMoney,
+} from "@/lib/claims-config";
 import { getClaimCompleteDialogCopy, getClaimReopenDialogCopy } from "@/lib/confirm-dialog";
 
 /* ============================================================
    CONSTANTS & HELPERS
    ============================================================ */
-
-const ISSUE_TYPE_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  SLOW_JOURNEY: { label: "Hành trình chậm", bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200" },
-  SUSPICIOUS: { label: "Nghi ngờ", bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
-  LOST: { label: "Thất lạc", bg: "bg-red-100", text: "text-red-700", border: "border-red-200" },
-  DAMAGED: { label: "Hư hỏng", bg: "bg-purple-100", text: "text-purple-700", border: "border-purple-200" },
-  OTHER: { label: "Vấn đề khác", bg: "bg-gray-100", text: "text-gray-700", border: "border-gray-200" },
-  FEE_COMPLAINT: { label: "KN Phí", bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-200" },
-};
-
-const CLAIM_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  PENDING: { label: "Chưa xử lý", bg: "bg-gray-100", text: "text-gray-700" },
-  VERIFYING_CARRIER: { label: "Đang xác minh", bg: "bg-blue-100", text: "text-blue-700" },
-  CLAIM_SUBMITTED: { label: "Đã gửi KN", bg: "bg-indigo-100", text: "text-indigo-700" },
-  COMPENSATION_REQUESTED: { label: "Đã yêu cầu ĐB", bg: "bg-purple-100", text: "text-purple-700" },
-  RESOLVED: { label: "Đã xử lý ✓", bg: "bg-green-100", text: "text-green-700" },
-  CARRIER_COMPENSATED: { label: "NVC đã đền bù", bg: "bg-teal-100", text: "text-teal-700" },
-  CARRIER_REJECTED: { label: "NVC từ chối", bg: "bg-red-100", text: "text-red-700" },
-  CUSTOMER_COMPENSATED: { label: "Đã đền bù KH ✓", bg: "bg-green-100", text: "text-green-700" },
-  CUSTOMER_REJECTED: { label: "Từ chối ĐB KH ✓", bg: "bg-orange-100", text: "text-orange-700" },
-};
-
-const COMPLETION_STATUSES = ["RESOLVED", "CUSTOMER_COMPENSATED", "CUSTOMER_REJECTED"];
+const ISSUE_TYPE_CONFIG = SHARED_ISSUE_TYPE_CONFIG as Record<string, { label: string; bg: string; text: string; border: string }>;
+const CLAIM_STATUS_CONFIG = SHARED_CLAIM_STATUS_CONFIG as Record<string, { label: string; bg: string; text: string }>;
+const COMPLETION_STATUSES = SHARED_COMPLETION_STATUSES as string[];
 
 function formatVND(n: number) {
   return formatClaimMoney(n);
@@ -704,120 +689,6 @@ function ClaimsClientInner({
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
 
-  /* legacy logic moved to hooks
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const params = new URLSearchParams({
-        search: filters.search,
-        showCompleted: String(filters.showCompleted),
-      });
-      if (filters.issueType.length) params.set("issueType", filters.issueType.join(","));
-      if (filters.status) params.set("claimStatus", filters.status);
-      if (filters.shopName) params.set("shopName", filters.shopName);
-      if (filters.orderStatus) params.set("orderStatus", filters.orderStatus);
-
-      const res = await fetch(`/api/claims/export?${params}`);
-      if (!res.ok) throw new Error("Export failed");
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const disposition = res.headers.get("Content-Disposition") || "";
-      const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
-      a.download = filenameMatch?.[1] || "don-co-van-de.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Lỗi khi xuất file Excel. Vui lòng thử lại.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const fetchClaims = useCallback(async () => {
-    setLoading(true);
-    lastFetchRef.current = Date.now();
-    try {
-      const params = new URLSearchParams({
-        page: String(filters.page),
-        pageSize: String(filters.pageSize),
-        search: filters.search,
-        showCompleted: String(filters.showCompleted),
-        sortBy: filters.sortBy,
-        sortDir: filters.sortDir,
-      });
-      if (filters.issueType.length) params.set("issueType", filters.issueType.join(","));
-      if (filters.status) params.set("claimStatus", filters.status);
-      if (filters.shopName) params.set("shopName", filters.shopName);
-      if (filters.orderStatus) params.set("orderStatus", filters.orderStatus);
-
-      const res = await fetch(`/api/claims?${params}`);
-      const data = await res.json();
-      setClaims(data.claims || []);
-      const pg = data.pagination || {};
-      setPagination({ total: pg.total ?? 0, totalPages: pg.totalPages ?? 0 });
-      onCountChange?.(pg.total ?? 0);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, onCountChange]);
-
-  useEffect(() => { fetchClaims(); }, [fetchClaims]);
-
-  useEffect(() => {
-    fetch("/api/claims/filter-options")
-      .then((response) => response.json())
-      .then((data) => {
-        setShopOptions(data.shops || []);
-        setOrderStatusOptions(data.statuses || []);
-      })
-      .catch(() => {
-        setShopOptions([]);
-        setOrderStatusOptions([]);
-      });
-  }, []);
-
-  // Open detail panel when triggered from external tab
-  useEffect(() => {
-    if (externalDetailClaimId) {
-      setDetailClaimId(externalDetailClaimId);
-      onExternalDetailConsumed?.();
-    }
-  }, [externalDetailClaimId, onExternalDetailConsumed]);
-
-  // Re-fetch when user switches back to this tab (throttle 30s to avoid excessive calls)
-  useEffect(() => {
-    const onFocus = () => {
-      if (document.visibilityState === "visible" && Date.now() - lastFetchRef.current > 30_000) {
-        fetchClaims();
-      }
-    };
-    document.addEventListener("visibilitychange", onFocus);
-    return () => document.removeEventListener("visibilitychange", onFocus);
-  }, [fetchClaims]);
-
-  const runAutoDetect = async () => {
-    if (!canUpdateClaim) return;
-    setDetecting(true);
-    try {
-      const res = await fetch("/api/claims/auto-detect", { method: "POST" });
-      const data = await res.json();
-      // Only refetch if auto-detect actually found/changed something
-      if (data.newClaims > 0 || data.reopenedClaims > 0 || data.autoCompleted > 0) {
-        fetchClaims();
-      }
-    } finally {
-      setDetecting(false);
-    }
-  };
-
-  // Auto-detect chỉ chạy khi user bấm nút hoặc sau khi upload Excel - không chạy tự động khi mount
-
-  */
   const handleOpenTodoFromClaim = (data: ClaimDetailData) => {
     setTodoClaimOrder({
       order: data.order,
@@ -889,42 +760,6 @@ function ClaimsClientInner({
   };
 
   // Cập nhật optimistic: chỉ cập nhật row trong state, không reload toàn bảng
-  /* legacy mutation logic moved to hooks
-  const updateClaimLocal = useCallback((id: string, changes: Record<string, any>) => {
-    setClaims(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
-  }, []);
-
-  const patchClaimField = useCallback(async (claimId: string, changes: Record<string, any>) => {
-    const previousClaim = claims.find((claim) => claim.id === claimId);
-    updateClaimLocal(claimId, changes);
-
-    try {
-      const response = await fetch(`/api/claims/${claimId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(changes),
-      });
-
-      if (!response.ok) {
-        throw new Error("Patch failed");
-      }
-    } catch {
-      if (previousClaim) {
-        setClaims((prev) => prev.map((claim) => (claim.id === claimId ? previousClaim : claim)));
-      }
-      alert("Cap nhat that bai. Du lieu da duoc khoi phuc.");
-      throw new Error("Patch failed");
-    }
-  }, [claims, updateClaimLocal]);
-
-  const handleInlineEdit = async (claimId: string, field: string, value: number) => {
-    await patchClaimField(claimId, { [field]: value });
-  };
-
-  const handleInlineEditField = async (claimId: string, field: string, value: string | null) => {
-    await patchClaimField(claimId, { [field]: value });
-  };
-  */
 
   const handleDelete = (claimId: string, requestCode: string) => {
     if (!canDeleteClaim) return;
@@ -1051,55 +886,6 @@ function ClaimsClientInner({
         }}
         primaryBtnStyle={primaryBtnStyle}
       />
-      {false && (
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: "8px" }}>
-        <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a1a", display: "flex", alignItems: "center", gap: "10px" }}>
-            <ShieldAlert size={24} className="text-blue-600" />
-            Đơn Có Vấn Đề
-          </h1>
-          <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
-            Quản lý khiếu nại, bồi hoàn và các đơn hàng có vấn đề
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button
-            onClick={runAutoDetect}
-            disabled={detecting || !canUpdateClaim}
-            style={{
-              display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px",
-              border: "1px solid #d1d5db", borderRadius: "8px", background: "#fff",
-              fontSize: "13px", fontWeight: 500, cursor: canUpdateClaim ? "pointer" : "not-allowed", color: "#374151",
-              opacity: canUpdateClaim ? 1 : 0.55,
-            }}
-            aria-label="Quet tu dong don co van de"
-          >
-            {detecting ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
-            Quét tự động
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            style={{
-              display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px",
-              border: "1px solid #d1d5db", borderRadius: "8px", background: "#fff",
-              fontSize: "13px", fontWeight: 500, cursor: "pointer", color: "#374151",
-            }}
-          >
-            {exporting ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
-            Xuất Excel
-          </button>
-          <button
-            onClick={() => { if (canCreateClaim) setShowAddDialog(true); }}
-            disabled={!canCreateClaim}
-            style={{ ...primaryBtnStyle, padding: "8px 16px", fontSize: "13px", opacity: canCreateClaim ? 1 : 0.55, cursor: canCreateClaim ? "pointer" : "not-allowed" }}
-            aria-label="Them moi don co van de"
-          >
-            <Plus size={14} /> Thêm mới
-          </button>
-        </div>
-      </div>
-      )}
 
       {/* Filters */}
       <ClaimsFiltersBar
@@ -1123,102 +909,6 @@ function ClaimsClientInner({
         onOrderStatusChange={(value) => setFilters((current) => ({ ...current, orderStatus: value, page: 1 }))}
         onShowCompletedChange={(value) => setFilters((current) => ({ ...current, showCompleted: value, page: 1 }))}
       />
-      {false && (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "16px", alignItems: "center" }}>
-        {/* Search */}
-        <div style={{ position: "relative", flex: "1 1 auto", minWidth: "140px" }}>
-          <Search size={14} style={{ position: "absolute", left: "10px", top: "9px", color: "#9ca3af" }} />
-          <input
-            style={{ ...inputStyle, paddingLeft: "32px", padding: "7px 10px 7px 32px", fontSize: "13px" }}
-            placeholder="Tìm mã đơn, SĐT, shop..."
-            value={searchInput}
-            onChange={e => {
-              const val = e.target.value;
-              setSearchInput(val);
-              clearTimeout(searchTimerRef.current);
-              searchTimerRef.current = setTimeout(() => {
-                setFilters(f => ({ ...f, search: val, page: 1 }));
-              }, 400);
-            }}
-          />
-        </div>
-
-        {/* Issue type chips */}
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
-            <button
-              key={k}
-              onClick={() => toggleIssueFilter(k)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${filters.issueType.includes(k) ? `${v.bg} ${v.text} ${v.border}` : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Status filter */}
-        <select
-          style={{ ...inputStyle, width: "auto", padding: "7px 10px", fontSize: "12px" }}
-          value={filters.status}
-          onChange={e => setFilters(f => ({ ...f, status: e.target.value, page: 1 }))}
-        >
-          <option value="">Tất cả TT xử lý</option>
-          {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
-
-        <div style={{ minWidth: "220px", flex: "0 1 240px" }}>
-          <input
-            list="claims-shop-options"
-            style={{ ...inputStyle, padding: "7px 10px", fontSize: "12px" }}
-            placeholder="Lọc theo Tên cửa hàng"
-            value={filters.shopName}
-            onChange={e => setFilters(f => ({ ...f, shopName: e.target.value, page: 1 }))}
-          />
-          <datalist id="claims-shop-options">
-            {shopOptions.map(shop => (
-              <option key={shop} value={shop} />
-            ))}
-          </datalist>
-        </div>
-
-        <select
-          style={{ ...inputStyle, width: "auto", padding: "7px 10px", fontSize: "12px", maxWidth: "220px" }}
-          value={filters.orderStatus}
-          onChange={e => setFilters(f => ({ ...f, orderStatus: e.target.value, page: 1 }))}
-        >
-          <option value="">Tất cả TT đơn hàng</option>
-          {orderStatusOptions.map(status => (
-            <option key={status} value={status}>{status}</option>
-          ))}
-        </select>
-
-        {/* Completed filter toggle */}
-        <div style={{ display: "flex", gap: "4px" }}>
-          <button
-            onClick={() => setFilters(f => ({ ...f, showCompleted: false, page: 1 }))}
-            style={{
-              padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", cursor: "pointer",
-              background: !filters.showCompleted ? "#2563eb" : "#fff", color: !filters.showCompleted ? "#fff" : "#64748b",
-              fontWeight: 600, fontSize: "12px", transition: "all 0.2s",
-            }}
-          >
-            Chưa hoàn tất
-          </button>
-          <button
-            onClick={() => setFilters(f => ({ ...f, showCompleted: true, page: 1 }))}
-            style={{
-              padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", cursor: "pointer",
-              background: filters.showCompleted ? "#10b981" : "#fff", color: filters.showCompleted ? "#fff" : "#64748b",
-              fontWeight: 600, fontSize: "12px", transition: "all 0.2s",
-            }}
-          >
-            Đã hoàn tất
-          </button>
-        </div>
-      </div>
-      )}
 
       {/* Keyframe for InlineStaffNote save animation */}
       <style>{`@keyframes fadeInOut { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1)} 75%{opacity:1} 100%{opacity:0;transform:scale(0.8)} }`}</style>
@@ -1235,70 +925,6 @@ function ClaimsClientInner({
         onBulkDelete={handleBulkDelete}
         onClearSelection={() => setSelectedIds(new Set())}
       />
-      {false && selectedIds.size > 0 && canBulkSelect && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px",
-          marginBottom: "10px", background: "#eff6ff", border: "1.5px solid #93c5fd",
-          borderRadius: "10px", fontSize: "13px", flexWrap: "wrap",
-        }}>
-          <span style={{ fontWeight: 700, color: "#1d4ed8" }}>
-            ✓ Đã chọn {selectedIds.size} đơn
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "12px", color: "#4b5563" }}>Loại VĐ:</span>
-            <select
-              onChange={e => { if (e.target.value) { handleBulkAction("issueType", e.target.value); e.target.value = ""; } }}
-              disabled={bulkProcessing || !canUpdateClaim}
-              style={{
-                border: "1px solid #93c5fd", borderRadius: "6px", padding: "4px 8px",
-                fontSize: "12px", background: "#fff", cursor: "pointer", outline: "none",
-              }}
-            >
-              <option value="">— Chọn —</option>
-              {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "12px", color: "#4b5563" }}>TT Xử Lý:</span>
-            <select
-              onChange={e => { if (e.target.value) { handleBulkAction("claimStatus", e.target.value); e.target.value = ""; } }}
-              disabled={bulkProcessing || !canUpdateClaim}
-              style={{
-                border: "1px solid #93c5fd", borderRadius: "6px", padding: "4px 8px",
-                fontSize: "12px", background: "#fff", cursor: "pointer", outline: "none",
-              }}
-            >
-              <option value="">— Chọn —</option>
-              {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            onClick={handleBulkDelete}
-            disabled={bulkProcessing || !canDeleteClaim}
-            style={{
-              display: "flex", alignItems: "center", gap: "4px", padding: "5px 12px",
-              border: "1px solid #fca5a5", borderRadius: "6px", background: "#fef2f2",
-              color: "#dc2626", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-            }}
-          >
-            <Trash2 size={13} /> Xóa {selectedIds.size} đơn
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            style={{
-              background: "none", border: "none", color: "#6b7280", fontSize: "12px",
-              cursor: "pointer", textDecoration: "underline",
-            }}
-          >
-            Bỏ chọn
-          </button>
-          {bulkProcessing && <Loader2 className="animate-spin" size={16} style={{ color: "#2563EB" }} />}
-        </div>
-      )}
 
       {/* Table */}
       <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>

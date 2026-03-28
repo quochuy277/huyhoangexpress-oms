@@ -6,6 +6,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, AlertCircle, Download,
   Loader2, ChevronDown, ChevronRight, Search,
 } from "lucide-react";
+import { CLAIMS_MOBILE_BREAKPOINT } from "@/components/claims/claims-table/claimsResponsive";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -106,6 +107,16 @@ export default function ClaimsCompensationTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <style>{`
+        @media (max-width: ${CLAIMS_MOBILE_BREAKPOINT - 1}px) {
+          .claims-compensation-shop-table { display: none !important; }
+          .claims-compensation-shop-cards { display: flex !important; }
+        }
+
+        @media (min-width: ${CLAIMS_MOBILE_BREAKPOINT}px) {
+          .claims-compensation-shop-cards { display: none !important; }
+        }
+      `}</style>
       {/* Period filter */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <select
@@ -166,7 +177,7 @@ export default function ClaimsCompensationTab() {
           </div>
         </div>
 
-        <div className="hidden md:block" style={{ overflowX: "auto" }}>
+        <div className="claims-compensation-shop-table" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e5e7eb" }}>
@@ -221,7 +232,7 @@ export default function ClaimsCompensationTab() {
           </table>
         </div>
 
-        <div className="md:hidden" data-testid="claims-compensation-shop-cards" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div className="claims-compensation-shop-cards" data-testid="claims-compensation-shop-cards" style={{ display: "none", flexDirection: "column", gap: "10px" }}>
           {filteredShops.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af" }}>Không có dữ liệu</div>
           ) : filteredShops.map((s: any) => (

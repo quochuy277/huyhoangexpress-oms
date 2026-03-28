@@ -45,6 +45,7 @@ describe("getDefaultPermissions", () => {
       const perms = getDefaultPermissions("MANAGER");
       expect(perms.canViewFinancePage).toBe(true);
       expect(perms.canViewRevenue).toBe(true);
+      expect(perms.canViewCompensation).toBe(true);
     });
   });
 
@@ -91,6 +92,10 @@ describe("getDefaultPermissions", () => {
 
     it("cannot update claims", () => {
       expect(getDefaultPermissions("STAFF").canUpdateClaim).toBe(false);
+    });
+
+    it("cannot view compensation", () => {
+      expect(getDefaultPermissions("STAFF").canViewCompensation).toBe(false);
     });
   });
 
@@ -171,6 +176,7 @@ describe("extractPermissions", () => {
     expect(perms.canDeleteOrders).toBe(false);
     expect(perms.canViewDelayed).toBe(true);
     expect(perms.canViewClaims).toBe(true);
+    expect(perms.canViewCompensation).toBe(false);
     expect(perms.canManageUsers).toBe(false);
   });
 

@@ -8,6 +8,7 @@ import {
   Search, Filter, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
+import { CLAIMS_MOBILE_BREAKPOINT } from "@/components/claims/claims-table/claimsResponsive";
 
 /* ============================================================
    STYLES
@@ -201,7 +202,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
   return (
     <div className="claims-tools-tab" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: ${CLAIMS_MOBILE_BREAKPOINT - 1}px) {
           .claims-tools-cards { flex-direction: column !important; }
           .claims-tools-cards > div { min-width: 0 !important; }
           .claims-tools-doc-row { flex-wrap: wrap !important; gap: 8px !important; }
