@@ -429,6 +429,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
     <>
       <div style={{ ...overlayStyle, zIndex: ORDER_DIALOG_Z_INDEX }} onClick={onClose} />
       <div
+        className="order-detail-dialog-shell"
         style={{
           position: "fixed",
           top: "50%",
@@ -447,6 +448,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         }}
       >
         <div
+          className="order-detail-dialog-header"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -511,7 +513,10 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }} className="resp-pad-mobile">
+        <div
+          style={{ flex: 1, overflowY: "auto", padding: "20px" }}
+          className="order-detail-dialog-body resp-pad-mobile"
+        >
           {loading && (
             <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>
               <Loader2 className="animate-spin inline" size={24} />
@@ -631,6 +636,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
           }}
           source="FROM_ORDER_DETAIL"
           baseZIndex={ORDER_DIALOG_Z_INDEX + 10}
+          userRole={userRole}
         />
       )}
 
@@ -728,6 +734,24 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
       <style>{`
         @keyframes orderDetailPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }
         @media (max-width: 640px) {
+          .order-detail-dialog-shell {
+            inset: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+            width: 100vw !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+            border-width: 0 !important;
+          }
+          .order-detail-dialog-header {
+            align-items: flex-start !important;
+            gap: 10px !important;
+            padding: 12px !important;
+          }
+          .order-detail-dialog-body {
+            padding-bottom: 20px !important;
+          }
           .resp-grid-1-2 { grid-template-columns: 1fr !important; }
           .resp-hide-mobile { display: none !important; }
           .resp-pad-mobile { padding: 12px !important; }

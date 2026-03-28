@@ -1,64 +1,91 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { processDelayedOrder, ProcessedDelayedOrder } from '@/lib/delay-analyzer';
-import type { Prisma } from '@prisma/client';
+import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { processDelayedOrder, type ProcessedDelayedOrder } from "@/lib/delay-analyzer";
+import {
+  applyDelayedFilters,
+  buildDelayedFacets,
+  buildDelayedSummary,
+  paginateDelayedOrders,
+  sortDelayedOrders,
+} from "@/lib/delayed-data";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
+
     if (!session?.user) {
-      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+      return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+    }
+
+    if (!session.user.permissions?.canViewDelayed) {
+      return NextResponse.json({ error: "Khong co quyen xem don hoan" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '50', 10);
-    const search = searchParams.get('search') || '';
-    const shopFilter = searchParams.get('shop') || '';
-    const carrierFilter = searchParams.get('carrier') || '';
-    const riskFilter = searchParams.get('risk') || '';
-    const reasonFilter = searchParams.get('reason') || '';
-    const delayCountFilter = searchParams.get('delay') || '';
-    const statusFilter = searchParams.get('status') || '';
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+    const search = searchParams.get("search") || "";
+    const shopFilter = searchParams.get("shop") || "";
+    const carrierFilter = searchParams.get("carrier") || "";
+    const riskFilter = searchParams.get("risk") || "";
+    const reasonFilter = searchParams.get("reason") || "";
+    const delayCountFilter = searchParams.get("delay") || "";
+    const statusFilter = searchParams.get("status") || "";
+    const sortKey = (searchParams.get("sortKey") || "delayCount") as keyof ProcessedDelayedOrder;
+    const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
 
-    // Base delayed condition
     const baseCondition: Prisma.OrderWhereInput = {
       claimLocked: false,
       OR: [
-        { deliveryStatus: { in: ['DELIVERY_DELAYED', 'RETURN_CONFIRMED'] } },
+        { deliveryStatus: { in: ["DELIVERY_DELAYED", "RETURN_CONFIRMED"] } },
         {
           AND: [
-            { deliveryStatus: 'DELIVERING' },
-            { publicNotes: { contains: 'Hoãn giao hàng' } }
-          ]
-        }
-      ]
+            { deliveryStatus: "DELIVERING" },
+            {
+              OR: [
+                { publicNotes: { contains: "Hoan giao hang", mode: "insensitive" } },
+                { publicNotes: { contains: "Hoãn giao hàng" } },
+                { publicNotes: { contains: "Delay giao hang", mode: "insensitive" } },
+                { publicNotes: { contains: "Delay giao hàng" } },
+              ],
+            },
+          ],
+        },
+      ],
     };
 
-    // Add server-side SQL filters
-    const AND: Prisma.OrderWhereInput[] = [];
+    const andConditions: Prisma.OrderWhereInput[] = [];
 
     if (search) {
-      AND.push({
+      andConditions.push({
         OR: [
-          { requestCode: { contains: search, mode: 'insensitive' } },
-          { shopName: { contains: search, mode: 'insensitive' } },
-          { receiverName: { contains: search, mode: 'insensitive' } },
+          { requestCode: { contains: search, mode: "insensitive" } },
+          { shopName: { contains: search, mode: "insensitive" } },
+          { receiverName: { contains: search, mode: "insensitive" } },
           { receiverPhone: { contains: search } },
-          { carrierOrderCode: { contains: search, mode: 'insensitive' } },
-          { customerOrderCode: { contains: search, mode: 'insensitive' } },
+          { carrierOrderCode: { contains: search, mode: "insensitive" } },
+          { customerOrderCode: { contains: search, mode: "insensitive" } },
         ],
       });
     }
 
-    if (shopFilter) AND.push({ shopName: shopFilter });
-    if (carrierFilter) AND.push({ carrierName: carrierFilter });
-    if (statusFilter) AND.push({ status: statusFilter });
+    if (shopFilter) {
+      andConditions.push({ shopName: shopFilter });
+    }
+
+    if (carrierFilter) {
+      andConditions.push({ carrierName: carrierFilter });
+    }
+
+    if (statusFilter) {
+      andConditions.push({ status: statusFilter });
+    }
 
     const where: Prisma.OrderWhereInput = {
       ...baseCondition,
-      ...(AND.length > 0 ? { AND } : {}),
+      ...(andConditions.length > 0 ? { AND: andConditions } : {}),
     };
 
     const orders = await prisma.order.findMany({
@@ -85,75 +112,39 @@ export async function GET(req: NextRequest) {
         carrierName: true,
         staffNotes: true,
         claimOrder: { select: { issueType: true } },
-      }
+      },
     });
 
-    // Process all orders (compute risk, delays, reasons)
-    let processedOrders: ProcessedDelayedOrder[] = orders.map(order => processDelayedOrder(order));
+    let processedOrders: ProcessedDelayedOrder[] = orders.map((order) => processDelayedOrder(order));
 
-    // Apply post-processing filters (risk, reason, delayCount)
-    if (riskFilter && riskFilter !== 'all') {
-      processedOrders = processedOrders.filter(o => o.risk === riskFilter);
-    }
-    if (reasonFilter) {
-      processedOrders = processedOrders.filter(o => o.uniqueReasons.includes(reasonFilter));
-    }
-    if (delayCountFilter) {
-      if (delayCountFilter === '4+') {
-        processedOrders = processedOrders.filter(o => o.delayCount >= 4);
-      } else {
-        processedOrders = processedOrders.filter(o => o.delayCount.toString() === delayCountFilter);
-      }
-    }
-
-    // Compute stats on ALL filtered orders (before pagination)
-    let totalCOD = 0;
-    let highCOD = 0;
-    let high = 0;
-    let medium = 0;
-    let low = 0;
-
-    processedOrders.forEach(o => {
-      totalCOD += o.codAmount;
-      if (o.risk === 'high') {
-        high++;
-        highCOD += o.codAmount;
-      } else if (o.risk === 'medium') {
-        medium++;
-      } else {
-        low++;
-      }
+    processedOrders = applyDelayedFilters(processedOrders, {
+      search,
+      shop: shopFilter,
+      status: statusFilter,
+      delay: delayCountFilter,
+      reason: reasonFilter,
+      risk: riskFilter || "all",
     });
+    processedOrders = sortDelayedOrders(processedOrders, sortKey, sortDir);
 
-    // Paginate
-    const total = processedOrders.length;
-    const start = (page - 1) * pageSize;
-    const paginatedOrders = processedOrders.slice(start, start + pageSize);
+    const summary = buildDelayedSummary(processedOrders);
+    const facets = buildDelayedFacets(processedOrders);
+    const { rows, pagination } = paginateDelayedOrders(processedOrders, page, pageSize);
 
     return NextResponse.json({
       success: true,
       data: {
-        orders: paginatedOrders,
-        stats: {
-          total,
-          high,
-          medium,
-          low,
-          totalCOD,
-          highCOD
-        },
-        pagination: {
-          page,
-          pageSize,
-          total,
-          totalPages: Math.ceil(total / pageSize),
-        }
-      }
+        rows,
+        summary,
+        facets,
+        pagination,
+      },
     });
-
   } catch (error) {
-    console.error('Error fetching delayed orders:', error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch delayed orders' }, { status: 500 });
+    console.error("Error fetching delayed orders:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch delayed orders" },
+      { status: 500 },
+    );
   }
 }
-

@@ -24,6 +24,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
     <>
       {/* Backdrop */}
       <div
+        className="tracking-popup-shell"
         style={{
           position: "fixed",
           inset: 0,
@@ -55,6 +56,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
       >
         {/* Header */}
         <div
+          className="tracking-popup-footer"
           style={{
             display: "flex",
             alignItems: "center",
@@ -177,7 +179,30 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
         </div>
       </div>
 
-      <style>{`@keyframes trackingPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }`}</style>
+      <style>{`
+        @keyframes trackingPopIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.95) } to { opacity:1; transform:translate(-50%,-50%) scale(1) } }
+        @media (max-width: 640px) {
+          .tracking-popup-shell {
+            inset: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+            width: 100vw !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+            border-width: 0 !important;
+          }
+
+          .tracking-popup-footer {
+            flex-wrap: wrap;
+            justify-content: stretch !important;
+          }
+
+          .tracking-popup-footer > button {
+            flex: 1 1 calc(50% - 5px);
+          }
+        }
+      `}</style>
     </>,
     document.body
   );

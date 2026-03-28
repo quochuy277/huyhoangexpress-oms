@@ -107,8 +107,8 @@ export function AddTodoDialog({
       <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClose} />
 
       {/* Dialog wrapper - flexbox centering */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
-        <div className="w-[480px] max-w-full max-h-[calc(100vh-32px)] bg-white border-[1.5px] border-blue-600 rounded-xl shadow-xl flex flex-col pointer-events-auto animate-[dialogIn_0.2s_ease-out]">
+      <div className="fixed inset-0 z-[9999] flex items-end justify-center p-0 sm:items-center sm:p-4 pointer-events-none">
+        <div className="h-[100dvh] w-full max-w-full bg-white border-0 rounded-none shadow-xl flex flex-col pointer-events-auto animate-[dialogIn_0.2s_ease-out] sm:h-auto sm:max-h-[calc(100vh-32px)] sm:w-[480px] sm:border-[1.5px] sm:border-blue-600 sm:rounded-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 p-5 sm:p-6 pb-4 shrink-0">
           <div className="flex items-center gap-2">
