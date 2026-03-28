@@ -59,7 +59,7 @@ export function InlineStaffNote({
           previousValue: previousValue.current,
           draftValue,
           ok: false,
-          errorMessage: payload.error || "Khong the luu ghi chu",
+          errorMessage: payload.error || "Không thể lưu ghi chú",
         });
         setValue(nextState.value);
         setError(nextState.error);
@@ -85,7 +85,7 @@ export function InlineStaffNote({
         previousValue: previousValue.current,
         draftValue,
         ok: false,
-        errorMessage: "Khong the luu ghi chu",
+        errorMessage: "Không thể lưu ghi chú",
       });
       setValue(nextState.value);
       setError(nextState.error);
@@ -122,11 +122,11 @@ export function InlineStaffNote({
           className="w-full rounded-md border border-blue-500 bg-amber-50 px-2 py-1.5 text-[11px] text-slate-800 outline-none ring-2 ring-blue-100"
         />
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] text-slate-400">Enter de luu, Shift+Enter de xuong dong</p>
+          <p className="text-[10px] text-slate-400">Enter để lưu, Shift+Enter để xuống dòng</p>
           {saving && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Dang luu...
+              Đang lưu...
             </span>
           )}
         </div>
@@ -139,14 +139,15 @@ export function InlineStaffNote({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        title="Click de sua ghi chu"
+        title="Click để sửa ghi chú"
+        aria-label="Sửa ghi chú nhân viên"
         className={`relative w-full rounded-md border px-2 py-1.5 text-left text-[11px] transition-all ${
           value
             ? "border-slate-200 bg-amber-50 text-slate-700"
             : "border-dashed border-slate-300 bg-transparent italic text-slate-400"
         }`}
       >
-        <span className="block break-words">{value || "Ghi chu..."}</span>
+        <span className="block break-words">{value || "Ghi chú..."}</span>
         {saving && (
           <span className="absolute right-1.5 top-1.5 inline-flex items-center justify-center rounded-full bg-white/90 p-1 text-slate-500">
             <Loader2 className="h-3 w-3 animate-spin" />

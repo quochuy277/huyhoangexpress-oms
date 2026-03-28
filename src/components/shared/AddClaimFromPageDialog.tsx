@@ -128,7 +128,6 @@ interface Props {
   userRole?: string;
 }
 
-
 function getTodoSource(source: string) {
   return source === "FROM_RETURNS" ? "FROM_RETURNS" : "FROM_ORDERS";
 }
@@ -339,20 +338,52 @@ export function AddClaimFromPageDialog({
             <span style={titleStyle}>Chuyển vào Đơn Có Vấn Đề</span>
           </div>
           <button
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", borderRadius: "6px", color: "#666", display: "flex" }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px",
+              borderRadius: "6px",
+              color: "#666",
+              display: "flex",
+            }}
             onClick={onClose}
+            aria-label="Đóng hộp thoại chuyển đơn có vấn đề"
           >
             <X size={18} />
           </button>
         </div>
 
         <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", marginBottom: "16px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }} className="resp-grid-1-2">
-              <div><span style={{ color: "#6b7280" }}>Mã YC: </span><strong>{order.requestCode}</strong></div>
-              <div><span style={{ color: "#6b7280" }}>Đối tác: </span><strong>{order.carrierName || "—"}</strong></div>
-              <div><span style={{ color: "#6b7280" }}>Shop: </span><strong>{order.shopName || "—"}</strong></div>
-              <div><span style={{ color: "#6b7280" }}>COD: </span><strong style={{ color: "#059669" }}>{order.codAmount?.toLocaleString("vi-VN")}đ</strong></div>
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              padding: "14px",
+              marginBottom: "16px",
+            }}
+          >
+            <div
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }}
+              className="resp-grid-1-2"
+            >
+              <div>
+                <span style={{ color: "#6b7280" }}>Mã YC: </span>
+                <strong>{order.requestCode}</strong>
+              </div>
+              <div>
+                <span style={{ color: "#6b7280" }}>Đối tác: </span>
+                <strong>{order.carrierName || "—"}</strong>
+              </div>
+              <div>
+                <span style={{ color: "#6b7280" }}>Shop: </span>
+                <strong>{order.shopName || "—"}</strong>
+              </div>
+              <div>
+                <span style={{ color: "#6b7280" }}>COD: </span>
+                <strong style={{ color: "#059669" }}>{order.codAmount?.toLocaleString("vi-VN")}đ</strong>
+              </div>
             </div>
           </div>
 
@@ -372,10 +403,17 @@ export function AddClaimFromPageDialog({
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }} className="resp-grid-1-2">
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }}
+            className="resp-grid-1-2"
+          >
             <div>
               <label style={labelStyle}>Loại Vấn Đề *</label>
-              <select style={inputStyle} value={issueType} onChange={(event) => setIssueType(event.target.value)}>
+              <select
+                style={inputStyle}
+                value={issueType}
+                onChange={(event) => setIssueType(event.target.value)}
+              >
                 <option value="">— Chọn —</option>
                 {ISSUE_TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -386,7 +424,11 @@ export function AddClaimFromPageDialog({
             </div>
             <div>
               <label style={labelStyle}>Trạng Thái XL</label>
-              <select style={inputStyle} value={claimStatus} onChange={(event) => setClaimStatus(event.target.value)}>
+              <select
+                style={inputStyle}
+                value={claimStatus}
+                onChange={(event) => setClaimStatus(event.target.value)}
+              >
                 {CLAIM_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -408,12 +450,22 @@ export function AddClaimFromPageDialog({
 
           <div style={{ marginBottom: "14px" }}>
             <label style={labelStyle}>Thời Hạn</label>
-            <input style={inputStyle} type="date" value={deadline} onChange={(event) => setDeadline(event.target.value)} />
+            <input
+              style={inputStyle}
+              type="date"
+              value={deadline}
+              onChange={(event) => setDeadline(event.target.value)}
+            />
           </div>
         </div>
 
         <div style={footerStyle}>
-          <button style={{ ...primaryBtn, background: "transparent", color: "#374151", border: "1px solid #d1d5db" }} onClick={onClose}>Hủy</button>
+          <button
+            style={{ ...primaryBtn, background: "transparent", color: "#374151", border: "1px solid #d1d5db" }}
+            onClick={onClose}
+          >
+            Hủy
+          </button>
           <button style={primaryBtn} onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
             Lưu

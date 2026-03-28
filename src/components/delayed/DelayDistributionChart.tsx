@@ -7,15 +7,15 @@ export function DelayDistributionChart({ data }: { data: DelayedFacetCount[] }) 
   if (!data.length) {
     return (
       <div className="flex h-full min-h-[220px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-4 text-sm font-bold text-slate-700">Phan bo so lan hoan giao</h3>
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Chua co du lieu</div>
+        <h3 className="mb-4 text-sm font-bold text-slate-700">Phân bố số lần hoãn giao</h3>
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Chưa có dữ liệu</div>
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-[220px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-bold text-slate-700">Phan bo so lan hoan giao</h3>
+      <h3 className="mb-4 text-sm font-bold text-slate-700">Phân bố số lần hoãn giao</h3>
       <div className="min-h-[220px] flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
@@ -37,7 +37,7 @@ export function DelayDistributionChart({ data }: { data: DelayedFacetCount[] }) 
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                 fontSize: "12px",
               }}
-              formatter={(value) => [`${Number(value ?? 0)} don`, "So luong"]}
+              formatter={(value) => [`${Number(value ?? 0)} đơn`, "Số lượng"]}
             />
             <Bar
               dataKey="count"
@@ -47,11 +47,11 @@ export function DelayDistributionChart({ data }: { data: DelayedFacetCount[] }) 
             >
               {data.map((entry, index) => {
                 const fill =
-                  entry.name === "4+ lan"
+                  entry.name === "4+ lần"
                     ? "#ef4444"
-                    : entry.name === "3 lan"
+                    : entry.name === "3 lần"
                       ? "#f97316"
-                      : entry.name === "2 lan"
+                      : entry.name === "2 lần"
                         ? "#f59e0b"
                         : "#10b981";
 

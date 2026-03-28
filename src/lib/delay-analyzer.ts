@@ -208,51 +208,51 @@ export function normalizeReason(reason: string): string {
       normalized,
     )
   ) {
-    return "Khong lien lac duoc KH";
+    return "Không liên lạc được KH";
   }
 
   if (/hen lai|hen ngay|kh hen/.test(normalized)) {
-    return "KH hen lai ngay giao";
+    return "KH hẹn lại ngày giao";
   }
 
   if (/tu choi.*khong dat|khong dat hang/.test(normalized)) {
-    return "Tu choi - Khong dat hang";
+    return "Từ chối - Không đặt hàng";
   }
 
   if (/doi y|khong muon nhan/.test(normalized)) {
-    return "Tu choi - Doi y khong nhan";
+    return "Từ chối - Đổi ý không nhận";
   }
 
   if (/hu hong|hu ton|dong goi/.test(normalized)) {
-    return "Hang hu hong/dong goi loi";
+    return "Hàng hư hỏng/đóng gói lỗi";
   }
 
   if (/sai.*dia chi/.test(normalized)) {
-    return "Sai thong tin dia chi";
+    return "Sai thông tin địa chỉ";
   }
 
   if (/sai.*sdt|sai.*so dien thoai/.test(normalized)) {
-    return "Sai thong tin SDT";
+    return "Sai thông tin SĐT";
   }
 
   if (/khong thuoc buu cuc/.test(normalized)) {
-    return "Sai buu cuc";
+    return "Sai bưu cục";
   }
 
   if (/qua so lan/.test(normalized)) {
-    return "Qua so lan giao";
+    return "Quá số lần giao";
   }
 
   if (/xac nhan hoan/.test(normalized)) {
-    return "Xac nhan hoan hang";
+    return "Xác nhận hoàn hàng";
   }
 
   if (/kh hen giao lai qua/.test(normalized)) {
-    return "KH hen giao lai qua 3 lan";
+    return "KH hẹn giao lại quá 3 lần";
   }
 
   if (/khong lien lac duoc voi kh 3 lan/.test(normalized)) {
-    return "Khong lien lac duoc KH 3 lan";
+    return "Không liên lạc được KH 3 lần";
   }
 
   return cleaned.substring(0, 60);
@@ -274,11 +274,11 @@ export function extractReasons(note: string): string[] {
     }
 
     if (isReturnDelayPrefix(parsed.eventText)) {
-      reasons.push("Xac nhan hoan hang");
+      reasons.push("Xác nhận hoàn hàng");
     }
   }
 
-  return reasons.length > 0 ? reasons : ["Khong ro ly do"];
+  return reasons.length > 0 ? reasons : ["Không rõ lý do"];
 }
 
 export function assessRisk(
@@ -295,15 +295,15 @@ export function assessRisk(
   else score += 1;
 
   const severeReasons = [
-    "Tu choi - Khong dat hang",
-    "Tu choi - Doi y khong nhan",
-    "Hang hu hong/dong goi loi",
-    "Sai thong tin dia chi",
-    "Sai thong tin SDT",
-    "Xac nhan hoan hang",
-    "Qua so lan giao",
-    "KH hen giao lai qua 3 lan",
-    "Khong lien lac duoc KH 3 lan",
+    "Từ chối - Không đặt hàng",
+    "Từ chối - Đổi ý không nhận",
+    "Hàng hư hỏng/đóng gói lỗi",
+    "Sai thông tin địa chỉ",
+    "Sai thông tin SĐT",
+    "Xác nhận hoàn hàng",
+    "Quá số lần giao",
+    "KH hẹn giao lại quá 3 lần",
+    "Không liên lạc được KH 3 lần",
   ];
 
   if (reasons.some((reason) => severeReasons.includes(reason))) {
@@ -331,9 +331,7 @@ export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
   const uniqueReasons = [...new Set(reasons)];
   const delayCount = Math.max(delays.length, countDelaysInNote(note));
   const createdDate = order.createdTime ? new Date(order.createdTime) : null;
-  const daysAge = createdDate
-    ? Math.floor((Date.now() - createdDate.getTime()) / 86400000)
-    : 0;
+  const daysAge = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / 86400000) : 0;
   const risk = assessRisk(delayCount, uniqueReasons, daysAge, status);
   const addressParts = [
     order.receiverAddress,

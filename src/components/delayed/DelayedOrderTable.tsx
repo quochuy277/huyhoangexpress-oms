@@ -60,8 +60,8 @@ function DelayedOrderTableInner({
 
   const riskLabel = (risk: string) => {
     if (risk === "high") return "Cao";
-    if (risk === "medium") return "Trung binh";
-    return "Thap";
+    if (risk === "medium") return "Trung bình";
+    return "Thấp";
   };
 
   const HeaderCell = ({
@@ -88,24 +88,36 @@ function DelayedOrderTableInner({
         <Table className="table-fixed">
           <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-sm">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="px-1 text-center text-[11px] font-medium uppercase text-slate-500" style={{ width: "42px" }}>
+              <TableHead
+                className="px-1 text-center text-[11px] font-medium uppercase text-slate-500"
+                style={{ width: "42px" }}
+              >
                 STT
               </TableHead>
-              <HeaderCell label="Ma Yeu Cau" sortName="requestCode" width="130px" />
-              <HeaderCell label="Cua Hang" sortName="shopName" width="120px" />
-              <TableHead className="px-2 text-[11px] font-medium uppercase text-slate-500" style={{ width: "210px" }}>
-                Thong Tin Don
+              <HeaderCell label="Mã Yêu Cầu" sortName="requestCode" width="130px" />
+              <HeaderCell label="Cửa Hàng" sortName="shopName" width="120px" />
+              <TableHead
+                className="px-2 text-[11px] font-medium uppercase text-slate-500"
+                style={{ width: "210px" }}
+              >
+                Thông Tin Đơn
               </TableHead>
-              <HeaderCell label="Trang Thai" sortName="status" width="110px" />
-              <HeaderCell label="Hoan" sortName="delayCount" width="58px" />
-              <HeaderCell label="Ngay Tao" sortName="createdTime" width="90px" />
-              <TableHead className="px-2 text-[11px] font-medium uppercase text-slate-500" style={{ width: "150px" }}>
-                Ly Do
+              <HeaderCell label="Trạng Thái" sortName="status" width="110px" />
+              <HeaderCell label="Hoãn" sortName="delayCount" width="58px" />
+              <HeaderCell label="Ngày Tạo" sortName="createdTime" width="90px" />
+              <TableHead
+                className="px-2 text-[11px] font-medium uppercase text-slate-500"
+                style={{ width: "150px" }}
+              >
+                Lý Do
               </TableHead>
-              <HeaderCell label="Nguy Co" sortName="riskScore" width="82px" />
-              <HeaderCell label="Thu Ho" sortName="codAmount" width="95px" />
-              <TableHead className="px-1 text-center text-[11px] font-medium uppercase text-slate-500" style={{ width: "120px" }}>
-                Thao Tac
+              <HeaderCell label="Nguy Cơ" sortName="riskScore" width="82px" />
+              <HeaderCell label="Thu Hộ" sortName="codAmount" width="95px" />
+              <TableHead
+                className="px-1 text-center text-[11px] font-medium uppercase text-slate-500"
+                style={{ width: "120px" }}
+              >
+                Thao Tác
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -115,7 +127,7 @@ function DelayedOrderTableInner({
                 <TableCell colSpan={11} className="h-48 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center p-6">
                     <Info className="mb-2 h-8 w-8 text-slate-300" />
-                    <p className="font-medium text-slate-700">Khong tim thay don hang delayed</p>
+                    <p className="font-medium text-slate-700">Không tìm thấy đơn hàng delayed</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -129,7 +141,10 @@ function DelayedOrderTableInner({
                     : "border-l-[3px] border-l-emerald-500";
 
                 return (
-                  <TableRow key={order.requestCode} className={`border-b border-slate-100 hover:bg-slate-50/50 ${borderClass}`}>
+                  <TableRow
+                    key={order.requestCode}
+                    className={`border-b border-slate-100 hover:bg-slate-50/50 ${borderClass}`}
+                  >
                     <TableCell className="px-1 text-center text-[12px] font-medium text-slate-500">
                       {(page - 1) * pageSize + index + 1}
                     </TableCell>
@@ -145,20 +160,26 @@ function DelayedOrderTableInner({
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell className="truncate px-2 text-[12px] text-slate-700" title={order.shopName}>
+                    <TableCell
+                      className="truncate px-2 text-[12px] text-slate-700"
+                      title={order.shopName}
+                    >
                       {order.shopName}
                     </TableCell>
                     <TableCell className="px-2">
                       <div className="space-y-1 text-[11px] text-slate-500">
                         <div className="truncate" title={order.carrierOrderCode}>
-                          Ma: <span className="font-medium text-slate-800">{order.carrierOrderCode || "-"}</span>
+                          Mã:{" "}
+                          <span className="font-medium text-slate-800">
+                            {order.carrierOrderCode || "-"}
+                          </span>
                         </div>
                         <div className="truncate">
-                          Ten: <span className="font-medium text-slate-800">{order.receiverName}</span> -{" "}
-                          <span className="text-blue-600">{order.receiverPhone}</span>
+                          Tên: <span className="font-medium text-slate-800">{order.receiverName}</span>{" "}
+                          - <span className="text-blue-600">{order.receiverPhone}</span>
                         </div>
                         <div className="truncate" title={order.fullAddress}>
-                          DC: {order.fullAddress}
+                          ĐC: {order.fullAddress}
                         </div>
                         <CopyOrderButton order={order} />
                       </div>
@@ -192,8 +213,12 @@ function DelayedOrderTableInner({
                     </TableCell>
                     <TableCell className="px-2">
                       <div className="text-[11px] text-slate-700">
-                        {order.createdTime ? format(new Date(order.createdTime), "dd/MM/yy", { locale: vi }) : "-"}
-                        <div className="mt-0.5 text-[10px] text-slate-400">{order.daysAge} ngay truoc</div>
+                        {order.createdTime
+                          ? format(new Date(order.createdTime), "dd/MM/yy", { locale: vi })
+                          : "-"}
+                        <div className="mt-0.5 text-[10px] text-slate-400">
+                          {order.daysAge} ngày trước
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="px-2">
@@ -220,14 +245,18 @@ function DelayedOrderTableInner({
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${
-                            isHigh ? "bg-red-500" : order.risk === "medium" ? "bg-amber-500" : "bg-emerald-500"
+                            isHigh
+                              ? "bg-red-500"
+                              : order.risk === "medium"
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
                           }`}
                         />
                         {riskLabel(order.risk)}
                       </span>
                     </TableCell>
                     <TableCell className="px-2 text-right text-[12px] font-bold text-slate-700">
-                      {order.codAmount.toLocaleString("vi-VN")}d
+                      {order.codAmount.toLocaleString("vi-VN")}đ
                     </TableCell>
                     <TableCell className="px-1">
                       <div className="flex flex-col gap-1">
@@ -236,7 +265,8 @@ function DelayedOrderTableInner({
                             type="button"
                             onClick={() => setTodoOrder(order)}
                             className="flex h-7 w-7 items-center justify-center rounded border border-transparent text-blue-500 transition-colors hover:border-blue-200 hover:bg-blue-50"
-                            title="Them vao Cong Viec"
+                            title="Thêm vào Công Việc"
+                            aria-label={`Thêm đơn ${order.requestCode} vào công việc`}
                           >
                             <CheckSquare className="h-3.5 w-3.5" />
                           </button>
@@ -244,7 +274,8 @@ function DelayedOrderTableInner({
                             type="button"
                             onClick={() => setClaimDelayedOrder(order)}
                             className="flex h-7 w-7 items-center justify-center rounded border border-transparent text-orange-500 transition-colors hover:border-orange-200 hover:bg-orange-50"
-                            title="Chuyen vao Don co van de"
+                            title="Chuyển vào Đơn có vấn đề"
+                            aria-label={`Chuyển đơn ${order.requestCode} vào đơn có vấn đề`}
                           >
                             <Flag className="h-3.5 w-3.5" />
                           </button>
@@ -252,7 +283,8 @@ function DelayedOrderTableInner({
                             type="button"
                             onClick={() => setTrackingCode(order.requestCode)}
                             className="flex h-7 w-7 items-center justify-center rounded border border-transparent text-emerald-500 transition-colors hover:border-emerald-200 hover:bg-emerald-50"
-                            title="Tra hanh trinh"
+                            title="Tra hành trình"
+                            aria-label={`Xem hành trình đơn ${order.requestCode}`}
                           >
                             <Truck className="h-3.5 w-3.5" />
                           </button>
@@ -271,7 +303,7 @@ function DelayedOrderTableInner({
       <div className="space-y-3 p-3 md:hidden">
         {data.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-            Khong tim thay don hang delayed.
+            Không tìm thấy đơn hàng delayed.
           </div>
         ) : (
           data.map((order) => (
@@ -308,17 +340,17 @@ function DelayedOrderTableInner({
 
               <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-600">
                 <div>
-                  <p className="text-slate-400">Nguoi nhan</p>
+                  <p className="text-slate-400">Người nhận</p>
                   <p className="font-semibold text-slate-700">{order.receiverName}</p>
                   <p className="text-blue-600">{order.receiverPhone}</p>
                 </div>
                 <div>
                   <p className="text-slate-400">COD</p>
-                  <p className="font-bold text-slate-800">{order.codAmount.toLocaleString("vi-VN")}d</p>
-                  <p className="text-slate-500">{order.delayCount} lan hoan</p>
+                  <p className="font-bold text-slate-800">{order.codAmount.toLocaleString("vi-VN")}đ</p>
+                  <p className="text-slate-500">{order.delayCount} lần hoãn</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-slate-400">Dia chi</p>
+                  <p className="text-slate-400">Địa chỉ</p>
                   <p className="line-clamp-2 text-slate-700">{order.fullAddress}</p>
                 </div>
                 <div className="col-span-2 flex flex-wrap gap-1">
@@ -343,7 +375,7 @@ function DelayedOrderTableInner({
                   onClick={() => setDetailRequestCode(order.requestCode)}
                   className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] font-semibold text-slate-700"
                 >
-                  Chi tiet
+                  Chi tiết
                 </button>
                 <button
                   type="button"
@@ -380,8 +412,8 @@ function DelayedOrderTableInner({
         <AddTodoDialog
           open={Boolean(todoOrder)}
           onClose={() => setTodoOrder(null)}
-          defaultTitle={`Xu ly don ${todoOrder.requestCode}`}
-          defaultDescription={`Don: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - KH: ${todoOrder.receiverName} - Hoan ${todoOrder.delayCount} lan - Nguy co: ${riskLabel(todoOrder.risk)}`}
+          defaultTitle={`Xử lý đơn ${todoOrder.requestCode}`}
+          defaultDescription={`Đơn: ${todoOrder.requestCode} - Shop: ${todoOrder.shopName} - KH: ${todoOrder.receiverName} - Hoãn ${todoOrder.delayCount} lần - Nguy cơ: ${riskLabel(todoOrder.risk)}`}
           defaultPriority={riskToPriority(todoOrder.risk)}
           linkedOrderId={todoOrder.id}
           source="FROM_DELAYED"

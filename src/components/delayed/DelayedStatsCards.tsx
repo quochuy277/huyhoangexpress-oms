@@ -16,13 +16,13 @@ export function DelayedStatsCards({ summary }: { summary?: DelayedSummary }) {
         </div>
         <div className="relative z-10 space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 sm:text-sm">
-            Tong don hoan
+            Tổng đơn hoãn
           </h3>
           <div className="text-2xl font-black text-slate-800 sm:text-3xl">{summary.total}</div>
         </div>
         <div className="relative z-10 mt-3 border-t border-slate-100 pt-3 text-xs">
-          <span className="font-medium text-slate-500">Tong COD: </span>
-          <span className="font-bold text-slate-700">{summary.totalCOD.toLocaleString("vi-VN")}d</span>
+          <span className="font-medium text-slate-500">Tổng COD: </span>
+          <span className="font-bold text-slate-700">{summary.totalCOD.toLocaleString("vi-VN")}đ</span>
         </div>
       </div>
 
@@ -31,12 +31,12 @@ export function DelayedStatsCards({ summary }: { summary?: DelayedSummary }) {
           <AlertTriangle className="h-10 w-10 text-red-100" />
         </div>
         <div className="relative z-10 space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-red-600 sm:text-sm">Nguy co cao</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-red-600 sm:text-sm">Nguy cơ cao</h3>
           <div className="text-2xl font-black text-red-600 sm:text-3xl">{summary.high}</div>
         </div>
         <div className="relative z-10 mt-3 border-t border-red-50 pt-3 text-xs">
-          <span className="font-medium text-red-500">COD rui ro: </span>
-          <span className="font-bold text-red-700">{summary.highCOD.toLocaleString("vi-VN")}d</span>
+          <span className="font-medium text-red-500">COD rủi ro: </span>
+          <span className="font-bold text-red-700">{summary.highCOD.toLocaleString("vi-VN")}đ</span>
         </div>
       </div>
 
@@ -45,7 +45,7 @@ export function DelayedStatsCards({ summary }: { summary?: DelayedSummary }) {
           <AlertCircle className="h-10 w-10 text-amber-100" />
         </div>
         <div className="relative z-10 space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-amber-600 sm:text-sm">Canh bao</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-amber-600 sm:text-sm">Cảnh báo</h3>
           <div className="text-2xl font-black text-amber-600 sm:text-3xl">{summary.medium}</div>
         </div>
       </div>
@@ -55,7 +55,7 @@ export function DelayedStatsCards({ summary }: { summary?: DelayedSummary }) {
           <ShieldCheck className="h-10 w-10 text-emerald-100" />
         </div>
         <div className="relative z-10 space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-600 sm:text-sm">Nguy co thap</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-600 sm:text-sm">Nguy cơ thấp</h3>
           <div className="text-2xl font-black text-emerald-600 sm:text-3xl">{summary.low}</div>
         </div>
       </div>

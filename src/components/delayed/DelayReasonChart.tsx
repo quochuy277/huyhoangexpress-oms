@@ -7,15 +7,15 @@ export function DelayReasonChart({ data }: { data: DelayedFacetCount[] }) {
   if (!data.length) {
     return (
       <div className="flex h-full min-h-[220px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-4 text-sm font-bold text-slate-700">Top ly do hoan giao</h3>
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Chua co du lieu</div>
+        <h3 className="mb-4 text-sm font-bold text-slate-700">Top lý do hoãn giao</h3>
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Chưa có dữ liệu</div>
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-[220px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-bold text-slate-700">Top ly do hoan giao</h3>
+      <h3 className="mb-4 text-sm font-bold text-slate-700">Top lý do hoãn giao</h3>
       <div className="min-h-[220px] flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
@@ -37,7 +37,7 @@ export function DelayReasonChart({ data }: { data: DelayedFacetCount[] }) {
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                 fontSize: "12px",
               }}
-              formatter={(value) => [`${Number(value ?? 0)} lan`, "Tan suat"]}
+              formatter={(value) => [`${Number(value ?? 0)} lần`, "Tần suất"]}
             />
             <Bar
               dataKey="count"

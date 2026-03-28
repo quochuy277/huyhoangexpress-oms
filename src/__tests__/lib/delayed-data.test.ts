@@ -19,14 +19,14 @@ function makeOrder(overrides: Partial<ProcessedDelayedOrder>): ProcessedDelayedO
     receiverName: "Nguyen Van A",
     receiverPhone: "0900000001",
     fullAddress: "1 Nguyen Trai - Quan 1 - HCM",
-    status: "Hoan giao hang",
+    status: "Hoãn giao hàng",
     deliveryStatus: "DELIVERY_DELAYED",
     codAmount: 100000,
     createdTime: new Date("2026-03-20T00:00:00.000Z"),
     carrierName: "GHN",
     delayCount: 1,
-    delays: [{ time: "10:00", date: "20/03/2026", reason: "Khong lien lac duoc KH" }],
-    uniqueReasons: ["Khong lien lac duoc KH"],
+    delays: [{ time: "10:00", date: "20/03/2026", reason: "Không liên lạc được KH" }],
+    uniqueReasons: ["Không liên lạc được KH"],
     daysAge: 3,
     risk: "low",
     riskScore: 1,
@@ -44,7 +44,7 @@ describe("delayed-data", () => {
       shopName: "Shop A",
       codAmount: 100000,
       delayCount: 1,
-      uniqueReasons: ["Khong lien lac duoc KH"],
+      uniqueReasons: ["Không liên lạc được KH"],
       risk: "low",
       riskScore: 1,
     }),
@@ -54,7 +54,7 @@ describe("delayed-data", () => {
       shopName: "Shop B",
       codAmount: 200000,
       delayCount: 2,
-      uniqueReasons: ["KH hen lai ngay giao"],
+      uniqueReasons: ["KH hẹn lại ngày giao"],
       risk: "medium",
       riskScore: 2,
     }),
@@ -64,7 +64,7 @@ describe("delayed-data", () => {
       shopName: "Shop A",
       codAmount: 300000,
       delayCount: 4,
-      uniqueReasons: ["Xac nhan hoan hang"],
+      uniqueReasons: ["Xác nhận hoàn hàng"],
       risk: "high",
       riskScore: 3,
     }),
@@ -84,18 +84,18 @@ describe("delayed-data", () => {
   it("builds facets and distributions from all filtered rows", () => {
     expect(buildDelayedFacets(orders)).toEqual({
       shops: ["Shop A", "Shop B"],
-      statuses: ["Hoan giao hang"],
-      reasons: ["KH hen lai ngay giao", "Khong lien lac duoc KH", "Xac nhan hoan hang"],
+      statuses: ["Hoãn giao hàng"],
+      reasons: ["KH hẹn lại ngày giao", "Không liên lạc được KH", "Xác nhận hoàn hàng"],
       delayDistribution: [
-        { name: "1 lan", count: 1 },
-        { name: "2 lan", count: 1 },
-        { name: "3 lan", count: 0 },
-        { name: "4+ lan", count: 1 },
+        { name: "1 lần", count: 1 },
+        { name: "2 lần", count: 1 },
+        { name: "3 lần", count: 0 },
+        { name: "4+ lần", count: 1 },
       ],
       reasonDistribution: [
-        { name: "KH hen lai ngay giao", count: 1 },
-        { name: "Khong lien lac duoc KH", count: 1 },
-        { name: "Xac nhan hoan hang", count: 1 },
+        { name: "KH hẹn lại ngày giao", count: 1 },
+        { name: "Không liên lạc được KH", count: 1 },
+        { name: "Xác nhận hoàn hàng", count: 1 },
       ],
     });
   });
@@ -107,7 +107,7 @@ describe("delayed-data", () => {
         shop: "Shop A",
         status: "",
         delay: "4+",
-        reason: "Xac nhan hoan hang",
+        reason: "Xác nhận hoàn hàng",
         risk: "high",
       }).map((order) => order.requestCode),
     ).toEqual(["REQ-003"]);
@@ -134,16 +134,16 @@ describe("delayed-data", () => {
   it("builds export rows from the full filtered dataset", () => {
     expect(buildDelayedExportRows(orders)).toEqual([
       expect.objectContaining({
-        "Ma Yeu Cau": "REQ-001",
-        "So Lan Hoan": 1,
+        "Mã Yêu Cầu": "REQ-001",
+        "Số Lần Hoãn": 1,
       }),
       expect.objectContaining({
-        "Ma Yeu Cau": "REQ-002",
-        "Muc Do Rui Ro": "TRUNG BINH",
+        "Mã Yêu Cầu": "REQ-002",
+        "Mức Độ Rủi Ro": "TRUNG BÌNH",
       }),
       expect.objectContaining({
-        "Ma Yeu Cau": "REQ-003",
-        "Muc Do Rui Ro": "CAO",
+        "Mã Yêu Cầu": "REQ-003",
+        "Mức Độ Rủi Ro": "CAO",
       }),
     ]);
   });

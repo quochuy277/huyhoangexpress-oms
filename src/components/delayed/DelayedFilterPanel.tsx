@@ -52,7 +52,8 @@ function FilterFields({
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
-          placeholder="Ma don, shop, nguoi nhan, SDT..."
+          placeholder="Mã đơn, shop, người nhận, SĐT..."
+          aria-label="Tìm kiếm đơn delayed"
           value={filters.searchTerm}
           onChange={(event) => onChange({ searchTerm: event.target.value })}
           className={`${inputClass} pl-10`}
@@ -60,11 +61,12 @@ function FilterFields({
       </div>
 
       <select
+        aria-label="Lọc theo cửa hàng"
         value={filters.shopFilter}
         onChange={(event) => onChange({ shopFilter: event.target.value })}
         className={inputClass}
       >
-        <option value="">Tat ca cua hang</option>
+        <option value="">Tất cả cửa hàng</option>
         {options.shops.map((shop) => (
           <option key={shop} value={shop}>
             {shop}
@@ -73,11 +75,12 @@ function FilterFields({
       </select>
 
       <select
+        aria-label="Lọc theo trạng thái"
         value={filters.statusFilter}
         onChange={(event) => onChange({ statusFilter: event.target.value })}
         className={inputClass}
       >
-        <option value="">Tat ca trang thai</option>
+        <option value="">Tất cả trạng thái</option>
         {options.statuses.map((status) => (
           <option key={status} value={status}>
             {status}
@@ -86,11 +89,12 @@ function FilterFields({
       </select>
 
       <select
+        aria-label="Lọc theo lý do"
         value={filters.reasonFilter}
         onChange={(event) => onChange({ reasonFilter: event.target.value })}
         className={inputClass}
       >
-        <option value="">Tat ca ly do</option>
+        <option value="">Tất cả lý do</option>
         {options.reasons.map((reason) => (
           <option key={reason} value={reason}>
             {reason}
@@ -99,15 +103,16 @@ function FilterFields({
       </select>
 
       <select
+        aria-label="Lọc theo số lần hoãn"
         value={filters.delayCountFilter}
         onChange={(event) => onChange({ delayCountFilter: event.target.value })}
         className={inputClass}
       >
-        <option value="">Tat ca so lan hoan</option>
-        <option value="1">1 lan</option>
-        <option value="2">2 lan</option>
-        <option value="3">3 lan</option>
-        <option value="4+">4+ lan</option>
+        <option value="">Tất cả số lần hoãn</option>
+        <option value="1">1 lần</option>
+        <option value="2">2 lần</option>
+        <option value="3">3 lần</option>
+        <option value="4+">4+ lần</option>
       </select>
     </div>
   );
@@ -138,7 +143,7 @@ export function DelayedFilterPanel({
     if (filters.shopFilter) chips.push(filters.shopFilter);
     if (filters.statusFilter) chips.push(filters.statusFilter);
     if (filters.reasonFilter) chips.push(filters.reasonFilter);
-    if (filters.delayCountFilter) chips.push(`Hoan ${filters.delayCountFilter}`);
+    if (filters.delayCountFilter) chips.push(`Hoãn ${filters.delayCountFilter}`);
     if (filters.riskFilter !== "all") chips.push(`Risk ${filters.riskFilter}`);
     return chips;
   }, [filters]);
@@ -154,11 +159,11 @@ export function DelayedFilterPanel({
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              Tim kiem va loc delayed
+              Tìm kiếm và lọc delayed
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              {currentPageCount} / {resultCount} don tren trang hien tai
-              {isFetching ? " - Dang cap nhat..." : ""}
+              {currentPageCount} / {resultCount} đơn trên trang hiện tại
+              {isFetching ? " - Đang cập nhật..." : ""}
             </p>
           </div>
 
@@ -169,7 +174,7 @@ export function DelayedFilterPanel({
               className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
             >
               <RefreshCw className="h-4 w-4" />
-              Dat lai
+              Đặt lại
             </button>
             <button
               type="button"
@@ -177,7 +182,7 @@ export function DelayedFilterPanel({
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
             >
               <FileDown className="h-4 w-4" />
-              Xuat Excel
+              Xuất Excel
             </button>
           </div>
 
@@ -190,7 +195,7 @@ export function DelayedFilterPanel({
             className={sheetClassNames.trigger}
           >
             <Filter className="mr-2 h-4 w-4" />
-            Loc
+            Lọc
           </button>
         </div>
 
@@ -200,10 +205,10 @@ export function DelayedFilterPanel({
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
           {[
-            { key: "all", label: "Tat ca" },
+            { key: "all", label: "Tất cả" },
             { key: "high", label: "Cao" },
-            { key: "medium", label: "Trung binh" },
-            { key: "low", label: "Thap" },
+            { key: "medium", label: "Trung bình" },
+            { key: "low", label: "Thấp" },
           ].map((item) => (
             <button
               key={item.key}
@@ -246,13 +251,14 @@ export function DelayedFilterPanel({
           <div className={sheetClassNames.panel}>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h4 className="text-base font-bold text-slate-800">Bo loc delayed</h4>
-                <p className="text-xs text-slate-500">Chon dieu kien loc tren mobile.</p>
+                <h4 className="text-base font-bold text-slate-800">Bộ lọc delayed</h4>
+                <p className="text-xs text-slate-500">Chọn điều kiện lọc trên mobile.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
                 className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng bộ lọc"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -267,14 +273,14 @@ export function DelayedFilterPanel({
 
               <div className="rounded-xl bg-slate-50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Muc do rui ro
+                  Mức độ rủi ro
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { key: "all", label: "Tat ca" },
+                    { key: "all", label: "Tất cả" },
                     { key: "high", label: "Cao" },
-                    { key: "medium", label: "Trung binh" },
-                    { key: "low", label: "Thap" },
+                    { key: "medium", label: "Trung bình" },
+                    { key: "low", label: "Thấp" },
                   ].map((item) => (
                     <button
                       key={item.key}
@@ -305,14 +311,14 @@ export function DelayedFilterPanel({
                 }}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700"
               >
-                Xoa bo loc
+                Xóa bộ lọc
               </button>
               <button
                 type="button"
                 onClick={applyMobileFilters}
                 className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
               >
-                Ap dung
+                Áp dụng
               </button>
             </div>
           </div>
