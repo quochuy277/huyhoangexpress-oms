@@ -1,62 +1,52 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
-import { useMemo } from "react";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { DelayedFacetCount } from "@/types/delayed";
 
-interface Props {
-  orders: any[];
-}
-
-export function DelayReasonChart({ orders }: Props) {
-  const data = useMemo(() => {
-    if (!orders || orders.length === 0) return [];
-
-    const rMap: Record<string, number> = {};
-    orders.forEach((o: any) => {
-      o.uniqueReasons.forEach((r: string) => {
-        rMap[r] = (rMap[r] || 0) + 1;
-      });
-    });
-
-    return Object.entries(rMap)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 7); // Top 7 reasons
-  }, [orders]);
-
-  if (data.length === 0) {
+export function DelayReasonChart({ data }: { data: DelayedFacetCount[] }) {
+  if (!data.length) {
     return (
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm h-full flex flex-col">
-        <h3 className="text-sm font-bold text-slate-700 mb-4">Top lý do hoãn giao</h3>
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Chưa có dữ liệu</div>
+      <div className="flex h-full min-h-[220px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-4 text-sm font-bold text-slate-700">Top ly do hoan giao</h3>
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Chua co du lieu</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm h-full flex flex-col">
-      <h3 className="text-sm font-bold text-slate-700 mb-4">Top lý do hoãn giao</h3>
-      <div className="flex-1 w-full min-h-[220px]">
+    <div className="flex h-full min-h-[220px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-bold text-slate-700">Top ly do hoan giao</h3>
+      <div className="min-h-[220px] flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />
+            <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" horizontal vertical={false} />
             <XAxis type="number" hide />
-            <YAxis 
-              dataKey="name" 
-              type="category" 
-              width={140} 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }} 
+            <YAxis
+              dataKey="name"
+              type="category"
+              width={140}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: "#475569", fontWeight: 500 }}
             />
-            <Tooltip 
-              cursor={{fill: '#f8fafc'}}
-              contentStyle={{borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px'}}
-              formatter={(value: any) => [`${value} lần`, 'Tần suất'] as any}
+            <Tooltip
+              cursor={{ fill: "#f8fafc" }}
+              contentStyle={{
+                borderRadius: "8px",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                fontSize: "12px",
+              }}
+              formatter={(value) => [`${Number(value ?? 0)} lan`, "Tan suat"]}
             />
-            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', fill: '#475569', fontSize: 12, fontWeight: 600 }}>
+            <Bar
+              dataKey="count"
+              radius={[0, 4, 4, 0]}
+              barSize={20}
+              label={{ position: "right", fill: "#475569", fontSize: 12, fontWeight: 600 }}
+            >
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={index < 3 ? '#3b82f6' : '#93c5fd'} /> // Blue palette
+                <Cell key={`reason-cell-${index}`} fill={index < 3 ? "#2563eb" : "#93c5fd"} />
               ))}
             </Bar>
           </BarChart>

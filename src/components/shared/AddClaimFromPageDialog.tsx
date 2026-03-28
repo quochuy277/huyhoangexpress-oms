@@ -125,6 +125,7 @@ interface Props {
   order?: OrderForClaim;
   source?: string;
   baseZIndex?: number;
+  userRole?: string;
 }
 
 
@@ -143,6 +144,7 @@ export function AddClaimFromPageDialog({
   order,
   source = "FROM_ORDERS",
   baseZIndex = 9998,
+  userRole,
 }: Props) {
   const [issueType, setIssueType] = useState("");
   const [claimStatus, setClaimStatus] = useState("PENDING");
@@ -328,7 +330,7 @@ export function AddClaimFromPageDialog({
   return createPortal(
     <>
       <div style={{ ...overlayStyle, zIndex: dialogZIndex }} onClick={onClose} />
-      <div style={{ ...dialogBase, zIndex: dialogZIndex + 1 }}>
+      <div className="delayed-claim-dialog-shell" style={{ ...dialogBase, zIndex: dialogZIndex + 1 }}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ padding: "8px", borderRadius: "8px", background: "#eff6ff" }}>
@@ -459,6 +461,7 @@ export function AddClaimFromPageDialog({
           defaultPriority="MEDIUM"
           linkedOrderId={claimTodo.order?.id}
           source={getTodoSource(source)}
+          userRole={userRole}
         />
       )}
 
@@ -506,6 +509,21 @@ export function AddClaimFromPageDialog({
         onClose={() => setDeleteConfirm(null)}
         onConfirm={executeDelete}
       />
+      <style>{`
+        @media (max-width: 640px) {
+          .delayed-claim-dialog-shell {
+            inset: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+            width: 100vw !important;
+            max-width: none !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+            border-width: 0 !important;
+          }
+        }
+      `}</style>
     </>,
     document.body
   );

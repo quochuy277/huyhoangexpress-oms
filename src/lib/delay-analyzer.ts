@@ -39,237 +39,333 @@ export type ProcessedDelayedOrder = {
   delays: { time: string; date: string; reason: string }[];
   uniqueReasons: string[];
   daysAge: number;
-  risk: 'high' | 'medium' | 'low';
+  risk: "high" | "medium" | "low";
   riskScore: number;
   staffNotes: string;
   claimOrder?: { issueType: string } | null;
 };
 
+const TIMESTAMP_RE = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(.*)$/i;
+
+function normalizeAsciiText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isDeliveryDelayPrefix(value: string) {
+  return normalizeAsciiText(value).startsWith("hoan giao hang vi:");
+}
+
+function isReturnDelayPrefix(value: string) {
+  return normalizeAsciiText(value).startsWith("xac nhan hoan vi:");
+}
+
+function isCarrierDelayText(value: string) {
+  return normalizeAsciiText(value).includes("delay giao hang vi");
+}
+
+function parseTimestamp(token: string): Date | null {
+  const match = token.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, hh, mm, dd, mo, yyyy] = match;
+  const date = new Date(
+    Number.parseInt(yyyy, 10),
+    Number.parseInt(mo, 10) - 1,
+    Number.parseInt(dd, 10),
+    Number.parseInt(hh, 10),
+    Number.parseInt(mm, 10),
+  );
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+type ParsedDelayLine = {
+  time: string;
+  date: string;
+  eventText: string;
+};
+
+function parseDelayLine(line: string): ParsedDelayLine | null {
+  const match = line.match(TIMESTAMP_RE);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    time: match[1],
+    date: match[2],
+    eventText: match[3].trim(),
+  };
+}
+
 export function parseDelays(note: string): { time: string; date: string; reason: string }[] {
   const delays: { time: string; date: string; reason: string }[] = [];
-  // Match all delay-related events: "Hoãn giao hàng vì:", "Xác nhận hoàn vì:"
-  const regex = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*(?:Hoãn giao hàng vì:|Xác nhận hoàn vì:)\s*([^\n]+)/g;
-  let m;
-  while ((m = regex.exec(note)) !== null) {
-    delays.push({ time: m[1], date: m[2], reason: m[3].trim() });
+
+  for (const rawLine of note.split("\n")) {
+    const parsed = parseDelayLine(rawLine);
+
+    if (!parsed) {
+      continue;
+    }
+
+    if (isDeliveryDelayPrefix(parsed.eventText)) {
+      delays.push({
+        time: parsed.time,
+        date: parsed.date,
+        reason: parsed.eventText.replace(/^.+?:\s*/i, "").trim(),
+      });
+      continue;
+    }
+
+    if (isReturnDelayPrefix(parsed.eventText)) {
+      delays.push({
+        time: parsed.time,
+        date: parsed.date,
+        reason: parsed.eventText.replace(/^.+?:\s*/i, "").trim(),
+      });
+    }
   }
+
   return delays;
 }
 
-/**
- * Parse a timestamp token "HH:MM - DD/MM/YYYY" into a Date object.
- * Returns null if the format doesn't match.
- */
-function parseTimestamp(token: string): Date | null {
-  const m = token.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const [, hh, mm, dd, mo, yyyy] = m;
-  const d = new Date(parseInt(yyyy), parseInt(mo) - 1, parseInt(dd), parseInt(hh), parseInt(mm));
-  return isNaN(d.getTime()) ? null : d;
-}
-
-/**
- * Check if a line's event text represents a delay/return event.
- * Matches: "Hoãn giao hàng vì:", "Xác nhận hoàn vì:", lines containing "Delay"
- */
 function isDelayEvent(eventText: string): boolean {
-  if (eventText.startsWith('Hoãn giao hàng vì:')) return true;
-  if (eventText.startsWith('Xác nhận hoàn vì:')) return true;
-  if (eventText.includes('Delay giao hàng vì')) return true;
-  return false;
+  return (
+    isDeliveryDelayPrefix(eventText) ||
+    isReturnDelayPrefix(eventText) ||
+    isCarrierDelayText(eventText)
+  );
 }
 
-/**
- * Extract the date of the MOST RECENT delay/return event from publicNotes.
- *
- * Data contract (verified against real DB):
- *   - Each line format: "HH:MM - DD/MM/YYYY <Event description>"
- *   - Notes are stored newest → oldest (top = most recent).
- *
- * Events considered as "delay":
- *   - "Hoãn giao hàng vì:" — explicit delivery delay
- *   - "Xác nhận hoàn vì:" — return confirmation (also a delay event)
- *   - Lines containing "Delay giao hàng vì" — carrier delay entries
- *
- * Algorithm:
- *   1. Split by newlines, scan line by line (top-down = newest-first).
- *   2. Return the timestamp of the FIRST line matching any delay pattern
- *      (first occurrence = most recent, no need to sort).
- */
 export function getLastDelayDate(publicNotes: string | null): Date | null {
-  if (!publicNotes) return null;
+  if (!publicNotes) {
+    return null;
+  }
 
-  // Regex to extract the leading timestamp + event text in one pass
-  const LINE_RE = /^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4})\s+(.*)/;
+  for (const line of publicNotes.split("\n")) {
+    const parsed = parseDelayLine(line);
 
-  const lines = publicNotes.split('\n');
+    if (!parsed || !isDelayEvent(parsed.eventText)) {
+      continue;
+    }
 
-  for (const line of lines) {
-    const linear = LINE_RE.exec(line);
-    if (!linear) continue;
-
-    const [, timestamp, rest] = linear;
-    if (!isDelayEvent(rest)) continue;
-
-    // Found the most-recent delay line — parse and return immediately
-    const date = parseTimestamp(timestamp.trim());
-    if (date) return date;
+    const date = parseTimestamp(`${parsed.time} - ${parsed.date}`);
+    if (date) {
+      return date;
+    }
   }
 
   return null;
 }
 
-/**
- * Get the timestamp of the very first (most recent) event in publicNotes.
- * Used as a fallback when no "Hoãn giao hàng vì:" line exists.
- * Notes are stored newest → oldest, so the first timestamped line = most recent event.
- */
 export function getMostRecentTimestampFromNotes(publicNotes: string | null): Date | null {
-  if (!publicNotes) return null;
+  if (!publicNotes) {
+    return null;
+  }
 
-  const LINE_RE = /^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4})\s+/;
+  for (const line of publicNotes.split("\n")) {
+    const parsed = parseDelayLine(line);
+    if (!parsed) {
+      continue;
+    }
 
-  for (const line of publicNotes.split('\n')) {
-    const m = LINE_RE.exec(line);
-    if (!m) continue;
-    const date = parseTimestamp(m[1].trim());
-    if (date) return date;
+    const date = parseTimestamp(`${parsed.time} - ${parsed.date}`);
+    if (date) {
+      return date;
+    }
   }
 
   return null;
 }
 
 export function countDelaysInNote(note: string): number {
-  const hoanMatches = note.match(/Hoãn giao hàng vì:/g);
-  const xacNhanMatches = note.match(/Xác nhận hoàn vì:/g);
-  const count = (hoanMatches?.length || 0) + (xacNhanMatches?.length || 0);
-  return count;
+  return note
+    .split("\n")
+    .map((line) => parseDelayLine(line))
+    .filter((line): line is ParsedDelayLine => Boolean(line))
+    .filter((line) => isDeliveryDelayPrefix(line.eventText) || isReturnDelayPrefix(line.eventText)).length;
+}
+
+export function normalizeReason(reason: string): string {
+  const cleaned = reason
+    .replace(/\.\s*thoi gian hen:.*$/i, "")
+    .replace(/thoi gian hen:.*$/i, "")
+    .trim();
+  const normalized = normalizeAsciiText(cleaned);
+
+  if (
+    /khong goi duoc|khong lien lac duoc|khong the lien he|chan so|khoa may|khong nghe may/.test(
+      normalized,
+    )
+  ) {
+    return "Khong lien lac duoc KH";
+  }
+
+  if (/hen lai|hen ngay|kh hen/.test(normalized)) {
+    return "KH hen lai ngay giao";
+  }
+
+  if (/tu choi.*khong dat|khong dat hang/.test(normalized)) {
+    return "Tu choi - Khong dat hang";
+  }
+
+  if (/doi y|khong muon nhan/.test(normalized)) {
+    return "Tu choi - Doi y khong nhan";
+  }
+
+  if (/hu hong|hu ton|dong goi/.test(normalized)) {
+    return "Hang hu hong/dong goi loi";
+  }
+
+  if (/sai.*dia chi/.test(normalized)) {
+    return "Sai thong tin dia chi";
+  }
+
+  if (/sai.*sdt|sai.*so dien thoai/.test(normalized)) {
+    return "Sai thong tin SDT";
+  }
+
+  if (/khong thuoc buu cuc/.test(normalized)) {
+    return "Sai buu cuc";
+  }
+
+  if (/qua so lan/.test(normalized)) {
+    return "Qua so lan giao";
+  }
+
+  if (/xac nhan hoan/.test(normalized)) {
+    return "Xac nhan hoan hang";
+  }
+
+  if (/kh hen giao lai qua/.test(normalized)) {
+    return "KH hen giao lai qua 3 lan";
+  }
+
+  if (/khong lien lac duoc voi kh 3 lan/.test(normalized)) {
+    return "Khong lien lac duoc KH 3 lan";
+  }
+
+  return cleaned.substring(0, 60);
 }
 
 export function extractReasons(note: string): string[] {
   const reasons: string[] = [];
-  const regex = /Hoãn giao hàng vì:\s*([^\n]+)/g;
-  let m;
-  while ((m = regex.exec(note)) !== null) {
-    let reason = m[1].trim();
-    if (reason.includes('Giao hàng lần')) {
-      const subs = reason.match(/(?:Delay giao hàng vì|Không giao được hàng vì)\s+([^G\n]+)/g);
-      if (subs) {
-        subs.forEach(sr => {
-          const c = sr.replace(/^(Delay giao hàng vì|Không giao được hàng vì)\s+/, '').trim();
-          if (c) reasons.push(normalizeReason(c));
-        });
-      } else {
-        reasons.push(normalizeReason(reason));
-      }
-    } else {
-      reasons.push(normalizeReason(reason));
+
+  for (const rawLine of note.split("\n")) {
+    const parsed = parseDelayLine(rawLine);
+
+    if (!parsed) {
+      continue;
+    }
+
+    if (isDeliveryDelayPrefix(parsed.eventText)) {
+      reasons.push(normalizeReason(parsed.eventText.replace(/^.+?:\s*/i, "").trim()));
+      continue;
+    }
+
+    if (isReturnDelayPrefix(parsed.eventText)) {
+      reasons.push("Xac nhan hoan hang");
     }
   }
-  if (note.includes('Xác nhận hoàn vì')) reasons.push('Xác nhận hoàn hàng');
-  return reasons.length > 0 ? reasons : ['Không rõ lý do'];
-}
 
-export function normalizeReason(r: string): string {
-  r = r.replace(/\.\s*Thời gian hẹn:.*$/i, '').replace(/Thời gian hẹn:.*$/i, '').trim();
-  if (/Không gọi được|Không liên lạc được|không thể liên hệ|Chặn số|khóa máy|không nghe máy/i.test(r)) return 'Không liên lạc được KH';
-  if (/hẹn lại|hẹn ngày|KH hẹn/i.test(r)) return 'KH hẹn lại ngày giao';
-  if (/Từ chối.*Không đặt|Không đặt hàng/i.test(r)) return 'Từ chối - Không đặt hàng';
-  if (/Đổi ý|không muốn nhận/i.test(r)) return 'Từ chối - Đổi ý không nhận';
-  if (/hư hỏng|hư tổn|đóng gói/i.test(r)) return 'Hàng hư hỏng/đóng gói lỗi';
-  if (/sai.*địa chỉ/i.test(r)) return 'Sai thông tin địa chỉ';
-  if (/sai.*SĐT|sai.*số điện thoại/i.test(r)) return 'Sai thông tin SĐT';
-  if (/không thuộc bưu cục/i.test(r)) return 'Sai bưu cục';
-  if (/quá số lần/i.test(r)) return 'Quá số lần giao';
-  if (/Xác nhận hoàn/i.test(r)) return 'Xác nhận hoàn hàng';
-  if (/KH hẹn giao lại quá/i.test(r)) return 'KH hẹn giao lại quá 3 lần';
-  if (/Không liên lạc được với KH 3 lần/i.test(r)) return 'Không liên lạc được KH 3 lần';
-  return r.substring(0, 60);
+  return reasons.length > 0 ? reasons : ["Khong ro ly do"];
 }
 
 export function assessRisk(
   delayCount: number,
   reasons: string[],
   daysAge: number,
-  status: string
-): 'high' | 'medium' | 'low' {
-  let s = 0;
+  status: string,
+): "high" | "medium" | "low" {
+  let score = 0;
 
-  // Delay count scoring
-  if (delayCount >= 4) s += 5;
-  else if (delayCount >= 3) s += 4;
-  else if (delayCount >= 2) s += 2;
-  else s += 1;
+  if (delayCount >= 4) score += 5;
+  else if (delayCount >= 3) score += 4;
+  else if (delayCount >= 2) score += 2;
+  else score += 1;
 
-  // Severe reason scoring
-  const severe = [
-    'Từ chối - Không đặt hàng',
-    'Từ chối - Đổi ý không nhận',
-    'Hàng hư hỏng/đóng gói lỗi',
-    'Sai thông tin địa chỉ',
-    'Sai thông tin SĐT',
-    'Xác nhận hoàn hàng',
-    'Quá số lần giao',
-    'KH hẹn giao lại quá 3 lần',
-    'Không liên lạc được KH 3 lần',
+  const severeReasons = [
+    "Tu choi - Khong dat hang",
+    "Tu choi - Doi y khong nhan",
+    "Hang hu hong/dong goi loi",
+    "Sai thong tin dia chi",
+    "Sai thong tin SDT",
+    "Xac nhan hoan hang",
+    "Qua so lan giao",
+    "KH hen giao lai qua 3 lan",
+    "Khong lien lac duoc KH 3 lan",
   ];
-  if (reasons.some(r => severe.includes(r))) s += 3;
 
-  // Age scoring
-  if (daysAge >= 10) s += 3;
-  else if (daysAge >= 5) s += 2;
-  else if (daysAge >= 3) s += 1;
+  if (reasons.some((reason) => severeReasons.includes(reason))) {
+    score += 3;
+  }
 
-  // Status scoring
-  if (status.includes('Hoãn')) s += 1;
+  if (daysAge >= 10) score += 3;
+  else if (daysAge >= 5) score += 2;
+  else if (daysAge >= 3) score += 1;
 
-  // Risk level
-  if (s >= 7) return 'high';
-  if (s >= 4) return 'medium';
-  return 'low';
+  if (normalizeAsciiText(status).includes("hoan")) {
+    score += 1;
+  }
+
+  if (score >= 7) return "high";
+  if (score >= 4) return "medium";
+  return "low";
 }
 
 export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
-  const note = order.publicNotes || '';
-  const status = order.status || '';
-
+  const note = order.publicNotes || "";
+  const status = order.status || "";
   const delays = parseDelays(note);
   const reasons = extractReasons(note);
   const uniqueReasons = [...new Set(reasons)];
   const delayCount = Math.max(delays.length, countDelaysInNote(note));
-
   const createdDate = order.createdTime ? new Date(order.createdTime) : null;
-  const daysAge = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / 86400000) : 0;
+  const daysAge = createdDate
+    ? Math.floor((Date.now() - createdDate.getTime()) / 86400000)
+    : 0;
   const risk = assessRisk(delayCount, uniqueReasons, daysAge, status);
-
-  const addrParts = [
+  const addressParts = [
     order.receiverAddress,
     order.receiverWard,
     order.receiverDistrict,
-    order.receiverProvince
+    order.receiverProvince,
   ].filter(Boolean);
 
   return {
-    id: (order as any).id || '',
+    id: (order as { id?: string }).id || "",
     requestCode: order.requestCode,
-    customerOrderCode: order.customerOrderCode || '',
-    carrierOrderCode: order.carrierOrderCode || '',
-    shopName: order.shopName || '',
-    receiverName: order.receiverName || '',
-    receiverPhone: order.receiverPhone || '',
-    fullAddress: addrParts.join(' - '),
+    customerOrderCode: order.customerOrderCode || "",
+    carrierOrderCode: order.carrierOrderCode || "",
+    shopName: order.shopName || "",
+    receiverName: order.receiverName || "",
+    receiverPhone: order.receiverPhone || "",
+    fullAddress: addressParts.join(" - "),
     status,
-    deliveryStatus: order.deliveryStatus || '',
-    codAmount: Number(order.codAmount ?? 0),
+    deliveryStatus: order.deliveryStatus || "",
+    codAmount:
+      typeof order.codAmount === "object" && order.codAmount !== null
+        ? order.codAmount.toNumber()
+        : Number(order.codAmount ?? 0),
     createdTime: order.createdTime || null,
-    carrierName: order.carrierName || '',
+    carrierName: order.carrierName || "",
     delayCount,
     delays,
     uniqueReasons,
     daysAge,
     risk,
-    riskScore: risk === 'high' ? 3 : risk === 'medium' ? 2 : 1,
-    staffNotes: order.staffNotes || '',
-    claimOrder: (order as any).claimOrder || null,
+    riskScore: risk === "high" ? 3 : risk === "medium" ? 2 : 1,
+    staffNotes: order.staffNotes || "",
+    claimOrder: (order as { claimOrder?: { issueType: string } | null }).claimOrder || null,
   };
 }
