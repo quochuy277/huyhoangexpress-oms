@@ -136,7 +136,12 @@ export function parseDelays(note: string): { time: string; date: string; reason:
     }
   }
 
-  return delays;
+  return delays.sort((left, right) => {
+    const leftTimestamp = parseTimestamp(`${left.time} - ${left.date}`)?.getTime() ?? 0;
+    const rightTimestamp = parseTimestamp(`${right.time} - ${right.date}`)?.getTime() ?? 0;
+
+    return leftTimestamp - rightTimestamp;
+  });
 }
 
 function isDelayEvent(eventText: string): boolean {
