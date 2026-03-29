@@ -8,6 +8,13 @@ The app manages orders, customer care, returns, claims, CRM, employees, and fina
 ## Language Rules
 - ALL user-facing text: Vietnamese (buttons, labels, messages, placeholders, table headers, tooltips)
 - ALL code: English (variable names, function names, type names, comments, commit messages)
+
+### Vietnamese Text Integrity
+- NEVER strip Vietnamese diacritics from user-facing text. Do not convert UI copy to ASCII-only Vietnamese.
+- ALL files containing Vietnamese UI text must be saved and preserved as UTF-8 so the app renders full Vietnamese accents correctly.
+- When editing existing Vietnamese strings, prefer restoring from the last correct version instead of rewriting hurriedly from memory.
+- Before commit, verify touched user-facing files do not contain mojibake or accent-loss regressions.
+- If a helper, export mapper, chart label, dialog copy, placeholder, toast, tooltip, or empty state is visible to users, it must remain full Vietnamese with proper diacritics.
 - Example button: "Tải lên file" (not "Upload file")
 - Example variable: `uploadFile()` (not `taiLenFile()`)
 - Example comment: `// Parse Excel file and upsert orders`

@@ -107,9 +107,9 @@ function DelayedOrderTableInner({
               <HeaderCell label="Ngày Tạo" sortName="createdTime" width="90px" />
               <TableHead
                 className="px-2 text-[11px] font-medium uppercase text-slate-500"
-                style={{ width: "150px" }}
+                style={{ width: "220px" }}
               >
-                Lý Do
+                Chi Tiết Hoãn
               </TableHead>
               <HeaderCell label="Nguy Cơ" sortName="riskScore" width="82px" />
               <HeaderCell label="Thu Hộ" sortName="codAmount" width="95px" />
@@ -222,15 +222,32 @@ function DelayedOrderTableInner({
                       </div>
                     </TableCell>
                     <TableCell className="px-2">
-                      <div className="flex max-w-[145px] flex-wrap gap-1">
-                        {order.uniqueReasons.slice(0, 2).map((reason) => (
-                          <span
-                            key={`${order.requestCode}-${reason}`}
-                            className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600"
-                          >
-                            {reason}
-                          </span>
-                        ))}
+                      <div className="max-w-[220px]">
+                        {order.delays.length > 0 ? (
+                          <div className="space-y-2 border-l-2 border-slate-200 pl-3 text-[10px] text-slate-600">
+                            {order.delays.map((delay, delayIndex) => (
+                              <div
+                                key={`${order.requestCode}-${delay.date}-${delay.time}-${delayIndex}`}
+                                className="relative"
+                              >
+                                <div className="absolute -left-[17px] top-1.5 h-2 w-2 rounded-full border border-white bg-slate-400" />
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-700">
+                                    Lần {delayIndex + 1}
+                                  </span>
+                                  <span className="font-semibold text-slate-700">
+                                    {delay.time} {delay.date}
+                                  </span>
+                                </div>
+                                <p className="mt-1 break-words whitespace-normal text-[10px] leading-4 text-slate-600">
+                                  {delay.reason}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] italic text-slate-400">Chưa có mốc hoãn</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="px-2">
@@ -353,15 +370,33 @@ function DelayedOrderTableInner({
                   <p className="text-slate-400">Địa chỉ</p>
                   <p className="line-clamp-2 text-slate-700">{order.fullAddress}</p>
                 </div>
-                <div className="col-span-2 flex flex-wrap gap-1">
-                  {order.uniqueReasons.slice(0, 2).map((reason) => (
-                    <span
-                      key={`${order.requestCode}-${reason}-mobile`}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600"
-                    >
-                      {reason}
-                    </span>
-                  ))}
+                <div className="col-span-2">
+                  <p className="text-slate-400">Chi tiết hoãn</p>
+                  {order.delays.length > 0 ? (
+                    <div className="mt-1 space-y-2 border-l-2 border-slate-200 pl-3 text-[11px] text-slate-600">
+                      {order.delays.map((delay, delayIndex) => (
+                        <div
+                          key={`${order.requestCode}-${delay.date}-${delay.time}-${delayIndex}-mobile`}
+                          className="relative"
+                        >
+                          <div className="absolute -left-[17px] top-1.5 h-2 w-2 rounded-full border border-white bg-slate-400" />
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                              Lần {delayIndex + 1}
+                            </span>
+                            <span className="font-semibold text-slate-700">
+                              {delay.time} {delay.date}
+                            </span>
+                          </div>
+                          <p className="mt-1 break-words whitespace-normal leading-4 text-slate-600">
+                            {delay.reason}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 italic text-slate-400">Chưa có mốc hoãn</p>
+                  )}
                 </div>
               </div>
 
@@ -374,29 +409,36 @@ function DelayedOrderTableInner({
                   type="button"
                   onClick={() => setDetailRequestCode(order.requestCode)}
                   className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] font-semibold text-slate-700"
+                  aria-label={`Xem chi tiết đơn ${order.requestCode}`}
                 >
                   Chi tiết
                 </button>
                 <button
                   type="button"
                   onClick={() => setTrackingCode(order.requestCode)}
-                  className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700"
+                  className="flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700"
+                  title="Tra hành trình"
+                  aria-label={`Tra hành trình đơn ${order.requestCode}`}
                 >
-                  Tracking
+                  <Truck className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setTodoOrder(order)}
-                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-semibold text-blue-700"
+                  className="flex items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700"
+                  title="Thêm vào công việc"
+                  aria-label={`Thêm đơn ${order.requestCode} vào công việc`}
                 >
-                  Todo
+                  <CheckSquare className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setClaimDelayedOrder(order)}
-                  className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] font-semibold text-orange-700"
+                  className="flex items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-orange-700"
+                  title="Chuyển vào đơn có vấn đề"
+                  aria-label={`Chuyển đơn ${order.requestCode} vào đơn có vấn đề`}
                 >
-                  Claim
+                  <Flag className="h-5 w-5" />
                 </button>
               </div>
 

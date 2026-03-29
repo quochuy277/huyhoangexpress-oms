@@ -45,6 +45,7 @@ function buildInitialFilters(searchParams: URLSearchParams): DelayedFiltersState
     delayCountFilter: searchParams.get("delay") || "",
     reasonFilter: searchParams.get("reason") || "",
     riskFilter: searchParams.get("risk") || "all",
+    todayOnly: searchParams.get("today") === "1",
   };
 }
 
@@ -66,6 +67,7 @@ function buildQueryParams(
   if (filters.delayCountFilter) params.set("delay", filters.delayCountFilter);
   if (filters.reasonFilter) params.set("reason", filters.reasonFilter);
   if (filters.riskFilter && filters.riskFilter !== "all") params.set("risk", filters.riskFilter);
+  if (filters.todayOnly) params.set("today", "1");
 
   return params;
 }
@@ -135,6 +137,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
       delayCountFilter: "",
       reasonFilter: "",
       riskFilter: "all",
+      todayOnly: false,
     });
   }, [replaceFilters]);
 
