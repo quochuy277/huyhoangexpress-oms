@@ -124,6 +124,14 @@ When user's prompt is NOT in English:
 1. **Internally translate** for better comprehension
 2. **Respond in user's language** - match their communication
 3. **Code comments/variables** remain in English
+ 
+### Vietnamese UI Text Integrity
+
+- All user-facing copy in this project must stay in full Vietnamese with proper diacritics.
+- Never ASCII-normalize Vietnamese UI text such as buttons, labels, placeholders, empty states, toasts, chart labels, table headers, dialog content, or export headers.
+- Preserve UTF-8 encoding when editing files that contain Vietnamese text.
+- If a touched file previously had correct Vietnamese copy, restore from that version instead of replacing it with accent-less text.
+- Before finishing a task that touches UI copy, verify there is no mojibake and no lost accents in the changed user-facing strings.
 
 ### 🧹 Clean Code (Global Mandatory)
 
