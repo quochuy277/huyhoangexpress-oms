@@ -81,7 +81,6 @@ export function DelayedClient({ userRole }: { userRole: string }) {
   const [sortKey, setSortKey] = useState<SortableDelayedKey>("delayCount");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [mobileChartTab, setMobileChartTab] = useState<"delay" | "reason">("delay");
-
   const debouncedSearchTerm = useDebounce(filters.searchTerm, 400);
 
   const effectiveFilters = useMemo(
@@ -188,7 +187,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
         <DelayReasonChart data={delayedData?.facets.reasonDistribution || []} />
       </div>
 
-      <div className="space-y-3 lg:hidden">
+      <div className="hidden">
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           <button
             type="button"

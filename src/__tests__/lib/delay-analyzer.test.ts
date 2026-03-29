@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { countDelaysInNote, extractReasons, getLastDelayDate, parseDelays } from "@/lib/delay-analyzer";
 
 describe("delay-analyzer", () => {
-  it("parses delayed note lines and preserves accented Vietnamese reasons", () => {
+  it("parses delayed note lines in chronological order and preserves accented Vietnamese reasons", () => {
     const note = [
       "10:30 - 20/03/2026 Hoãn giao hàng vì: Không liên lạc được KH",
       "09:15 - 18/03/2026 Xác nhận hoàn vì: Khách yêu cầu hoãn",
     ].join("\n");
 
     expect(parseDelays(note)).toEqual([
-      { time: "10:30", date: "20/03/2026", reason: "Không liên lạc được KH" },
       { time: "09:15", date: "18/03/2026", reason: "Khách yêu cầu hoãn" },
+      { time: "10:30", date: "20/03/2026", reason: "Không liên lạc được KH" },
     ]);
   });
 
