@@ -48,4 +48,5 @@ export type DelayedFiltersState = {
   delayCountFilter: string;
   reasonFilter: string;
   riskFilter: string;
+  todayOnly: boolean;
 };

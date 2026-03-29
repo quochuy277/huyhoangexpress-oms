@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
@@ -59,6 +59,12 @@ function makeRawOrder(index: number, overrides: Record<string, unknown> = {}) {
 describe("delayed route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-22T05:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("rejects users without delayed permission", async () => {
@@ -98,5 +104,31 @@ describe("delayed route", () => {
       total: 3,
       totalPages: 3,
     });
+  });
+
+  it("filters only orders that have a delayed event today", async () => {
+    vi.mocked(auth).mockResolvedValue(makeSession(true) as never);
+    vi.mocked(prisma.order.findMany).mockResolvedValue(
+      [
+        makeRawOrder(1, {
+          publicNotes: "09:00 - 22/03/2026 Hoan giao hang vi: Khong lien lac duoc",
+        }),
+        makeRawOrder(2, {
+          publicNotes: "10:00 - 21/03/2026 Hoan giao hang vi: KH hen lai ngay giao",
+        }),
+      ] as never,
+    );
+
+    const { GET } = await import("@/app/api/orders/delayed/route");
+    const response = await GET(
+      new NextRequest("http://localhost/api/orders/delayed?today=1&page=1&pageSize=50"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.rows.map((order: { requestCode: string }) => order.requestCode)).toEqual([
+      "REQ-001",
+    ]);
+    expect(body.data.summary.total).toBe(1);
   });
 });

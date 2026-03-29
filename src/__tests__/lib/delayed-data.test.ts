@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import {
   applyDelayedFilters,
@@ -37,6 +37,15 @@ function makeOrder(overrides: Partial<ProcessedDelayedOrder>): ProcessedDelayedO
 }
 
 describe("delayed-data", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-22T05:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const orders = [
     makeOrder({
       id: "order-1",
@@ -109,8 +118,39 @@ describe("delayed-data", () => {
         delay: "4+",
         reason: "Xác nhận hoàn hàng",
         risk: "high",
+        today: false,
       }).map((order) => order.requestCode),
     ).toEqual(["REQ-003"]);
+  });
+
+  it("filters orders that have at least one delay today", () => {
+    const todayOrders = applyDelayedFilters(
+      [
+        makeOrder({
+          id: "today-order",
+          requestCode: "REQ-TODAY",
+          delays: [{ time: "09:30", date: "22/03/2026", reason: "KhÃ´ng liÃªn láº¡c Ä‘Æ°á»£c KH" }],
+          uniqueReasons: ["KhÃ´ng liÃªn láº¡c Ä‘Æ°á»£c KH"],
+        }),
+        makeOrder({
+          id: "old-order",
+          requestCode: "REQ-OLD",
+          delays: [{ time: "14:00", date: "21/03/2026", reason: "KH háº¹n láº¡i ngÃ y giao" }],
+          uniqueReasons: ["KH háº¹n láº¡i ngÃ y giao"],
+        }),
+      ],
+      {
+        search: "",
+        shop: "",
+        status: "",
+        delay: "",
+        reason: "",
+        risk: "all",
+        today: true,
+      },
+    );
+
+    expect(todayOrders.map((order) => order.requestCode)).toEqual(["REQ-TODAY"]);
   });
 
   it("paginates rows without changing total counts", () => {

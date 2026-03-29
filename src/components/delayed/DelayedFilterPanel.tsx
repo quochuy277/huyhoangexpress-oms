@@ -30,9 +30,20 @@ const DEFAULT_FILTERS: DelayedFiltersState = {
   delayCountFilter: "",
   reasonFilter: "",
   riskFilter: "all",
+  todayOnly: false,
 };
 
 const sheetClassNames = getDelayedFilterSheetClassNames();
+
+export function buildDelayedActiveChips(filters: DelayedFiltersState) {
+  const chips: string[] = [];
+  if (filters.shopFilter) chips.push(filters.shopFilter);
+  if (filters.statusFilter) chips.push(filters.statusFilter);
+  if (filters.reasonFilter) chips.push(filters.reasonFilter);
+  if (filters.delayCountFilter) chips.push(`HoÃ£n ${filters.delayCountFilter}`);
+  if (filters.todayOnly) chips.push("ÄÆ¡n hoÃ£n hÃ´m nay");
+  return chips;
+}
 
 function FilterFields({
   filters,
@@ -144,7 +155,7 @@ export function DelayedFilterPanel({
     if (filters.statusFilter) chips.push(filters.statusFilter);
     if (filters.reasonFilter) chips.push(filters.reasonFilter);
     if (filters.delayCountFilter) chips.push(`Hoãn ${filters.delayCountFilter}`);
-    if (filters.riskFilter !== "all") chips.push(`Risk ${filters.riskFilter}`);
+    if (filters.todayOnly) chips.push("Đơn hoãn hôm nay");
     return chips;
   }, [filters]);
 
@@ -201,6 +212,15 @@ export function DelayedFilterPanel({
 
         <div className="hidden md:block">
           <FilterFields filters={filters} options={options} onChange={onFiltersChange} />
+          <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+            <input
+              type="checkbox"
+              checked={filters.todayOnly}
+              onChange={(event) => onFiltersChange({ todayOnly: event.target.checked })}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            Đơn hoãn hôm nay
+          </label>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
@@ -270,6 +290,21 @@ export function DelayedFilterPanel({
                 options={options}
                 onChange={(partial) => setMobileDraft((previous) => ({ ...previous, ...partial }))}
               />
+
+              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={mobileDraft.todayOnly}
+                  onChange={(event) =>
+                    setMobileDraft((previous) => ({
+                      ...previous,
+                      todayOnly: event.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Đơn hoãn hôm nay
+              </label>
 
               <div className="rounded-xl bg-slate-50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">

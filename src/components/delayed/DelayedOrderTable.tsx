@@ -409,29 +409,36 @@ function DelayedOrderTableInner({
                   type="button"
                   onClick={() => setDetailRequestCode(order.requestCode)}
                   className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] font-semibold text-slate-700"
+                  aria-label={`Xem chi tiết đơn ${order.requestCode}`}
                 >
                   Chi tiết
                 </button>
                 <button
                   type="button"
                   onClick={() => setTrackingCode(order.requestCode)}
-                  className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700"
+                  className="flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700"
+                  title="Tra hành trình"
+                  aria-label={`Tra hành trình đơn ${order.requestCode}`}
                 >
-                  Tracking
+                  <Truck className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setTodoOrder(order)}
-                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-semibold text-blue-700"
+                  className="flex items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700"
+                  title="Thêm vào công việc"
+                  aria-label={`Thêm đơn ${order.requestCode} vào công việc`}
                 >
-                  Todo
+                  <CheckSquare className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setClaimDelayedOrder(order)}
-                  className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] font-semibold text-orange-700"
+                  className="flex items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-orange-700"
+                  title="Chuyển vào đơn có vấn đề"
+                  aria-label={`Chuyển đơn ${order.requestCode} vào đơn có vấn đề`}
                 >
-                  Claim
+                  <Flag className="h-5 w-5" />
                 </button>
               </div>
 

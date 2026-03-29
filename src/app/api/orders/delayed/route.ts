@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     const reasonFilter = searchParams.get("reason") || "";
     const delayCountFilter = searchParams.get("delay") || "";
     const statusFilter = searchParams.get("status") || "";
+    const todayOnly = searchParams.get("today") === "1";
     const sortKey = (searchParams.get("sortKey") || "delayCount") as keyof ProcessedDelayedOrder;
     const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
 
@@ -124,6 +125,7 @@ export async function GET(req: NextRequest) {
       delay: delayCountFilter,
       reason: reasonFilter,
       risk: riskFilter || "all",
+      today: todayOnly,
     });
     processedOrders = sortDelayedOrders(processedOrders, sortKey, sortDir);
 

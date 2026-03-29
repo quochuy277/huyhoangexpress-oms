@@ -7,7 +7,17 @@ export type DelayedFilters = {
   delay: string;
   reason: string;
   risk: string;
+  today: boolean;
 };
+
+function getTodayDelayDateString() {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date());
+}
 
 export type DelayedSummary = {
   total: number;
@@ -36,6 +46,7 @@ export function applyDelayedFilters(
   filters: DelayedFilters,
 ): ProcessedDelayedOrder[] {
   const normalizedSearch = filters.search.trim().toLowerCase();
+  const todayDate = filters.today ? getTodayDelayDateString() : null;
 
   return orders.filter((order) => {
     if (normalizedSearch) {
@@ -79,6 +90,10 @@ export function applyDelayedFilters(
       } else if (order.delayCount !== Number(filters.delay)) {
         return false;
       }
+    }
+
+    if (todayDate && !order.delays.some((delay) => delay.date === todayDate)) {
+      return false;
     }
 
     return true;
