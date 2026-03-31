@@ -113,7 +113,15 @@ async function bulkUpsertSubBatch(orders: ParsedOrder[], client: TxClient = pris
       "senderDistrict" = EXCLUDED."senderDistrict",
       "senderProvince" = EXCLUDED."senderProvince",
       "receiverName" = EXCLUDED."receiverName",
-      "receiverPhone" = EXCLUDED."receiverPhone",
+      "receiverPhone" = CASE
+        WHEN EXCLUDED."receiverPhone" IS NOT NULL
+          AND EXCLUDED."receiverPhone" NOT LIKE '%*%'
+        THEN EXCLUDED."receiverPhone"
+        WHEN "Order"."receiverPhone" IS NOT NULL
+          AND "Order"."receiverPhone" NOT LIKE '%*%'
+        THEN "Order"."receiverPhone"
+        ELSE EXCLUDED."receiverPhone"
+      END,
       "receiverAddress" = EXCLUDED."receiverAddress",
       "receiverWard" = EXCLUDED."receiverWard",
       "receiverDistrict" = EXCLUDED."receiverDistrict",

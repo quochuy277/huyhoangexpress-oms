@@ -42,7 +42,10 @@
       "Bash(npx @anthropic-ai/claude-code plugin install code-review@claude-plugins-official)",
       "Bash(npx @anthropic-ai/claude-code plugin install supabase@claude-plugins-official)",
       "Bash(npx @anthropic-ai/claude-code plugin install feature-dev@claude-plugins-official)",
-      "Bash(ls \"D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\docs\\\\superpowers\\\\specs\"\" 2>/dev/null || echo \"DIR_NOT_EXISTS \")"
+      "Bash(ls \"D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\docs\\\\superpowers\\\\specs\"\" 2>/dev/null || echo \"DIR_NOT_EXISTS \")",
+      "Bash(grep -E \"\\\\.\\(json|ts|js|config|yml|yaml\\)$\")",
+      "Bash(xargs -I{} basename \"{}\")",
+      "Bash(node -e \":*)"
     ]
   }
 }
