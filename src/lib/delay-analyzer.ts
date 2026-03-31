@@ -95,7 +95,7 @@ type ParsedDelayLine = {
 };
 
 function parseDelayLine(line: string): ParsedDelayLine | null {
-  const match = line.match(TIMESTAMP_RE);
+  const match = line.trim().match(TIMESTAMP_RE);
 
   if (!match) {
     return null;

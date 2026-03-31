@@ -45,7 +45,14 @@
       "Bash(ls \"D:\\\\OneDrive\\\\Documents\\\\CODE\\\\DU AN PHAN MEM CARE DON\\\\Order_manager\\\\docs\\\\superpowers\\\\specs\"\" 2>/dev/null || echo \"DIR_NOT_EXISTS \")",
       "Bash(grep -E \"\\\\.\\(json|ts|js|config|yml|yaml\\)$\")",
       "Bash(xargs -I{} basename \"{}\")",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(git -C /d/CODE_APP/HuyHoang_OMS log --oneline -10)",
+      "Bash(git -C /d/CODE_APP/svexpress-automation log --oneline -10)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git branch:*)"
     ]
   }
 }
