@@ -5,7 +5,6 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, PackageX } from "lucide-react";
-import { useDebounce } from "@/hooks/useDebounce";
 import type { DelayedFiltersState, DelayedResponse } from "@/types/delayed";
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
@@ -81,30 +80,26 @@ export function DelayedClient({ userRole }: { userRole: string }) {
   const [sortKey, setSortKey] = useState<SortableDelayedKey>("delayCount");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [mobileChartTab, setMobileChartTab] = useState<"delay" | "reason">("delay");
-  const debouncedSearchTerm = useDebounce(filters.searchTerm, 400);
-
-  const effectiveFilters = useMemo(
-    () => ({
-      ...filters,
-      searchTerm: debouncedSearchTerm,
-    }),
-    [debouncedSearchTerm, filters],
-  );
+  const [searchInput, setSearchInput] = useState(filters.searchTerm);
 
   useEffect(() => {
-    const params = buildQueryParams(effectiveFilters, page, sortKey, sortDir);
+    setSearchInput(filters.searchTerm);
+  }, [filters.searchTerm]);
+
+  useEffect(() => {
+    const params = buildQueryParams(filters, page, sortKey, sortDir);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [effectiveFilters, page, pathname, router, sortDir, sortKey]);
+  }, [filters, page, pathname, router, sortDir, sortKey]);
 
   const queryKey = useMemo(
-    () => ["delayedOrders", effectiveFilters, page, sortKey, sortDir],
-    [effectiveFilters, page, sortKey, sortDir],
+    () => ["delayedOrders", filters, page, sortKey, sortDir],
+    [filters, page, sortKey, sortDir],
   );
 
   const { data, isLoading, isFetching, error } = useQuery<DelayedResponse>({
     queryKey,
     queryFn: async () => {
-      const params = buildQueryParams(effectiveFilters, page, sortKey, sortDir);
+      const params = buildQueryParams(filters, page, sortKey, sortDir);
       const response = await fetch(`/api/orders/delayed?${params.toString()}`);
       if (!response.ok) {
         throw new Error("Failed to fetch delayed orders");
@@ -154,9 +149,9 @@ export function DelayedClient({ userRole }: { userRole: string }) {
   }, []);
 
   const handleExport = useCallback(() => {
-    const params = buildQueryParams(effectiveFilters, 1, sortKey, sortDir);
+    const params = buildQueryParams(filters, 1, sortKey, sortDir);
     window.location.href = `/api/orders/delayed/export?${params.toString()}`;
-  }, [effectiveFilters, sortDir, sortKey]);
+  }, [filters, sortDir, sortKey]);
 
   if (error) {
     return (
@@ -221,6 +216,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
 
       <DelayedFilterPanel
         filters={filters}
+        searchInput={searchInput}
         options={{
           shops: delayedData?.facets.shops || [],
           statuses: delayedData?.facets.statuses || [],
@@ -230,6 +226,8 @@ export function DelayedClient({ userRole }: { userRole: string }) {
         currentPageCount={delayedData?.rows.length || 0}
         isFetching={isFetching}
         onFiltersChange={updateFilters}
+        onSearchInputChange={setSearchInput}
+        onSearchSubmit={() => updateFilters({ searchTerm: searchInput.trim() })}
         onReplaceFilters={replaceFilters}
         onReset={resetFilters}
         onExport={handleExport}

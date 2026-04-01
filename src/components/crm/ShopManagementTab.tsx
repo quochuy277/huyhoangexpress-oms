@@ -55,6 +55,7 @@ function formatVND(amount: number) {
 
 export function ShopManagementTab({ userRole, userId, userName }: ShopManagementTabProps) {
   const queryClient = useQueryClient();
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [lastContactFilter, setLastContactFilter] = useState("");
@@ -199,16 +200,34 @@ export function ShopManagementTab({ userRole, userId, userName }: ShopManagement
 
       {/* Filter Bar */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearch(searchInput.trim());
+            setPage(1);
+          }}
+          className="flex flex-1 min-w-[200px] items-stretch gap-2"
+        >
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Tìm tên cửa hàng..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full min-h-11 pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label="Tìm kiếm cửa hàng"
           />
         </div>
+        <button
+          type="submit"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+          aria-label="Tìm kiếm cửa hàng"
+          title="Tìm kiếm"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+        </form>
 
         <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {Object.entries(CLASS_CONFIG).map(([key, cfg]) => (

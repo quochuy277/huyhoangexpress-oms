@@ -28,6 +28,7 @@ export default function CashbookTab() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pageSize: 20, pages: 0 });
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
   const fetchData = useCallback(async () => {
@@ -62,6 +63,14 @@ export default function CashbookTab() {
 
   const toggleGroup = (g: string) => {
     setGroupFilter(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+    setPagination(p => ({ ...p, page: 1 }));
+  };
+
+  const applySearch = (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const nextSearch = searchInput.trim();
+    setSearchInput(nextSearch);
+    setSearch(nextSearch);
     setPagination(p => ({ ...p, page: 1 }));
   };
 
@@ -182,8 +191,20 @@ export default function CashbookTab() {
               background: groupFilter.includes(key) ? color : "#fff", color: groupFilter.includes(key) ? "#fff" : color,
             }}>{label}</button>
           ))}
-          <input placeholder="🔍 Tìm mã phiếu, nội dung..." value={search} onChange={e => { setSearch(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
-            style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, flex: "1 1 200px" }} />
+          <form onSubmit={applySearch} className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[320px] sm:flex-1 sm:flex-row sm:items-center">
+            <input
+              placeholder="🔍 Tìm mã phiếu, nội dung..."
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, flex: "1 1 200px" }}
+            />
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:min-w-28"
+            >
+              Tìm kiếm
+            </button>
+          </form>
         </div>
         <div className="hidden overflow-x-auto md:block">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

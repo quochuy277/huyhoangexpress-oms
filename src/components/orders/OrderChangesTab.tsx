@@ -113,6 +113,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
   // State
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<OrderChangeType[]>([]);
+  const [searchInput, setSearchInput] = useState("");
   const [searchCode, setSearchCode] = useState("");
   const [shopFilter, setShopFilter] = useState("");
   const [carrierFilter, setCarrierFilter] = useState("");
@@ -357,24 +358,45 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search by requestCode */}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearchCode(searchInput.trim());
+            }}
+            className="flex items-stretch gap-2"
+          >
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
               placeholder="Mã yêu cầu..."
-              value={searchCode}
-              onChange={(e) => setSearchCode(e.target.value)}
-              className="pl-8 pr-7 py-2 text-xs border border-slate-300 rounded-lg w-[160px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="min-h-11 pl-8 pr-7 py-2 text-xs border border-slate-300 rounded-lg w-[160px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+              aria-label="Tìm kiếm mã yêu cầu"
             />
-            {searchCode && (
+            {searchInput && (
               <button
-                onClick={() => setSearchCode("")}
+                type="button"
+                onClick={() => {
+                  setSearchInput("");
+                  setSearchCode("");
+                }}
                 className="absolute right-2 top-1/2 -translate-y-1/2"
               >
                 <X className="w-3 h-3 text-slate-400 hover:text-slate-600" />
               </button>
             )}
           </div>
+          <button
+            type="submit"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+            aria-label="Tìm kiếm mã yêu cầu"
+            title="Tìm kiếm"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          </form>
 
           {/* Change type multi-select */}
           <div className="relative">

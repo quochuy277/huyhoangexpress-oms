@@ -675,8 +675,6 @@ function ClaimsClientInner({
     fetchClaims,
     canUpdateClaim,
   });
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
   // Dialogs
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [detailClaimId, setDetailClaimId] = useState<string | null>(null);
@@ -911,13 +909,8 @@ function ClaimsClientInner({
         issueTypeConfig={ISSUE_TYPE_CONFIG}
         claimStatusConfig={CLAIM_STATUS_CONFIG}
         inputStyle={inputStyle}
-        onSearchInputChange={(value) => {
-          setSearchInput(value);
-          clearTimeout(searchTimerRef.current);
-          searchTimerRef.current = setTimeout(() => {
-            setFilters((current) => ({ ...current, search: value, page: 1 }));
-          }, 400);
-        }}
+        onSearchInputChange={setSearchInput}
+        onSearchSubmit={() => setFilters((current) => ({ ...current, search: searchInput.trim(), page: 1 }))}
         onToggleIssueFilter={toggleIssueFilter}
         onStatusChange={(value) => setFilters((current) => ({ ...current, status: value, page: 1 }))}
         onShopChange={(value) => setFilters((current) => ({ ...current, shopName: value, page: 1 }))}

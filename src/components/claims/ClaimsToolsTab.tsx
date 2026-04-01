@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileText, Link2, Upload, Trash2, Pencil, Download, Plus, X,
@@ -87,6 +87,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
   // History pagination/filter state
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
+  const [historySearchInput, setHistorySearchInput] = useState("");
   const [historyFilters, setHistoryFilters] = useState({ search: "", action: "", staff: "", dateFrom: "", dateTo: "" });
 
   // Documents — React Query
@@ -130,6 +131,10 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
   const activities = historyData?.activities || [];
   const staffNames = (historyData?.staffNames || []).map((s: any) => s.name).filter(Boolean);
   const historyPagination = { page: historyPage, pageSize: historyPageSize, total: historyData?.pagination?.total || 0, totalPages: historyData?.pagination?.totalPages || 0 };
+
+  useEffect(() => {
+    setHistorySearchInput(historyFilters.search);
+  }, [historyFilters.search]);
 
   // Upload document
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -339,19 +344,33 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
 
         {/* Filters */}
         <div className="claims-tools-filters" style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ position: "relative", flex: "0 0 200px" }}>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              setHistoryFilters(f => ({ ...f, search: historySearchInput.trim() }));
+              setHistoryPage(1);
+            }}
+            style={{ display: "flex", gap: "8px", flex: "1 1 260px", minWidth: "220px" }}
+          >
+          <div style={{ position: "relative", flex: 1 }}>
             <Search size={14} style={{ position: "absolute", left: "10px", top: "9px", color: "#9ca3af" }} />
             <input
-              style={{ ...inputStyle, paddingLeft: "32px", padding: "7px 10px 7px 32px" }}
+              style={{ ...inputStyle, paddingLeft: "32px", padding: "10px 12px 10px 32px", minHeight: "40px" }}
               placeholder="Mã đơn, Nhân viên..."
-              value={historyFilters.search}
-              onChange={e => {
-                setHistoryFilters(f => ({ ...f, search: e.target.value }));
-                setHistoryPage(1);
-              }}
+              value={historySearchInput}
+              onChange={e => setHistorySearchInput(e.target.value)}
               aria-label="Tìm kiếm lịch sử claims"
             />
           </div>
+            <button
+              type="submit"
+              style={{ ...btnPrimary, minWidth: "44px", minHeight: "40px", justifyContent: "center", padding: "0 12px" }}
+              aria-label="Tìm kiếm lịch sử claims"
+              title="Tìm kiếm"
+            >
+              <Search size={14} />
+            </button>
+          </form>
           <select
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.action}

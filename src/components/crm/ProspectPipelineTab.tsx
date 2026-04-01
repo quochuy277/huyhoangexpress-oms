@@ -59,7 +59,9 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
 
   // Stats
   const { data: statsData } = useQuery({
@@ -74,10 +76,10 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
 
   // Prospects list
   const { data: prospectsData, isLoading } = useQuery({
-    queryKey: ["crm-prospects", search],
+    queryKey: ["crm-prospects", appliedSearch],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (appliedSearch) params.set("search", appliedSearch);
       params.set("pageSize", "200");
       const res = await fetch(`/api/crm/prospects?${params}`);
       if (!res.ok) throw new Error("Failed to fetch prospects");
@@ -107,7 +109,7 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
     const destStage = destination.droppableId as StageKey;
 
     // Optimistic update: immediately update React Query cache
-    queryClient.setQueryData(["crm-prospects", search], (old: any) => {
+    queryClient.setQueryData(["crm-prospects", appliedSearch], (old: any) => {
       if (!old?.data?.prospects) return old;
       const updated = old.data.prospects.map((p: Prospect) => {
         if (p.id === draggableId) return { ...p, stage: destStage };
@@ -153,7 +155,7 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
 
     queryClient.invalidateQueries({ queryKey: ["crm-prospects"] });
     queryClient.invalidateQueries({ queryKey: ["crm-prospect-stats"] });
-  }, [allProspects, queryClient, search]);
+  }, [allProspects, appliedSearch, queryClient, search]);
 
   const handleMarkLost = async (id: string, reason: string) => {
     await fetch(`/api/crm/prospects/${id}/lost`, {
@@ -198,14 +200,31 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            setAppliedSearch(search.trim());
+          }}
+          className="flex flex-1 min-w-[200px] items-stretch gap-2"
+        >
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text" placeholder="Tìm prospect..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full min-h-11 pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label="Tìm kiếm prospect"
           />
         </div>
+        <button
+          type="submit"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+          aria-label="Tìm kiếm prospect"
+          title="Tìm kiếm"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+        </form>
 
         <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
           <button onClick={() => setView("kanban")}

@@ -32,16 +32,35 @@ export default function AnalysisTab() {
   const [chartShops, setChartShops] = useState<string[]>([]);
   const [granularity, setGranularity] = useState("day");
   const [negData, setNegData] = useState<any>(null);
+  const [shopSearchInput, setShopSearchInput] = useState(shopParam);
   const [shopSearch, setShopSearch] = useState(shopParam);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
-  useEffect(() => { setView(viewParam); }, [viewParam]);
+  useEffect(() => {
+    setView(viewParam);
+    setShopSearch(shopParam);
+    setShopSearchInput(shopParam);
+  }, [viewParam, shopParam]);
 
   const switchView = (v: string) => {
     setView(v);
     const p = new URLSearchParams(searchParams.toString());
     p.set("view", v);
     if (v !== "shop") p.delete("shop");
+    router.push(`/finance?tab=analysis&${p.toString()}`, { scroll: false });
+  };
+
+  const applyShopSearch = (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const nextShopSearch = shopSearchInput.trim();
+    setShopSearchInput(nextShopSearch);
+    setShopSearch(nextShopSearch);
+
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("view", "shop");
+    if (nextShopSearch) p.set("shop", nextShopSearch);
+    else p.delete("shop");
+
     router.push(`/finance?tab=analysis&${p.toString()}`, { scroll: false });
   };
 
@@ -202,7 +221,20 @@ export default function AnalysisTab() {
       {view === "shop" && (
         <>
           <div className={panelClass}>
-            <input placeholder="🔍 Tìm cửa hàng..." value={shopSearch} onChange={e => setShopSearch(e.target.value)} className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm sm:max-w-sm" />
+            <form onSubmit={applyShopSearch} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                placeholder="🔍 Tìm cửa hàng..."
+                value={shopSearchInput}
+                onChange={e => setShopSearchInput(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm sm:max-w-sm sm:flex-1"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:min-w-28"
+              >
+                Tìm kiếm
+              </button>
+            </form>
           </div>
           <div className={panelClass}>
             <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">🏪 Xếp hạng Cửa hàng</h3>

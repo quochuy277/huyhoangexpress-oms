@@ -7,7 +7,10 @@ import type { TodoFilters as Filters } from "@/types/todo";
 
 interface TodoFiltersProps {
   filters: Filters;
+  searchInput: string;
   hideDone: boolean;
+  onSearchInputChange: (value: string) => void;
+  onSearchSubmit: () => void;
   onFilterChange: (filters: Filters) => void;
   onHideDoneChange: (v: boolean) => void;
   onReset: () => void;
@@ -16,7 +19,16 @@ interface TodoFiltersProps {
 const selectClass =
   "px-2.5 py-[7px] border border-gray-300 rounded-lg text-[13px] outline-none bg-white text-slate-700 cursor-pointer focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-colors";
 
-export function TodoFilters({ filters, hideDone, onFilterChange, onHideDoneChange, onReset }: TodoFiltersProps) {
+export function TodoFilters({
+  filters,
+  searchInput,
+  hideDone,
+  onSearchInputChange,
+  onSearchSubmit,
+  onFilterChange,
+  onHideDoneChange,
+  onReset,
+}: TodoFiltersProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const update = (key: keyof Filters, value: string) => {
@@ -29,15 +41,29 @@ export function TodoFilters({ filters, hideDone, onFilterChange, onHideDoneChang
     <>
       <div className="flex gap-2 flex-wrap items-center">
         {/* Search */}
-        <div className="relative flex-1 min-w-[140px] sm:min-w-[180px]">
-          <Search size={14} className="absolute left-2.5 top-[9px] text-gray-400 pointer-events-none" />
-          <input
-            className="w-full pl-8 pr-3 py-[7px] border border-gray-300 rounded-lg text-[13px] outline-none bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-colors"
-            placeholder="Tìm kiếm..."
-            value={filters.search}
-            onChange={(e) => update("search", e.target.value)}
-          />
-        </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSearchSubmit();
+          }}
+          className="flex flex-1 min-w-[200px] items-stretch gap-2"
+        >
+          <div className="relative flex-1 min-w-[140px] sm:min-w-[180px]">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              className="w-full min-h-11 pl-8 pr-3 py-[7px] border border-gray-300 rounded-lg text-[13px] outline-none bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-colors"
+              placeholder="Tìm kiếm..."
+              value={searchInput}
+              onChange={(e) => onSearchInputChange(e.target.value)}
+            />
+          </div>
+          <button
+            type="submit"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+          >
+            <Search size={15} />
+          </button>
+        </form>
 
         {/* Mobile filter toggle */}
         <button

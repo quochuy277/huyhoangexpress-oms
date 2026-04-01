@@ -13,11 +13,14 @@ type DelayedFilterOptions = {
 
 type Props = {
   filters: DelayedFiltersState;
+  searchInput: string;
   options: DelayedFilterOptions;
   resultCount: number;
   currentPageCount: number;
   isFetching: boolean;
   onFiltersChange: (partial: Partial<DelayedFiltersState>) => void;
+  onSearchInputChange: (value: string) => void;
+  onSearchSubmit: () => void;
   onReplaceFilters: (filters: DelayedFiltersState) => void;
   onReset: () => void;
   onExport: () => void;
@@ -40,36 +43,63 @@ export function buildDelayedActiveChips(filters: DelayedFiltersState) {
   if (filters.shopFilter) chips.push(filters.shopFilter);
   if (filters.statusFilter) chips.push(filters.statusFilter);
   if (filters.reasonFilter) chips.push(filters.reasonFilter);
-  if (filters.delayCountFilter) chips.push(`HoÃ£n ${filters.delayCountFilter}`);
-  if (filters.todayOnly) chips.push("ÄÆ¡n hoÃ£n hÃ´m nay");
+  if (filters.delayCountFilter) chips.push(`Hoãn ${filters.delayCountFilter}`);
+  if (filters.todayOnly) chips.push("Đơn hoãn hôm nay");
   return chips;
 }
 
 function FilterFields({
   filters,
+  searchInput,
   options,
   onChange,
+  onSearchInputChange,
+  onSearchSubmit,
 }: {
   filters: DelayedFiltersState;
+  searchInput: string;
   options: DelayedFilterOptions;
   onChange: (partial: Partial<DelayedFiltersState>) => void;
+  onSearchInputChange?: (value: string) => void;
+  onSearchSubmit?: () => void;
 }) {
   const inputClass =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 transition-all focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10";
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <div className="relative xl:col-span-2">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Mã đơn, shop, người nhận, SĐT..."
-          aria-label="Tìm kiếm đơn delayed"
-          value={filters.searchTerm}
-          onChange={(event) => onChange({ searchTerm: event.target.value })}
-          className={`${inputClass} pl-10`}
-        />
-      </div>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSearchSubmit?.();
+        }}
+        className="flex gap-2 xl:col-span-2"
+      >
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Mã đơn, shop, người nhận, SĐT..."
+            aria-label="Tìm kiếm đơn delayed"
+            value={searchInput}
+            onChange={(event) => {
+              if (onSearchInputChange) {
+                onSearchInputChange(event.target.value);
+                return;
+              }
+
+              onChange({ searchTerm: event.target.value });
+            }}
+            className={`${inputClass} min-h-11 pl-10`}
+          />
+        </div>
+        <button
+          type="submit"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </form>
 
       <select
         aria-label="Lọc theo cửa hàng"
@@ -131,11 +161,14 @@ function FilterFields({
 
 export function DelayedFilterPanel({
   filters,
+  searchInput,
   options,
   resultCount,
   currentPageCount,
   isFetching,
   onFiltersChange,
+  onSearchInputChange,
+  onSearchSubmit,
   onReplaceFilters,
   onReset,
   onExport,
@@ -211,7 +244,14 @@ export function DelayedFilterPanel({
         </div>
 
         <div className="hidden md:block">
-          <FilterFields filters={filters} options={options} onChange={onFiltersChange} />
+          <FilterFields
+            filters={filters}
+            searchInput={searchInput}
+            options={options}
+            onChange={onFiltersChange}
+            onSearchInputChange={onSearchInputChange}
+            onSearchSubmit={onSearchSubmit}
+          />
           <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-slate-600">
             <input
               type="checkbox"
@@ -287,6 +327,7 @@ export function DelayedFilterPanel({
             <div className="space-y-4 overflow-y-auto">
               <FilterFields
                 filters={mobileDraft}
+                searchInput={mobileDraft.searchTerm}
                 options={options}
                 onChange={(partial) => setMobileDraft((previous) => ({ ...previous, ...partial }))}
               />

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Loader2, ListTodo, Columns3 } from "lucide-react";
 import { useTodos } from "@/hooks/useTodos";
 import { useTodoStats } from "@/hooks/useTodoStats";
-import { useDebounce } from "@/hooks/useDebounce";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { TodoQuickAdd } from "./TodoQuickAdd";
@@ -27,9 +26,8 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   const [hideDone, setHideDone] = useState(false);
   const [page, setPage] = useState(1);
 
-  // Filters with debounce
   const [filters, setFilters] = useState<FiltersType>({ search: "", source: "", priority: "", dueFilter: "" });
-  const debouncedSearch = useDebounce(filters.search, 400);
+  const [searchInput, setSearchInput] = useState("");
 
   // Hooks
   const { todos, loading, pagination, fetchTodos, toggleComplete, changeStatus, deleteTodo, quickAdd, reorderKanban, updateLocal } = useTodos();
@@ -45,10 +43,13 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   const scopeStats = stats ? (scope === "mine" ? stats.mine : stats.all) : null;
   const deleteTarget = deleteId ? todos.find((t) => t.id === deleteId) : null;
 
-  // Fetch data
+  useEffect(() => {
+    setSearchInput(filters.search);
+  }, [filters.search]);
+
   const doFetch = useCallback(() => {
-    fetchTodos({ scope, filters: { ...filters, search: debouncedSearch }, hideDone, page, pageSize: 20 });
-  }, [fetchTodos, scope, filters.source, filters.priority, filters.dueFilter, debouncedSearch, hideDone, page]);
+    fetchTodos({ scope, filters, hideDone, page, pageSize: 20 });
+  }, [fetchTodos, scope, filters, hideDone, page]);
 
   useEffect(() => { doFetch(); }, [doFetch]);
   useEffect(() => { fetchStats(); }, [fetchStats]);
@@ -110,6 +111,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
 
   const resetFilters = () => {
     setFilters({ search: "", source: "", priority: "", dueFilter: "" });
+    setSearchInput("");
     setPage(1);
   };
 
@@ -201,7 +203,13 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
       {/* Filters */}
       <TodoFilters
         filters={filters}
+        searchInput={searchInput}
         hideDone={hideDone}
+        onSearchInputChange={setSearchInput}
+        onSearchSubmit={() => {
+          setFilters((current) => ({ ...current, search: searchInput.trim() }));
+          setPage(1);
+        }}
         onFilterChange={handleFilterChange}
         onHideDoneChange={setHideDone}
         onReset={resetFilters}

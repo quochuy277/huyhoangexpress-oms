@@ -60,6 +60,11 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
   const currentSalesStaff = searchParams.get("salesStaff") || "";
   const currentPartialOrderType = searchParams.get("partialOrderType") || "";
   const currentRegionGroup = searchParams.get("regionGroup") || "";
+  const [draftSearch, setDraftSearch] = useState(currentSearch);
+
+  useEffect(() => {
+    setDraftSearch(currentSearch);
+  }, [currentSearch]);
 
   const updateParam = useCallback(
     (key: string, value: string) => {
@@ -120,23 +125,30 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
     <div className="space-y-3">
       {/* Row 1: Search + Advanced Toggle + Export */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Tìm theo mã đơn, tên, SĐT, mã vận đơn..."
-            defaultValue={currentSearch}
-            onChange={(e) => {
-              const val = e.target.value;
-              clearTimeout((window as any).__searchTimeout as number);
-              (window as any).__searchTimeout = setTimeout(() => {
-                updateParam("search", val);
-              }, 400);
-            }}
-            className="w-full pl-8 sm:pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          />
-          {isPending && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />}
-        </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            updateParam("search", draftSearch.trim());
+          }}
+          className="flex flex-1 items-stretch gap-2"
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Tìm theo mã đơn, tên, SĐT, mã vận đơn..."
+              value={draftSearch}
+              onChange={(e) => setDraftSearch(e.target.value)}
+              className="w-full min-h-11 pl-8 sm:pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+          <button
+            type="submit"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+          >
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+          </button>
+        </form>
         
         <button
           onClick={() => setMobileOpen(v => !v)}

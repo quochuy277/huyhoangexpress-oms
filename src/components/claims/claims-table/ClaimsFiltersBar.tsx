@@ -11,6 +11,7 @@ type ClaimsFiltersBarProps = {
   claimStatusConfig: Record<string, { label: string; bg: string; text: string }>;
   inputStyle: React.CSSProperties;
   onSearchInputChange: (value: string) => void;
+  onSearchSubmit: () => void;
   onToggleIssueFilter: (type: string) => void;
   onStatusChange: (value: string) => void;
   onShopChange: (value: string) => void;
@@ -27,6 +28,7 @@ export function ClaimsFiltersBar({
   claimStatusConfig,
   inputStyle,
   onSearchInputChange,
+  onSearchSubmit,
   onToggleIssueFilter,
   onStatusChange,
   onShopChange,
@@ -35,15 +37,45 @@ export function ClaimsFiltersBar({
 }: ClaimsFiltersBarProps) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "16px", alignItems: "center" }}>
-      <div style={{ position: "relative", flex: "1 1 auto", minWidth: "140px" }}>
-        <Search size={14} style={{ position: "absolute", left: "10px", top: "9px", color: "#9ca3af" }} />
-        <input
-          style={{ ...inputStyle, paddingLeft: "32px", padding: "7px 10px 7px 32px", fontSize: "13px" }}
-          placeholder="Tìm mã đơn, SĐT, shop..."
-          value={searchInput}
-          onChange={(event) => onSearchInputChange(event.target.value)}
-        />
-      </div>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSearchSubmit();
+        }}
+        style={{ display: "flex", gap: "8px", flex: "1 1 auto", minWidth: "220px", alignItems: "stretch" }}
+      >
+        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+          <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+          <input
+            style={{ ...inputStyle, paddingLeft: "32px", padding: "10px 12px 10px 32px", fontSize: "13px", minHeight: "40px" }}
+            placeholder="Tìm mã đơn, SĐT, shop..."
+            value={searchInput}
+            onChange={(event) => onSearchInputChange(event.target.value)}
+            aria-label="Tìm kiếm claim"
+          />
+        </div>
+        <button
+          type="submit"
+          style={{
+            minWidth: "44px",
+            minHeight: "40px",
+            borderRadius: "10px",
+            border: "1px solid #2563eb",
+            background: "#2563eb",
+            color: "#fff",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            padding: "0 12px",
+            fontWeight: 600,
+          }}
+          aria-label="Tìm kiếm claim"
+          title="Tìm kiếm"
+        >
+          <Search size={16} />
+        </button>
+      </form>
 
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
         {Object.entries(issueTypeConfig).map(([key, value]) => (
