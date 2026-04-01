@@ -91,3 +91,10 @@ export const exportLimiter = createRateLimiter({
   max: 5,
   message: "Quá nhiều lần xuất file. Vui lòng thử lại sau.",
 });
+
+/** Auto-import: 15 per minute */
+export const autoImportLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 15,
+  message: "Quá nhiều yêu cầu auto-import. Vui lòng thử lại sau.",
+});

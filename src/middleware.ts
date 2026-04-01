@@ -42,6 +42,15 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
     return NextResponse.next();
   }
 
+  // Auto-import API — API key auth (no session required)
+  if (pathname === "/api/orders/auto-import") {
+    const apiKey = req.headers.get("x-api-key");
+    if (!process.env.AUTO_IMPORT_API_KEY || apiKey !== process.env.AUTO_IMPORT_API_KEY) {
+      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   // API routes — check auth but let handlers validate permissions
   if (pathname.startsWith("/api/")) {
     if (!isLoggedIn) {

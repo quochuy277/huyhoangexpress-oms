@@ -1,35 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { uploadLimiter } from "@/lib/rate-limiter";
-import { processOrderImport } from "@/lib/order-import-service";
+import { autoImportLimiter } from "@/lib/rate-limiter";
+import { processOrderImport, getSystemUserId } from "@/lib/order-import-service";
 
 // Vercel serverless max duration (seconds)
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  // 1. Auth check
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  }
-
-  // Rate limit
-  const rateLimited = uploadLimiter.check(session.user.id!);
+  // 1. Rate limit
+  const rateLimited = autoImportLimiter.check("auto-import");
   if (rateLimited) return rateLimited;
-  const permissions = session.user.permissions;
-  if (!permissions?.canUploadExcel) {
-    return NextResponse.json(
-      { error: "Bạn không có quyền tải lên file" },
-      { status: 403 }
-    );
-  }
 
   // 2. Get file from form data
   const formData = await req.formData();
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
     return NextResponse.json(
-      { error: "Vui lòng chọn file Excel (.xlsx, .xls)" },
+      { error: "Missing file in form data" },
       { status: 400 }
     );
   }
@@ -38,7 +24,7 @@ export async function POST(req: NextRequest) {
   const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
     return NextResponse.json(
-      { error: "File quá lớn. Kích thước tối đa: 10MB" },
+      { error: "File too large. Max: 10MB" },
       { status: 400 }
     );
   }
@@ -47,18 +33,19 @@ export async function POST(req: NextRequest) {
   const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
   if (!validExtensions.includes(ext)) {
     return NextResponse.json(
-      { error: "Định dạng file không hỗ trợ. Chỉ chấp nhận .xlsx và .xls" },
+      { error: "Invalid file format. Only .xlsx and .xls accepted" },
       { status: 400 }
     );
   }
 
   // 4. Process import
+  const userId = await getSystemUserId();
   const buffer = await file.arrayBuffer();
   const result = await processOrderImport({
     buffer,
     fileName: file.name,
     fileSize: file.size,
-    uploadedById: session.user.id!,
+    uploadedById: userId,
   });
 
   return NextResponse.json(result);
