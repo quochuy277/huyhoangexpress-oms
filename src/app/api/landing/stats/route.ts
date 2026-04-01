@@ -8,6 +8,8 @@ interface StatsCache {
 
 let statsCache: StatsCache | null = null;
 const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+const LANDING_BASE_ORDERS = 200_000;
+const LANDING_BASE_SHOPS = 250;
 
 export async function GET() {
   // Check cache
@@ -16,6 +18,8 @@ export async function GET() {
   }
 
   try {
+    let overrideSuccessRate: number | null = null;
+
     // Check admin override
     const override = await prisma.systemSetting.findUnique({
       where: { key: "landing_stats_override" },
@@ -24,13 +28,8 @@ export async function GET() {
     if (override?.value) {
       try {
         const parsed = JSON.parse(override.value);
-        const data = {
-          totalOrders: parsed.totalOrders ?? 0,
-          activeShops: parsed.activeShops ?? 0,
-          successRate: parsed.successRate ?? 0,
-        };
-        statsCache = { data, timestamp: Date.now() };
-        return NextResponse.json(data);
+        overrideSuccessRate =
+          typeof parsed.successRate === "number" ? parsed.successRate : null;
       } catch {
         // Invalid JSON, fall through to query
       }
@@ -72,9 +71,9 @@ export async function GET() {
         : 0;
 
     const data = {
-      totalOrders: Math.max(totalOrders, 1000), // Fallback: minimum 1000
-      activeShops,
-      successRate,
+      totalOrders: LANDING_BASE_ORDERS + totalOrders,
+      activeShops: LANDING_BASE_SHOPS + activeShops,
+      successRate: overrideSuccessRate ?? successRate,
     };
 
     statsCache = { data, timestamp: Date.now() };
@@ -83,8 +82,8 @@ export async function GET() {
     console.error("Landing stats error:", error);
     // Return safe fallback
     return NextResponse.json({
-      totalOrders: 1000,
-      activeShops: 0,
+      totalOrders: LANDING_BASE_ORDERS,
+      activeShops: LANDING_BASE_SHOPS,
       successRate: 0,
     });
   }
