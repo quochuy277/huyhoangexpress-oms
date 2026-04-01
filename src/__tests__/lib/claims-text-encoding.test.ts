@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const CLAIM_FILES = [
+  "src/hooks/useClaimsList.ts",
   "src/components/claims/ClaimsClient.tsx",
   "src/components/claims/ClaimDetailDrawer.tsx",
   "src/components/claims/ClaimsToolsTab.tsx",

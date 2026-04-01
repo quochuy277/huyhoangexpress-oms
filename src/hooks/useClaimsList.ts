@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { ClaimFilters } from "@/hooks/useClaimsFilters";
 
@@ -75,11 +75,9 @@ export function useClaimsList({ filters, onCountChange }: UseClaimsListOptions) 
   const [orderStatusOptions, setOrderStatusOptions] = useState<string[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null);
-  const lastFetchRef = useRef<number>(0);
 
   const fetchClaims = useCallback(async () => {
     setLoading(true);
-    lastFetchRef.current = Date.now();
 
     try {
       const params = new URLSearchParams({
@@ -135,17 +133,6 @@ export function useClaimsList({ filters, onCountChange }: UseClaimsListOptions) 
         );
       });
   }, []);
-
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible" && Date.now() - lastFetchRef.current > 30_000) {
-        void fetchClaims();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [fetchClaims]);
 
   return {
     claims,

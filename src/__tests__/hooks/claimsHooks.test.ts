@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { getClaimsExportTruncationMessage } from "@/hooks/useClaimMutations";
@@ -7,6 +10,14 @@ import {
 } from "@/hooks/useClaimsList";
 
 describe("claims hooks helpers", () => {
+  it("does not register a visibility-based auto refetch for claims list", () => {
+    const hookPath = path.resolve(process.cwd(), "src/hooks/useClaimsList.ts");
+    const hookSource = fs.readFileSync(hookPath, "utf8");
+
+    expect(hookSource).not.toContain("visibilitychange");
+    expect(hookSource).not.toContain("document.visibilityState");
+  });
+
   it("throws backend errors for failed claims list responses", async () => {
     const response = new Response(JSON.stringify({ error: "Không có quyền xem claims" }), {
       status: 403,
