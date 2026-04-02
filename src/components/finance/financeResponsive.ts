@@ -48,7 +48,7 @@ export function buildBudgetSummary(item: {
 }) {
   const statusTone = item.ratio > 90 ? "danger" : item.ratio > 70 ? "warning" : "ok";
   const statusLabel =
-    item.ratio > 90 ? "Sap vuot" : item.ratio > 70 ? "Gan het" : "Binh thuong";
+    item.ratio > 90 ? "Sắp vượt" : item.ratio > 70 ? "Gần hết" : "Bình thường";
 
   return {
     categoryId: item.categoryId,
@@ -84,39 +84,56 @@ export function buildPnlSections(pnl: {
       title: "Doanh thu",
       summary: fmtVND(pnl.revenue.netRevenue),
       rows: [
-        { label: "Tong phi thu tu shop", value: fmtVND(pnl.revenue.totalFeeFromShop) },
-        { label: "Tru phi NVC", value: `-${fmtVND(pnl.revenue.totalCarrierFee)}` },
-        { label: "Doanh thu rong", value: fmtVND(pnl.revenue.netRevenue) },
+        { label: "Tổng phí thu từ shop", value: fmtVND(pnl.revenue.totalFeeFromShop) },
+        { label: "Trừ phí NVC", value: `-${fmtVND(pnl.revenue.totalCarrierFee)}` },
+        { label: "Doanh thu ròng", value: fmtVND(pnl.revenue.netRevenue) },
       ],
     },
     {
       key: "claims",
-      title: "Chi phi truc tiep",
-      summary: pnl.claims.claimDiff >= 0 ? fmtVND(pnl.claims.claimDiff) : `-${fmtVND(pnl.claims.claimDiff)}`,
+      title: "Chi phí trực tiếp",
+      summary:
+        pnl.claims.claimDiff >= 0
+          ? fmtVND(pnl.claims.claimDiff)
+          : `-${fmtVND(pnl.claims.claimDiff)}`,
       rows: [
-        { label: "Den bu KH", value: `-${fmtVND(pnl.claims.customerComp)}` },
-        { label: "NVC den bu", value: fmtVND(pnl.claims.carrierComp) },
-        { label: "Chenh lech den bu", value: pnl.claims.claimDiff >= 0 ? fmtVND(pnl.claims.claimDiff) : `-${fmtVND(pnl.claims.claimDiff)}` },
-        { label: "Loi nhuan gop", value: fmtVND(pnl.grossProfit) },
+        { label: "Đền bù KH", value: `-${fmtVND(pnl.claims.customerComp)}` },
+        { label: "NVC đền bù", value: fmtVND(pnl.claims.carrierComp) },
+        {
+          label: "Chênh lệch đền bù",
+          value:
+            pnl.claims.claimDiff >= 0
+              ? fmtVND(pnl.claims.claimDiff)
+              : `-${fmtVND(pnl.claims.claimDiff)}`,
+        },
+        { label: "Lợi nhuận gộp", value: fmtVND(pnl.grossProfit) },
       ],
     },
     {
       key: "opex",
-      title: "Chi phi van hanh",
+      title: "Chi phí vận hành",
       summary: fmtVND(pnl.totalOperatingExpenses),
       rows: [
         ...pnl.operatingExpenses.map((item) => ({
           label: item.name,
           value: `-${fmtVND(item.total)}`,
         })),
-        { label: "Tong chi phi van hanh", value: `-${fmtVND(pnl.totalOperatingExpenses)}` },
+        {
+          label: "Tổng chi phí vận hành",
+          value: `-${fmtVND(pnl.totalOperatingExpenses)}`,
+        },
       ],
     },
     {
       key: "netProfit",
-      title: "Loi nhuan",
+      title: "Lợi nhuận",
       summary: pnl.netProfit >= 0 ? fmtVND(pnl.netProfit) : `-${fmtVND(pnl.netProfit)}`,
-      rows: [{ label: "Loi nhuan rong", value: pnl.netProfit >= 0 ? fmtVND(pnl.netProfit) : `-${fmtVND(pnl.netProfit)}` }],
+      rows: [
+        {
+          label: "Lợi nhuận ròng",
+          value: pnl.netProfit >= 0 ? fmtVND(pnl.netProfit) : `-${fmtVND(pnl.netProfit)}`,
+        },
+      ],
     },
   ];
 }
@@ -181,12 +198,12 @@ export function buildNegativeRevenueSummary(item: {
 
 const CASHBOOK_GROUP_LABELS: Record<string, string> = {
   COD: "COD",
-  SHOP_PAYOUT: "Tra shop",
-  RECONCILIATION_FEE: "Phi DS",
-  TOP_UP: "Nap tien",
-  COMPENSATION: "Den bu",
-  COOPERATION_FEE: "Phi HT",
-  OTHER: "Khac",
+  SHOP_PAYOUT: "Trả shop",
+  RECONCILIATION_FEE: "Phí ĐS",
+  TOP_UP: "Nạp tiền",
+  COMPENSATION: "Đền bù",
+  COOPERATION_FEE: "Phí HT",
+  OTHER: "Khác",
 };
 
 export function buildCashbookTransactionSummary(item: {

@@ -116,6 +116,7 @@ export default function AnalysisTab() {
   return (
     <>
     <div className="space-y-5 sm:space-y-6">
+      <div className="sr-only">Phân tích</div>
       <div className={`${panelClass} space-y-4`}>
         <div className="overflow-x-auto pb-1">
           <div className="flex min-w-max gap-2">

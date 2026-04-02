@@ -91,6 +91,7 @@ export default function CashbookTab() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      <div className="sr-only">Sổ quỹ</div>
       <div className="overflow-x-auto pb-1">
         <div className="flex min-w-max gap-2">
           {PERIODS.map(p => (
@@ -110,7 +111,7 @@ export default function CashbookTab() {
       )}
 
       <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 shadow-sm sm:p-5">
-        <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📤 Tải lên file Công nợ</h3>
+        <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📤 Tải lên file công nợ</h3>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label style={{ padding: "8px 16px", background: "#2563eb", color: "#fff", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
             {uploading ? "⏳ Đang xử lý..." : "Chọn file Excel (.xlsx)"}
@@ -288,7 +289,7 @@ export default function CashbookTab() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {summary?.dailyChart?.length > 0 && (
+        {Array.isArray(summary?.dailyChart) && summary.dailyChart.length > 0 && (
           <div className={panelClass}>
             <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📊 Dòng tiền theo ngày</h3>
             <ResponsiveContainer width="100%" height={220}>
@@ -302,7 +303,7 @@ export default function CashbookTab() {
             </ResponsiveContainer>
           </div>
         )}
-        {summary?.groupDistribution?.length > 0 && (
+        {Array.isArray(summary?.groupDistribution) && summary.groupDistribution.length > 0 && (
           <div className={panelClass}>
             <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">📊 Phân bố giao dịch theo nhóm</h3>
             <ResponsiveContainer width="100%" height={220}>
@@ -318,7 +319,7 @@ export default function CashbookTab() {
         )}
       </div>
 
-      {summary?.shopPayoutSummary?.length > 0 && (
+      {Array.isArray(summary?.shopPayoutSummary) && summary.shopPayoutSummary.length > 0 && (
         <div className={panelClass}>
           <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">💳 Tổng hợp trả tiền Shop</h3>
           <div className="hidden overflow-x-auto md:block">

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
+import type { FinanceBudgetSummary, FinanceCategoryOption, FinanceLandingData, FinancePnlData } from "@/lib/finance/landing";
 import { buildBudgetSummary, buildExpenseSummary, buildPnlSections } from "./financeResponsive";
 
 const PERIODS = [
@@ -10,12 +12,70 @@ const PERIODS = [
   { value: "quarter", label: "Quý này" }, { value: "half", label: "6 tháng" },
   { value: "year", label: "Năm nay" }, { value: "custom", label: "Tùy chọn" },
 ];
+const PNL_PERIODS = [
+  { value: "month", label: "Tháng này" },
+  { value: "quarter", label: "Quý này" },
+  { value: "year", label: "Năm nay" },
+  { value: "custom", label: "Tùy chọn" },
+];
 const COLORS = ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
+const INITIAL_DATA_UPDATED_AT = Date.now();
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
 
-interface Props { isAdmin: boolean; initialCategories?: any[]; }
+type ExpenseItem = {
+  id: string;
+  categoryId: string;
+  title: string;
+  amount: number;
+  date: string;
+  note?: string | null;
+  category?: { name?: string | null } | null;
+};
 
-export default function OverviewTab({ isAdmin, initialCategories }: Props) {
+interface Props {
+  isAdmin: boolean;
+  initialLandingData?: FinanceLandingData | null;
+  initialCategories?: FinanceCategoryOption[];
+}
+
+function buildOverviewSearch(period: string, from: string, to: string) {
+  const params = new URLSearchParams({ period });
+  if (period === "custom" && from && to) {
+    params.set("from", from);
+    params.set("to", to);
+  }
+  return params.toString();
+}
+
+function buildPnlDateRange(period: string, from: string, to: string) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  if (period === "quarter") {
+    const quarterStart = Math.floor(month / 3) * 3;
+    return { from: new Date(year, quarterStart, 1), to: new Date(year, quarterStart + 3, 0) };
+  }
+
+  if (period === "year") {
+    return { from: new Date(year, 0, 1), to: new Date(year, 11, 31) };
+  }
+
+  if (period === "custom" && from && to) {
+    return { from: new Date(from), to: new Date(to) };
+  }
+
+  return { from: new Date(year, month, 1), to: new Date(year, month + 1, 0) };
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Lỗi hệ thống");
+  return data as T;
+}
+
+export default function OverviewTab({ isAdmin, initialLandingData, initialCategories }: Props) {
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
@@ -23,97 +83,131 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [showCatDialog, setShowCatDialog] = useState(false);
   const [showBudgetDialog, setShowBudgetDialog] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [expForm, setExpForm] = useState({ categoryId: "", title: "", amount: "", date: "", note: "" });
   const [newCat, setNewCat] = useState("");
   const [budgetForm, setBudgetForm] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<FinanceCategoryOption[]>(initialCategories ?? initialLandingData?.categories ?? []);
 
   // P&L Period
   const [pnlPeriod, setPnlPeriod] = useState("month");
+  const [pnlCustomFromInput, setPnlCustomFromInput] = useState("");
+  const [pnlCustomToInput, setPnlCustomToInput] = useState("");
   const [pnlCustomFrom, setPnlCustomFrom] = useState("");
   const [pnlCustomTo, setPnlCustomTo] = useState("");
+  const [shouldFetchExpenses, setShouldFetchExpenses] = useState(false);
 
-  const getPnlDates = useCallback(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    if (pnlPeriod === "month") {
-      return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
-    } else if (pnlPeriod === "quarter") {
-      const qStart = Math.floor(m / 3) * 3;
-      return { from: new Date(y, qStart, 1), to: new Date(y, qStart + 3, 0) };
-    } else if (pnlPeriod === "year") {
-      return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) };
-    } else if (pnlPeriod === "custom" && pnlCustomFrom && pnlCustomTo) {
-      return { from: new Date(pnlCustomFrom), to: new Date(pnlCustomTo) };
-    }
-    return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
-  }, [pnlPeriod, pnlCustomFrom, pnlCustomTo]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setShouldFetchExpenses(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
-  const fmtDateParam = (d: Date) => d.toISOString().slice(0, 10);
-
-  // React Query: fetch all finance data as a single query
-  const pnlDates = getPnlDates();
+  const fmtDateParam = (d: Date) => format(d, "yyyy-MM-dd");
+  const overviewSearch = useMemo(() => buildOverviewSearch(period, customFrom, customTo), [period, customFrom, customTo]);
+  const pnlDates = useMemo(() => buildPnlDateRange(pnlPeriod, pnlCustomFrom, pnlCustomTo), [pnlPeriod, pnlCustomFrom, pnlCustomTo]);
   const fromStr = fmtDateParam(pnlDates.from);
   const toStr = fmtDateParam(pnlDates.to);
-  const budgetMonth = pnlDates.from.toISOString().slice(0, 7);
+  const budgetMonth = format(pnlDates.from, "yyyy-MM");
 
-  const { data: financeData } = useQuery({
-    queryKey: ["finance-overview", period, customFrom, customTo, pnlPeriod, pnlCustomFrom, pnlCustomTo],
-    queryFn: async () => {
-      const [ov, pl, exp, cat, bud] = await Promise.all([
-        fetch(`/api/finance/overview?period=${period}${period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : ""}`).then(r => r.json()),
-        fetch(`/api/finance/pnl?from=${fromStr}&to=${toStr}`).then(r => r.json()),
-        fetch(`/api/finance/expenses?from=${fromStr}&to=${toStr}`).then(r => r.json()),
-        fetch("/api/finance/categories").then(r => r.json()),
-        fetch(`/api/finance/budgets?month=${budgetMonth}`).then(r => r.json()),
-      ]);
-      return { overview: ov, pnl: pl, expenses: exp.expenses || [], categories: cat.categories || [], budgets: bud };
-    },
+  const landingQuery = useQuery({
+    queryKey: ["finance-landing", overviewSearch],
+    queryFn: () => fetchJson<FinanceLandingData>(`/api/finance/landing?${overviewSearch}`),
+    initialData: initialLandingData ?? undefined,
+    initialDataUpdatedAt: initialLandingData ? INITIAL_DATA_UPDATED_AT : undefined,
     placeholderData: (prev) => prev,
-    initialData: initialCategories ? { overview: null, pnl: null, expenses: [], categories: initialCategories, budgets: null } : undefined,
   });
 
-  const overview = financeData?.overview ?? null;
-  const pnl = financeData?.pnl ?? null;
-  const expenses = financeData?.expenses ?? [];
-  const categories = financeData?.categories ?? initialCategories ?? [];
-  const budgets = financeData?.budgets ?? null;
+  const pnlQuery = useQuery({
+    queryKey: ["finance-pnl", fromStr, toStr],
+    queryFn: () => fetchJson<FinancePnlData>(`/api/finance/pnl?from=${fromStr}&to=${toStr}`),
+    initialData: initialLandingData && pnlPeriod === "month" && !pnlCustomFrom && !pnlCustomTo ? initialLandingData.pnl : undefined,
+    initialDataUpdatedAt: initialLandingData ? INITIAL_DATA_UPDATED_AT : undefined,
+    placeholderData: (prev) => prev,
+  });
 
-  const refetchAll = () => queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
+  const budgetsQuery = useQuery({
+    queryKey: ["finance-budgets", budgetMonth],
+    queryFn: () => fetchJson<FinanceBudgetSummary>(`/api/finance/budgets?month=${budgetMonth}`),
+    initialData: initialLandingData && budgetMonth === initialLandingData.budgets.month ? initialLandingData.budgets : undefined,
+    initialDataUpdatedAt: initialLandingData ? INITIAL_DATA_UPDATED_AT : undefined,
+    placeholderData: (prev) => prev,
+  });
+
+  const expensesQuery = useQuery({
+    queryKey: ["finance-expenses", fromStr, toStr],
+    queryFn: () => fetchJson<{ expenses: ExpenseItem[] }>(`/api/finance/expenses?from=${fromStr}&to=${toStr}`),
+    enabled: shouldFetchExpenses,
+    placeholderData: (prev) => prev,
+  });
+
+  const overview = landingQuery.data ?? null;
+  const pnl = pnlQuery.data ?? initialLandingData?.pnl ?? null;
+  const expenses = expensesQuery.data?.expenses ?? [];
+  const budgets = budgetsQuery.data ?? initialLandingData?.budgets ?? null;
+
+  useEffect(() => {
+    if (landingQuery.data?.categories?.length) {
+      setCategories(landingQuery.data.categories);
+    }
+  }, [landingQuery.data]);
+
+  const refreshLanding = () => queryClient.invalidateQueries({ queryKey: ["finance-landing"] });
+  const refreshExpenses = () => queryClient.invalidateQueries({ queryKey: ["finance-expenses"] });
+  const refreshPnl = () => queryClient.invalidateQueries({ queryKey: ["finance-pnl"] });
+  const refreshBudgets = () => queryClient.invalidateQueries({ queryKey: ["finance-budgets"] });
+
+  const refreshAfterExpenseChange = async () => {
+    await Promise.all([refreshLanding(), refreshExpenses(), refreshPnl(), refreshBudgets()]);
+  };
+
+  const refreshCategories = async () => {
+    const data = await fetchJson<{ categories: FinanceCategoryOption[] }>("/api/finance/categories");
+    setCategories(data.categories || []);
+    await Promise.all([refreshLanding(), refreshPnl(), refreshBudgets()]);
+  };
 
   const saveExpense = async () => {
     const url = editingExpense ? `/api/finance/expenses/${editingExpense.id}` : "/api/finance/expenses";
     const method = editingExpense ? "PUT" : "POST";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(expForm) });
+    await fetchJson(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(expForm) });
     setShowExpenseDialog(false); setEditingExpense(null);
     setExpForm({ categoryId: "", title: "", amount: "", date: "", note: "" });
-    refetchAll();
+    await refreshAfterExpenseChange();
   };
 
   const deleteExpense = async (id: string) => {
     if (!confirm("Xóa khoản chi?")) return;
-    await fetch(`/api/finance/expenses/${id}`, { method: "DELETE" });
-    refetchAll();
+    await fetchJson(`/api/finance/expenses/${id}`, { method: "DELETE" });
+    await refreshAfterExpenseChange();
   };
 
   const addCategory = async () => {
     if (!newCat.trim()) return;
-    await fetch("/api/finance/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCat }) });
-    setNewCat(""); refetchAll();
+    await fetchJson("/api/finance/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCat }) });
+    setNewCat("");
+    await refreshCategories();
   };
 
   const deleteCategory = async (id: string) => {
     if (!confirm("Xóa danh mục?")) return;
-    const res = await fetch(`/api/finance/categories/${id}`, { method: "DELETE" });
-    if (!res.ok) { const d = await res.json(); alert(d.error); }
-    refetchAll();
+    try {
+      await fetchJson(`/api/finance/categories/${id}`, { method: "DELETE" });
+      await refreshCategories();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Lỗi hệ thống");
+    }
   };
 
   const saveBudgets = async () => {
     const budgetArr = Object.entries(budgetForm).map(([categoryId, amount]) => ({ categoryId, amount: parseFloat(amount) || 0 }));
-    await fetch("/api/finance/budgets", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: getPnlDates().from.toISOString().slice(0, 7), budgets: budgetArr }) });
-    setShowBudgetDialog(false); refetchAll();
+    await fetchJson("/api/finance/budgets", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: budgetMonth, budgets: budgetArr }) });
+    setShowBudgetDialog(false);
+    await Promise.all([refreshBudgets(), refreshLanding()]);
+  };
+
+  const applyPnlCustomRange = () => {
+    setPnlCustomFrom(pnlCustomFromInput);
+    setPnlCustomTo(pnlCustomToInput);
   };
 
   const cardStyle = (color: string): React.CSSProperties => ({
@@ -167,7 +261,7 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
       {s && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <div style={cardStyle("#2563eb")}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Doanh Thu</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng doanh thu</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{fmtVND(s.grossProfit)}</div>
             <div style={{ fontSize: 11, color: s.revenueChange >= 0 ? "#10b981" : "#ef4444" }}>
               {s.revenueChange >= 0 ? "+" : ""}
@@ -175,36 +269,36 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
             </div>
           </div>
           <div style={cardStyle("#ef4444")}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Chi Phí</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng chi phí</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#ef4444" }}>
               {pnl ? fmtVND(pnl.totalOperatingExpenses - pnl.claims.claimDiff) : "—"}
             </div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>Đền bù + Chi phí vận hành</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>Đền bù và chi phí vận hành</div>
           </div>
           <div style={cardStyle(pnl ? (pnl.netProfit >= 0 ? "#10b981" : "#ef4444") : "#10b981")}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Lợi Nhuận Ròng</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Lợi nhuận ròng</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: pnl ? (pnl.netProfit >= 0 ? "#10b981" : "#ef4444") : "#94a3b8" }}>
               {pnl ? fmtVND(pnl.netProfit) : "—"}
             </div>
           </div>
           <div style={cardStyle("#10b981")}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng COD Đã Đối Soát</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng COD đã đối soát</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#10b981" }}>{fmtVND(s.totalCod)}</div>
           </div>
           <div style={cardStyle("#2563eb")}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng Đơn Đã Đối Soát</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Tổng đơn đã đối soát</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{s.orderCount.toLocaleString()}</div>
           </div>
           <div style={cardStyle("#2563eb")}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Margin Trung Bình</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>Margin trung bình</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>{s.margin}%</div>
           </div>
         </div>
       )}
 
-      {overview?.trendData?.length > 0 && (
+      {Array.isArray(overview?.trendData) && overview.trendData.length > 0 && (
         <div className={panelClass}>
-          <h3 className="mb-4 text-base font-bold text-slate-800">📈 Xu hướng Doanh thu</h3>
+          <h3 className="mb-4 text-base font-bold text-slate-800">📈 Xu hướng doanh thu</h3>
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={overview.trendData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -220,7 +314,7 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
       )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {overview?.carrierDistribution?.length > 0 && (
+        {Array.isArray(overview?.carrierDistribution) && overview.carrierDistribution.length > 0 && (
           <div className={panelClass}>
             <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">Doanh thu theo Đối tác</h3>
             <ResponsiveContainer width="100%" height={220}>
@@ -233,7 +327,7 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
             </ResponsiveContainer>
           </div>
         )}
-        {overview?.shopDistribution?.length > 0 && (
+        {Array.isArray(overview?.shopDistribution) && overview.shopDistribution.length > 0 && (
           <div className={panelClass}>
             <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">Doanh thu theo Cửa hàng</h3>
             <ResponsiveContainer width="100%" height={Math.max(220, overview.shopDistribution.length * 28)}>
@@ -252,15 +346,10 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
       {pnl && (
         <div className={panelClass}>
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <h3 className="text-base font-bold text-slate-800">📊 KẾT QUẢ KINH DOANH — {pnl.month}</h3>
+            <h3 className="text-base font-bold text-slate-800">📊 Kết quả kinh doanh — {pnl.month}</h3>
             <div className="overflow-x-auto pb-1">
               <div className="flex min-w-max gap-2">
-                {[
-                  { value: "month", label: "Tháng này" },
-                  { value: "quarter", label: "Quý này" },
-                  { value: "year", label: "Năm nay" },
-                  { value: "custom", label: "Tùy chọn" },
-                ].map(p => (
+                {PNL_PERIODS.map(p => (
                   <button key={p.value} onClick={() => setPnlPeriod(p.value)} className={periodButtonClass(pnlPeriod === p.value)}>
                     {p.label}
                   </button>
@@ -271,10 +360,10 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
           {pnlPeriod === "custom" && (
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[auto,1fr,auto,1fr,auto] xl:items-center">
               <label className="text-sm font-semibold text-slate-600">Từ</label>
-              <input type="date" value={pnlCustomFrom} onChange={e => setPnlCustomFrom(e.target.value)} style={inputStyle} />
+              <input type="date" value={pnlCustomFromInput} onChange={e => setPnlCustomFromInput(e.target.value)} style={inputStyle} />
               <label className="text-sm font-semibold text-slate-600">Đến</label>
-              <input type="date" value={pnlCustomTo} onChange={e => setPnlCustomTo(e.target.value)} style={inputStyle} />
-              <button onClick={refetchAll} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Áp dụng</button>
+              <input type="date" value={pnlCustomToInput} onChange={e => setPnlCustomToInput(e.target.value)} style={inputStyle} />
+              <button onClick={applyPnlCustomRange} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Áp dụng</button>
             </div>
           )}
           <div className="hidden overflow-x-auto md:block">
@@ -328,12 +417,17 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
 
       <div className={panelClass}>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-base font-bold text-slate-800">📝 Quản Lý Khoản Chi</h3>
+          <h3 className="text-base font-bold text-slate-800">📝 Quản lý khoản chi</h3>
           <div className="flex flex-col gap-2 sm:flex-row">
             {isAdmin && <button onClick={() => setShowCatDialog(true)} style={btnSec}>⚙ Quản lý danh mục</button>}
             {isAdmin && <button onClick={() => { setEditingExpense(null); setExpForm({ categoryId: "", title: "", amount: "", date: "", note: "" }); setShowExpenseDialog(true); }} style={btnPrimary}>+ Thêm khoản chi</button>}
           </div>
         </div>
+        {!shouldFetchExpenses && expenses.length === 0 && (
+          <div className="mb-4 rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
+            Đang tải danh sách khoản chi...
+          </div>
+        )}
         <div className="hidden overflow-x-auto md:block">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
@@ -369,7 +463,12 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
           </table>
         </div>
         <div className="space-y-3 md:hidden">
-          {expenseCards.length === 0 && (
+          {!shouldFetchExpenses && expenseCards.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
+              Đang tải danh sách khoản chi...
+            </div>
+          )}
+          {shouldFetchExpenses && expenseCards.length === 0 && (
             <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
               Chưa có khoản chi nào
             </div>
@@ -431,7 +530,7 @@ export default function OverviewTab({ isAdmin, initialCategories }: Props) {
             </div>
           )}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-base font-bold text-slate-800">💰 Ngân Sách Hàng Tháng — {budgets.month}</h3>
+            <h3 className="text-base font-bold text-slate-800">💰 Ngân sách hàng tháng — {budgets.month}</h3>
             {isAdmin && <button onClick={() => { const f: Record<string, string> = {}; budgets.budgets?.forEach((b: any) => { f[b.categoryId] = String(b.budgetAmount || 0); }); setBudgetForm(f); setShowBudgetDialog(true); }} style={btnSec}>⚙ Đặt ngân sách</button>}
           </div>
           <div className="hidden overflow-x-auto md:block">

@@ -22,14 +22,14 @@ describe("financeResponsive", () => {
     expect(
       buildExpenseSummary({
         id: "exp-1",
-        title: "Quang cao",
+        title: "Quảng cáo",
         amount: 1250000,
         note: "Meta",
         date: "2026-03-20T00:00:00.000Z",
         category: { name: "Marketing" },
       }),
     ).toMatchObject({
-      title: "Quang cao",
+      title: "Quảng cáo",
       categoryName: "Marketing",
       amountLabel: "1.250.000đ",
       noteLabel: "Meta",
@@ -40,16 +40,17 @@ describe("financeResponsive", () => {
     expect(
       buildBudgetSummary({
         categoryId: "cat-1",
-        categoryName: "Van hanh",
+        categoryName: "Vận hành",
         budgetAmount: 5000000,
         spent: 4600000,
         remaining: 400000,
         ratio: 92,
       }),
     ).toMatchObject({
-      categoryName: "Van hanh",
+      categoryName: "Vận hành",
       ratioLabel: "92%",
       statusTone: "danger",
+      statusLabel: "Sắp vượt",
     });
   });
 
@@ -67,14 +68,14 @@ describe("financeResponsive", () => {
           claimDiff: -100000,
         },
         grossProfit: 600000,
-        operatingExpenses: [{ name: "Luong", total: 150000 }],
+        operatingExpenses: [{ name: "Lương", total: 150000 }],
         totalOperatingExpenses: 150000,
         netProfit: 450000,
       }),
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "revenue", title: "Doanh thu" }),
-        expect.objectContaining({ key: "netProfit", title: "Loi nhuan" }),
+        expect.objectContaining({ key: "netProfit", title: "Lợi nhuận" }),
       ]),
     );
   });

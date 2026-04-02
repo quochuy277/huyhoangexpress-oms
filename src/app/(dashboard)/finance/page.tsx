@@ -1,9 +1,14 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import FinancePageClient from "@/components/finance/FinancePageClient";
+import { auth } from "@/lib/auth";
+import { getFinanceLandingData, resolvePnlRange } from "@/lib/finance/landing";
+import { parsePeriodFromURL } from "@/lib/finance-period";
+import { redirect } from "next/navigation";
 
-export default async function FinancePage() {
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function FinancePage({ searchParams }: Props) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -11,12 +16,33 @@ export default async function FinancePage() {
   if (!permissions?.canViewFinancePage && role !== "ADMIN") redirect("/");
 
   const isAdmin = role === "ADMIN";
+  const resolvedSearchParams = await searchParams;
+  const activeTab = typeof resolvedSearchParams.tab === "string" ? resolvedSearchParams.tab : "overview";
 
-  // Pre-fetch categories on server (slow-changing data, saves 1 client request)
-  const categories = await prisma.expenseCategory.findMany({
-    orderBy: { sortOrder: "asc" },
-    include: { _count: { select: { expenses: true } } },
-  });
+  let initialLandingData = null;
+  if (activeTab === "overview") {
+    const url = new URL("http://localhost/finance");
+    for (const [key, value] of Object.entries(resolvedSearchParams)) {
+      if (typeof value === "string") {
+        url.searchParams.set(key, value);
+      }
+    }
 
-  return <FinancePageClient isAdmin={isAdmin} initialCategories={categories} />;
+    // Pre-fetch dữ liệu first paint cho tab Tổng quan để giảm waterfall client.
+    initialLandingData = await getFinanceLandingData({
+      overviewRange: parsePeriodFromURL(url),
+      pnlRange: resolvePnlRange(
+        typeof resolvedSearchParams.pnlFrom === "string" ? resolvedSearchParams.pnlFrom : null,
+        typeof resolvedSearchParams.pnlTo === "string" ? resolvedSearchParams.pnlTo : null,
+      ),
+    });
+  }
+
+  return (
+    <FinancePageClient
+      isAdmin={isAdmin}
+      initialLandingData={initialLandingData}
+      initialCategories={initialLandingData?.categories}
+    />
+  );
 }
