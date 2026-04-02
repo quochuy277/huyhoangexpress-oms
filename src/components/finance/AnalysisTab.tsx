@@ -406,7 +406,7 @@ export default function AnalysisTab() {
                     <td style={{ padding: 8 }}>{i + 1}</td>
                     <td style={{ padding: 8, fontWeight: 600, color: "#2563eb", cursor: "pointer" }} onClick={() => setDetailRequestCode(o.requestCode)}>{o.requestCode}</td>
                     <td style={{ padding: 8 }}>{o.carrierName}</td>
-                    <td style={{ padding: 8 }}>{o.creatorShopName}</td>
+                    <td style={{ padding: 8 }}>{o.shopName || o.creatorShopName || "â€”"}</td>
                     <td style={{ padding: 8 }}>{o.status}</td>
                     <td style={{ padding: 8, textAlign: "right" }}>{fmtVND(o.totalFee || 0)}</td>
                     <td style={{ padding: 8, textAlign: "right" }}>{fmtVND(o.carrierFee || 0)}</td>

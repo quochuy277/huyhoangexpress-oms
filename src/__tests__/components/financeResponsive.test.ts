@@ -133,6 +133,23 @@ describe("financeResponsive", () => {
     });
   });
 
+  test("prefers shopName over creatorShopName for negative revenue cards", () => {
+    expect(
+      buildNegativeRevenueSummary({
+        requestCode: "REQ02",
+        carrierName: "GHN",
+        shopName: "Shop theo ten",
+        creatorShopName: "Shop tao don",
+        status: "RETURNED",
+        revenue: -220000,
+        codAmount: 300000,
+        regionGroup: "HN",
+      }),
+    ).toMatchObject({
+      shopName: "Shop theo ten",
+    });
+  });
+
   test("builds cashbook transaction summary with signed amount", () => {
     expect(
       buildCashbookTransactionSummary({

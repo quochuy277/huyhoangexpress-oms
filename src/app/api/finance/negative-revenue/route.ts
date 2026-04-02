@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       prisma.order.findMany({
         where: negWhere,
         select: {
-          requestCode: true, carrierName: true, creatorShopName: true, status: true, deliveryStatus: true,
+          requestCode: true, carrierName: true, shopName: true, creatorShopName: true, status: true, deliveryStatus: true,
           totalFee: true, carrierFee: true, revenue: true, codAmount: true, regionGroup: true,
         },
         orderBy: { revenue: "asc" },

@@ -179,6 +179,7 @@ export function buildShopSummary(item: {
 export function buildNegativeRevenueSummary(item: {
   requestCode: string;
   carrierName: string;
+  shopName?: string | null;
   creatorShopName: string;
   status: string;
   revenue: number;
@@ -188,7 +189,7 @@ export function buildNegativeRevenueSummary(item: {
   return {
     title: item.requestCode,
     carrierName: item.carrierName,
-    shopName: item.creatorShopName,
+    shopName: item.shopName || item.creatorShopName || "â€”",
     status: item.status,
     revenueLabel: item.revenue >= 0 ? fmtVND(item.revenue) : `-${fmtVND(item.revenue)}`,
     codLabel: fmtVND(item.codAmount),
