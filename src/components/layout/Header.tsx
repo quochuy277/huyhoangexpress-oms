@@ -8,6 +8,14 @@ import { useRouter } from "next/navigation";
 import { UserProfileDialog } from "@/components/shared/UserProfileDialog";
 import { stripHtml } from "@/lib/sanitize";
 import { useQuery } from "@tanstack/react-query";
+import {
+  AnnouncementPreviewDialog,
+  type AnnouncementPreviewItem,
+} from "@/components/shared/AnnouncementPreviewDialog";
+import {
+  selectHeaderAnnouncementForPreview,
+  type HeaderAnnouncementPreviewItem,
+} from "@/components/layout/headerAnnouncementPreview";
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Quản trị viên",
@@ -31,16 +39,7 @@ interface HeaderProps {
   onMobileMenuToggle?: () => void;
 }
 
-interface AnnouncementPreview {
-  id: string;
-  title: string;
-  content: string;
-  isPinned: boolean;
-  attachmentName: string | null;
-  createdByName: string;
-  createdAt: string;
-  isRead: boolean;
-}
+type AnnouncementPreview = AnnouncementPreviewItem;
 
 export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuToggle }: HeaderProps) {
   const router = useRouter();
@@ -48,6 +47,7 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const [bellOpen, setBellOpen] = useState(false);
   const [bellTab, setBellTab] = useState<"todos" | "announcements">("todos");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [previewAnnouncement, setPreviewAnnouncement] = useState<HeaderAnnouncementPreviewItem | null>(null);
 
   const { data: overdueData } = useQuery({
     queryKey: ["header-overdue-count"],
@@ -83,7 +83,17 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
 
   const handleMarkRead = async (id: string) => {
     await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch(() => { });
-    refetchAnnouncements();
+  };
+
+  const handleAnnouncementSelect = async (announcement: HeaderAnnouncementPreviewItem) => {
+    const nextState = await selectHeaderAnnouncementForPreview({
+      announcement,
+      markRead: handleMarkRead,
+      refetchAnnouncements,
+    });
+
+    setBellOpen(nextState.bellOpen);
+    setPreviewAnnouncement(nextState.previewAnnouncement);
   };
 
   const totalBadge = overdueCount + announcementCount;
@@ -113,6 +123,7 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
           <button
             onClick={() => { setBellOpen(!bellOpen); setMenuOpen(false); }}
             className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label="Mở thông báo"
           >
             <Bell className="w-5 h-5" />
             {totalBadge > 0 && (
@@ -181,9 +192,10 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
                       announcements.map((a) => (
                         <button
                           key={a.id}
-                          onClick={() => { handleMarkRead(a.id); }}
+                          onClick={() => { void handleAnnouncementSelect(a); }}
                           className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-50"
                           style={{ background: a.isRead ? "transparent" : "#fffbeb" }}
+                          aria-label={`Xem thông báo ${a.title}`}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             {a.isPinned && <Pin style={{ width: "10px", height: "10px", color: "#d97706", transform: "rotate(45deg)" }} />}
@@ -287,6 +299,10 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
 
       {/* Profile Dialog */}
       {profileOpen && <UserProfileDialog onClose={() => setProfileOpen(false)} />}
+      <AnnouncementPreviewDialog
+        announcement={previewAnnouncement}
+        onClose={() => setPreviewAnnouncement(null)}
+      />
     </header>
   );
 }
