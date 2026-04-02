@@ -5,9 +5,11 @@ export function useTodoStats() {
   const [stats, setStats] = useState<TodoStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (assigneeId?: string | null) => {
     try {
-      const res = await fetch("/api/todos/stats");
+      const params = new URLSearchParams();
+      if (assigneeId) params.set("assigneeId", assigneeId);
+      const res = await fetch(params.toString() ? `/api/todos/stats?${params}` : "/api/todos/stats");
       const data: TodoStatsResponse = await res.json();
       setStats(data);
     } catch {

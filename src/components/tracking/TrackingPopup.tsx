@@ -4,15 +4,18 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, RefreshCw, Package } from "lucide-react";
 import { TrackingTimeline } from "./TrackingTimeline";
+import { getTrackingPopupLayer } from "./trackingPopupStacking";
 
 interface TrackingPopupProps {
   requestCode: string;
   isOpen: boolean;
   onClose: () => void;
+  baseZIndex?: number;
 }
 
-export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupProps) {
+export function TrackingPopup({ requestCode, isOpen, onClose, baseZIndex }: TrackingPopupProps) {
   const [refreshKey, setRefreshKey] = useState(0);
+  const layer = getTrackingPopupLayer(baseZIndex);
 
   if (!isOpen) return null;
 
@@ -26,7 +29,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
         style={{
           position: "fixed",
           inset: 0,
-          zIndex: 10000,
+          zIndex: layer.overlayZIndex,
           backgroundColor: "rgba(0,0,0,0.5)",
           backdropFilter: "blur(2px)",
         }}
@@ -40,7 +43,7 @@ export function TrackingPopup({ requestCode, isOpen, onClose }: TrackingPopupPro
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          zIndex: 10001,
+          zIndex: layer.shellZIndex,
           background: "#FFFFFF",
           border: "1.5px solid #2563EB",
           borderRadius: "12px",

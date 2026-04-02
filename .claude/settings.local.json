@@ -52,7 +52,12 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(node -e \"const p = require\\(''./package-lock.json''\\); console.log\\(Object.keys\\(p.packages\\).filter\\(k => k !== ''''\\).map\\(k => k.replace\\(''node_modules/'',''''\\)\\).join\\('', ''\\)\\)\")",
+      "Bash(node -e \"const XLSX=require\\(''xlsx''\\); const wb=XLSX.readFile\\(''D:/CODE_APP/fast-excel-7/svexpress-export-20260331-2030.xlsx''\\); const s=wb.Sheets[wb.SheetNames[0]]; const d=XLSX.utils.sheet_to_json\\(s,{defval:''''}\\); console.log\\(''rows:''+d.length\\); const codes=d.map\\(r=>r[''Mã Yêu Cầu'']\\).filter\\(Boolean\\); console.log\\(''codes:''+codes.length+'' unique:''+new Set\\(codes\\).size\\); const stts=d.map\\(r=>r[''STT'']\\); let resets=0; for\\(let i=1;i<stts.length;i++\\){if\\(stts[i]<=stts[i-1]\\)resets++;} console.log\\(''resets:''+resets\\);\")",
+      "Read(//d/CODE_APP/svexpress-automation/**)",
+      "Bash(grep -E \"\\\\.\\(config|json|ts|js|mjs|md\\)$|^-\")",
+      "Bash(wc -l /d/CODE_APP/HuyHoang_OMS/src/**/*.ts /d/CODE_APP/HuyHoang_OMS/src/**/*.tsx)"
     ]
   }
 }

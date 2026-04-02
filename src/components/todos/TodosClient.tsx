@@ -2,10 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Loader2, ListTodo, Columns3 } from "lucide-react";
+
 import { useTodos } from "@/hooks/useTodos";
 import { useTodoStats } from "@/hooks/useTodoStats";
+import { useTodoUsers } from "@/hooks/useTodoUsers";
 import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
 import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
+import { getTodoStatsForSelection, parseTodoScopeSelection, type TodoScopeSelection } from "@/lib/todo-scope";
+import type { TodoItemData, TodoFilters as FiltersType } from "@/types/todo";
+
 import { TodoQuickAdd } from "./TodoQuickAdd";
 import { TodoFilters } from "./TodoFilters";
 import { TodoSummaryCards } from "./TodoSummaryCards";
@@ -14,98 +19,135 @@ import { TodoListView } from "./TodoListView";
 import { TodoKanbanView } from "./TodoKanbanView";
 import { TodoDetailPanel } from "./TodoDetailPanel";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
-import type { TodoItemData, TodoFilters as FiltersType } from "@/types/todo";
 
-export default function TodosClient({ userId, userName, userRole }: { userId: string; userName: string; userRole: string }) {
-  // View & scope
+export default function TodosClient({
+  userId,
+  userName,
+  userRole,
+}: {
+  userId: string;
+  userName: string;
+  userRole: string;
+}) {
   const [view, setView] = useState<"list" | "kanban">(() => {
-    if (typeof window !== "undefined") return (localStorage.getItem("todoView") as "list" | "kanban") || "list";
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("todoView") as "list" | "kanban") || "list";
+    }
     return "list";
   });
-  const [scope, setScope] = useState<"mine" | "all">("mine");
+  const [scopeSelection, setScopeSelection] = useState<TodoScopeSelection>("mine");
   const [hideDone, setHideDone] = useState(false);
   const [page, setPage] = useState(1);
-
-  const [filters, setFilters] = useState<FiltersType>({ search: "", source: "", priority: "", dueFilter: "" });
+  const [filters, setFilters] = useState<FiltersType>({
+    search: "",
+    source: "",
+    priority: "",
+    dueFilter: "",
+  });
   const [searchInput, setSearchInput] = useState("");
-
-  // Hooks
-  const { todos, loading, pagination, fetchTodos, toggleComplete, changeStatus, deleteTodo, quickAdd, reorderKanban, updateLocal } = useTodos();
-  const { stats, fetchStats } = useTodoStats();
-
-  // UI state
   const [selectedTodo, setSelectedTodo] = useState<TodoItemData | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [orderDetailCode, setOrderDetailCode] = useState<string | null>(null);
 
+  const { todos, loading, pagination, fetchTodos, toggleComplete, changeStatus, deleteTodo, quickAdd, reorderKanban, updateLocal } =
+    useTodos();
+  const { stats, fetchStats } = useTodoStats();
+
   const canViewAll = userRole === "ADMIN" || userRole === "MANAGER";
-  const scopeStats = stats ? (scope === "mine" ? stats.mine : stats.all) : null;
-  const deleteTarget = deleteId ? todos.find((t) => t.id === deleteId) : null;
+  const { users } = useTodoUsers(canViewAll);
+  const { scope, assigneeId } = parseTodoScopeSelection(scopeSelection);
+  const scopeStats = getTodoStatsForSelection(stats, scopeSelection);
+  const deleteTarget = deleteId ? todos.find((todo) => todo.id === deleteId) : null;
 
   useEffect(() => {
     setSearchInput(filters.search);
   }, [filters.search]);
 
   const doFetch = useCallback(() => {
-    fetchTodos({ scope, filters, hideDone, page, pageSize: 20 });
-  }, [fetchTodos, scope, filters, hideDone, page]);
+    fetchTodos({ scope, assigneeId, filters, hideDone, page, pageSize: 20 });
+  }, [fetchTodos, scope, assigneeId, filters, hideDone, page]);
 
-  useEffect(() => { doFetch(); }, [doFetch]);
-  useEffect(() => { fetchStats(); }, [fetchStats]);
-
-  // Save view preference
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem("todoView", view);
+    doFetch();
+  }, [doFetch]);
+
+  useEffect(() => {
+    fetchStats(assigneeId);
+  }, [fetchStats, assigneeId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("todoView", view);
+    }
   }, [view]);
 
-  // Keyboard shortcuts
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (e.key === "n" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
+    const handler = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (event.key === "n" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
         setShowNewDialog(true);
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Actions
   const handleQuickAdd = async (title: string, priority: string) => {
     const ok = await quickAdd(title, priority);
-    if (ok) { doFetch(); fetchStats(); }
+    if (ok) {
+      doFetch();
+      fetchStats(assigneeId);
+    }
     return ok;
   };
 
   const handleToggleComplete = async (id: string) => {
     await toggleComplete(id);
-    fetchStats();
+    fetchStats(assigneeId);
   };
 
   const handleStatusChange = async (id: string, status: string) => {
     await changeStatus(id, status);
-    fetchStats();
+    fetchStats(assigneeId);
   };
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId) {
+      return;
+    }
+
     await deleteTodo(deleteId);
-    fetchStats();
+    fetchStats(assigneeId);
     setDeleteId(null);
   };
 
   const handleDragEnd = async (result: any) => {
-    if (!result.destination) return;
-    const statusMap: Record<string, string> = { todo: "TODO", inprogress: "IN_PROGRESS", done: "DONE" };
+    if (!result.destination) {
+      return;
+    }
+
+    const statusMap: Record<string, string> = {
+      todo: "TODO",
+      inprogress: "IN_PROGRESS",
+      done: "DONE",
+    };
     const newStatus = statusMap[result.destination.droppableId];
     await reorderKanban(result.draggableId, newStatus, result.destination.index);
-    fetchStats();
+    fetchStats(assigneeId);
   };
 
-  const handleFilterChange = (f: FiltersType) => {
-    setFilters(f);
+  const handleFilterChange = (nextFilters: FiltersType) => {
+    setFilters(nextFilters);
     setPage(1);
   };
 
@@ -118,44 +160,50 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
   const handleNewDialogClose = () => {
     setShowNewDialog(false);
     doFetch();
-    fetchStats();
+    fetchStats(assigneeId);
   };
 
   const handleUpdateFromDetail = (updated: TodoItemData) => {
     updateLocal(updated);
-    fetchStats();
+    fetchStats(assigneeId);
   };
 
   const handleDeleteFromDetail = () => {
     doFetch();
-    fetchStats();
+    fetchStats(assigneeId);
   };
 
   return (
-    <div className="flex flex-col gap-3 sm:gap-4 h-full">
-      {/* Header */}
-      <div className="flex flex-wrap justify-between items-start gap-2">
+    <div className="flex h-full flex-col gap-3 sm:gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-800 m-0">Công Việc</h1>
-          <p className="text-xs sm:text-[13px] text-gray-500 mt-0.5">Quản lý và theo dõi công việc</p>
+          <h1 className="m-0 text-lg font-bold text-slate-800 sm:text-xl">Công Việc</h1>
+          <p className="mt-0.5 text-xs text-gray-500 sm:text-[13px]">Quản lý và theo dõi công việc</p>
         </div>
-        <div className="flex gap-2 items-center flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           {canViewAll && (
             <select
-              value={scope}
-              onChange={(e) => { setScope(e.target.value as "mine" | "all"); setPage(1); }}
-              className="px-2.5 py-2 border border-gray-300 rounded-lg text-[13px] font-semibold outline-none bg-white cursor-pointer focus:border-blue-400 transition-colors"
+              value={scopeSelection}
+              onChange={(event) => {
+                setScopeSelection(event.target.value as TodoScopeSelection);
+                setPage(1);
+              }}
+              className="cursor-pointer rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-[13px] font-semibold outline-none transition-colors focus:border-blue-400"
             >
               <option value="mine">Của tôi</option>
               <option value="all">Tất cả</option>
+              {users.map((user) => (
+                <option key={user.id} value={`user:${user.id}`}>
+                  {user.name || user.id}
+                </option>
+              ))}
             </select>
           )}
 
-          {/* View toggle */}
-          <div className="flex border-[1.5px] border-gray-200 rounded-lg overflow-hidden">
+          <div className="flex overflow-hidden rounded-lg border-[1.5px] border-gray-200">
             <button
               onClick={() => setView("list")}
-              className={`px-3 sm:px-3 py-2 sm:py-1.5 border-none cursor-pointer text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 ${
                 view === "list" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
               }`}
             >
@@ -163,7 +211,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
             </button>
             <button
               onClick={() => setView("kanban")}
-              className={`px-3 sm:px-3 py-2 sm:py-1.5 border-none border-l border-gray-200 cursor-pointer text-xs font-semibold flex items-center gap-1 transition-colors ${
+              className={`flex items-center gap-1 border-l border-gray-200 px-3 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 ${
                 view === "kanban" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
               }`}
             >
@@ -173,34 +221,30 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
 
           <button
             onClick={() => setShowNewDialog(true)}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg border-none bg-blue-600 text-white text-[13px] font-semibold cursor-pointer hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700 sm:px-4"
           >
             <Plus size={15} /> <span className="hidden sm:inline">Thêm mới</span>
           </button>
         </div>
       </div>
 
-      {/* Reminder banner (replaces popup) */}
       <TodoReminderBanner
         onViewOverdue={() => {
-          setFilters((f) => ({ ...f, dueFilter: "overdue" }));
+          setFilters((current) => ({ ...current, dueFilter: "overdue" }));
           setPage(1);
         }}
       />
 
-      {/* Quick add */}
       <TodoQuickAdd onAdd={handleQuickAdd} />
 
-      {/* Summary cards */}
       <TodoSummaryCards
         stats={scopeStats}
         onClickOverdue={() => {
-          setFilters((f) => ({ ...f, dueFilter: "overdue" }));
+          setFilters((current) => ({ ...current, dueFilter: "overdue" }));
           setPage(1);
         }}
       />
 
-      {/* Filters */}
       <TodoFilters
         filters={filters}
         searchInput={searchInput}
@@ -215,8 +259,7 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
         onReset={resetFilters}
       />
 
-      {/* Content area */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         {loading ? (
           <div className="flex justify-center py-16 text-gray-500">
             <Loader2 className="animate-spin" size={24} />
@@ -233,15 +276,10 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
             onPageChange={setPage}
           />
         ) : (
-          <TodoKanbanView
-            todos={todos}
-            onDragEnd={handleDragEnd}
-            onSelect={setSelectedTodo}
-          />
+          <TodoKanbanView todos={todos} onDragEnd={handleDragEnd} onSelect={setSelectedTodo} />
         )}
       </div>
 
-      {/* Detail panel */}
       {selectedTodo && (
         <TodoDetailPanel
           todo={selectedTodo}
@@ -254,7 +292,6 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
         />
       )}
 
-      {/* Delete confirmation from list */}
       {deleteId && deleteTarget && (
         <DeleteConfirmDialog
           title={deleteTarget.title}
@@ -263,15 +300,13 @@ export default function TodosClient({ userId, userName, userRole }: { userId: st
         />
       )}
 
-      {/* Order detail */}
       <OrderDetailDialog
         requestCode={orderDetailCode}
-        open={!!orderDetailCode}
+        open={Boolean(orderDetailCode)}
         onClose={() => setOrderDetailCode(null)}
         userRole={userRole}
       />
 
-      {/* New Todo Dialog */}
       <AddTodoDialog
         open={showNewDialog}
         onClose={handleNewDialogClose}

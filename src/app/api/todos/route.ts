@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveTodoAssigneeFilter } from "@/lib/todo-scope";
 
 // GET — List todos with filters
 export async function GET(req: NextRequest) {
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
   const source = url.searchParams.get("source") || "";
   const dueFilter = url.searchParams.get("dueFilter") || "";
   const search = url.searchParams.get("search") || "";
+  const assigneeId = url.searchParams.get("assigneeId") || "";
   const page = parseInt(url.searchParams.get("page") || "1");
   const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
   const hideDone = url.searchParams.get("hideDone") === "true";
@@ -21,7 +23,8 @@ export async function GET(req: NextRequest) {
   const where: any = {};
 
   // Scope
-  if (scope === "mine") where.assigneeId = session.user.id;
+  const effectiveAssigneeId = resolveTodoAssigneeFilter(scope, session.user.id, assigneeId);
+  if (effectiveAssigneeId) where.assigneeId = effectiveAssigneeId;
 
   // Status
   if (status) where.status = status;

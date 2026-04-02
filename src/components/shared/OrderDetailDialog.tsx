@@ -168,6 +168,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
 
   const ORDER_DIALOG_Z_INDEX = baseZIndex;
   const CLAIM_DRAWER_Z_INDEX = baseZIndex + 20;
+  const TRACKING_POPUP_Z_INDEX = baseZIndex + 40;
   const isStaffOrViewer = userRole === "STAFF" || userRole === "VIEWER";
 
   const fetchOrder = useCallback(async () => {
@@ -684,12 +685,14 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         requestCode={requestCode}
         isOpen={showTracking}
         onClose={() => setShowTracking(false)}
+        baseZIndex={TRACKING_POPUP_Z_INDEX}
       />
 
       <TrackingPopup
         requestCode={claimTrackingCode || ""}
         isOpen={Boolean(claimTrackingCode)}
         onClose={() => setClaimTrackingCode(null)}
+        baseZIndex={TRACKING_POPUP_Z_INDEX}
       />
 
       <ConfirmDialog

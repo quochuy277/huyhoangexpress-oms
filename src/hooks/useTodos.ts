@@ -3,6 +3,7 @@ import type { TodoItemData, TodoPagination, TodoFilters } from "@/types/todo";
 
 interface UseTodosOptions {
   scope: "mine" | "all";
+  assigneeId?: string | null;
   filters: TodoFilters;
   hideDone: boolean;
   page: number;
@@ -28,6 +29,7 @@ export function useTodos() {
         pageSize: String(opts.pageSize),
         hideDone: String(opts.hideDone),
       });
+      if (opts.assigneeId) params.set("assigneeId", opts.assigneeId);
       if (opts.filters.search) params.set("search", opts.filters.search);
       if (opts.filters.source) params.set("source", opts.filters.source);
       if (opts.filters.priority) params.set("priority", opts.filters.priority);

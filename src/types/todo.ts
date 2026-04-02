@@ -64,6 +64,7 @@ export interface TodoStats {
 export interface TodoStatsResponse {
   mine: TodoStats;
   all: TodoStats;
+  selected?: TodoStats | null;
 }
 
 export interface TodoReminder {
