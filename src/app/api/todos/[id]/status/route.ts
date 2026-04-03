@@ -1,22 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  readTodoVersion,
+  todoConflictResponse,
+  todoVersionRequiredResponse,
+} from "@/lib/todo-optimistic-lock";
+import { requireTodoAccess } from "@/lib/todo-permissions";
 
-// PATCH — Quick status change
+// PATCH - Quick status change
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
+  }
 
   const { id } = await params;
-  const { status } = await req.json();
+  const access = await requireTodoAccess(session.user, id);
+  if (access.error) return access.error;
+
+  const { status, version } = await req.json();
+  const todoVersion = readTodoVersion(version);
+  if (todoVersion === null) {
+    return todoVersionRequiredResponse();
+  }
 
   const validStatuses = ["TODO", "IN_PROGRESS", "DONE"];
-  if (!validStatuses.includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  if (!validStatuses.includes(status)) {
+    return NextResponse.json(
+      { error: "Tr\u1ea1ng th\u00e1i kh\u00f4ng h\u1ee3p l\u1ec7" },
+      { status: 400 },
+    );
+  }
 
-  const data: any = { status };
-  if (status === "DONE") data.completedAt = new Date();
-  else data.completedAt = null;
+  const updated = await prisma.todoItem.updateMany({
+    where: { id, version: todoVersion },
+    data: {
+      status,
+      completedAt: status === "DONE" ? new Date() : null,
+      version: { increment: 1 },
+    },
+  });
 
-  const todo = await prisma.todoItem.update({ where: { id }, data });
+  if (updated.count === 0) {
+    return todoConflictResponse();
+  }
+
+  const todo = await prisma.todoItem.findUnique({ where: { id } });
   return NextResponse.json(todo);
 }

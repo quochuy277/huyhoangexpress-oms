@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canViewAllTodos } from "@/lib/todo-permissions";
 import { resolveTodoAssigneeFilter } from "@/lib/todo-scope";
 
-// GET — List todos with filters
+// GET - List todos with filters
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
+  }
 
   const url = new URL(req.url);
   const scope = url.searchParams.get("scope") || "mine";
@@ -16,27 +20,22 @@ export async function GET(req: NextRequest) {
   const dueFilter = url.searchParams.get("dueFilter") || "";
   const search = url.searchParams.get("search") || "";
   const assigneeId = url.searchParams.get("assigneeId") || "";
-  const page = parseInt(url.searchParams.get("page") || "1");
-  const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const pageSize = parseInt(url.searchParams.get("pageSize") || "20", 10);
   const hideDone = url.searchParams.get("hideDone") === "true";
+  const canViewAll = canViewAllTodos(session.user);
 
-  const where: any = {};
+  const where: Record<string, unknown> = {};
 
-  // Scope
-  const effectiveAssigneeId = resolveTodoAssigneeFilter(scope, session.user.id, assigneeId);
+  const effectiveAssigneeId = resolveTodoAssigneeFilter(scope, session.user.id, assigneeId, canViewAll);
   if (effectiveAssigneeId) where.assigneeId = effectiveAssigneeId;
 
-  // Status
   if (status) where.status = status;
   else if (hideDone) where.status = { not: "DONE" };
 
-  // Priority
   if (priority) where.priority = priority;
-
-  // Source
   if (source) where.source = source;
 
-  // Search
   if (search) {
     where.OR = [
       { title: { contains: search, mode: "insensitive" } },
@@ -45,7 +44,6 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  // Due date filter
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 86400000);
@@ -71,7 +69,9 @@ export async function GET(req: NextRequest) {
       include: {
         assignee: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
-        linkedOrder: { select: { id: true, requestCode: true, shopName: true, status: true, codAmount: true } },
+        linkedOrder: {
+          select: { id: true, requestCode: true, shopName: true, status: true, codAmount: true },
+        },
         _count: { select: { comments: true } },
       },
       orderBy: [
@@ -92,18 +92,26 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST — Create todo
+// POST - Create todo
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
+  }
 
   const body = await req.json();
   const { title, description, priority, dueDate, linkedOrderId, source, assigneeId } = body;
 
-  if (!title?.trim()) return NextResponse.json({ error: "Tiêu đề không được để trống" }, { status: 400 });
+  if (!title?.trim()) {
+    return NextResponse.json(
+      { error: "Ti\u00eau \u0111\u1ec1 kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ec3 tr\u1ed1ng" },
+      { status: 400 },
+    );
+  }
 
   const validPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-  const validSources = ["MANUAL", "FROM_DELAYED", "FROM_RETURNS", "FROM_CLAIMS", "FROM_ORDERS"];
+  const validSources = ["MANUAL", "FROM_DELAYED", "FROM_RETURNS", "FROM_CLAIMS", "FROM_ORDERS", "FROM_CRM"];
+  const canAssignOthers = canViewAllTodos(session.user);
 
   const todo = await prisma.todoItem.create({
     data: {
@@ -114,7 +122,7 @@ export async function POST(req: NextRequest) {
       status: "TODO",
       source: validSources.includes(source) ? source : "MANUAL",
       linkedOrderId: linkedOrderId || null,
-      assigneeId: assigneeId || session.user.id,
+      assigneeId: canAssignOthers && assigneeId ? assigneeId : session.user.id,
       createdById: session.user.id,
     },
     include: {

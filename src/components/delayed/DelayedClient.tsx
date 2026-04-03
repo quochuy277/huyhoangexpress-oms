@@ -1,14 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, PackageX } from "lucide-react";
-import type { DelayedFiltersState, DelayedResponse } from "@/types/delayed";
+import { AlertTriangle, ChevronLeft, ChevronRight, PackageX } from "lucide-react";
+
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
 import { DelayedStatsCards } from "@/components/delayed/DelayedStatsCards";
+import type { DelayedFiltersState, DelayedResponse } from "@/types/delayed";
 
 const DelayDistributionChart = dynamic(
   () =>
@@ -167,13 +168,27 @@ export function DelayedClient({ userRole }: { userRole: string }) {
         <div>
           <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-800 sm:text-2xl lg:text-3xl">
             <PackageX className="h-6 w-6 text-amber-500 sm:h-8 sm:w-8" />
-            Chăm Sóc Đơn Hoãn
+            Chăm Sóc Đơn Hoàn
           </h2>
           <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-            Theo dõi đơn hoãn theo mức độ rủi ro, lý do hoãn và thao tác xử lý trên cả desktop lẫn mobile.
+            Theo dõi đơn hoàn theo mức độ rủi ro, lý do hoãn và thao tác xử lý trên cả
+            desktop lẫn mobile.
           </p>
         </div>
       </div>
+
+      {delayedData?.meta.warning && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="space-y-1">
+            <p className="font-semibold">{delayedData.meta.warning}</p>
+            <p className="text-amber-800">
+              Hệ thống đang phân tích tối đa {delayedData.meta.scanLimit.toLocaleString("vi-VN")} đơn
+              gần nhất để tránh timeout. Hãy thêm bộ lọc để xem kết quả đầy đủ và chính xác hơn.
+            </p>
+          </div>
+        </div>
+      )}
 
       <DelayedStatsCards summary={delayedData?.summary} />
 

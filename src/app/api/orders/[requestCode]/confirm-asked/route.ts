@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,10 +13,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const permissions = session.user.permissions;
-    if (!permissions?.canConfirmReturn) {
-      return NextResponse.json({ error: "Bạn không có quyền thao tác" }, { status: 403 });
-    }
+    const denied = requirePermission(session.user, "canConfirmReturn", "Bạn không có quyền thao tác");
+    if (denied) return denied;
 
     const { requestCode } = await params;
     const { value } = await req.json();

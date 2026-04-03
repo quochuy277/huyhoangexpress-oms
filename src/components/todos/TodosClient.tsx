@@ -1,24 +1,36 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Loader2, ListTodo, Columns3 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Columns3, ListTodo, Loader2, Plus } from "lucide-react";
 
+import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
+import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTodoStats } from "@/hooks/useTodoStats";
 import { useTodoUsers } from "@/hooks/useTodoUsers";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
-import { getTodoStatsForSelection, parseTodoScopeSelection, type TodoScopeSelection } from "@/lib/todo-scope";
-import type { TodoItemData, TodoFilters as FiltersType } from "@/types/todo";
+import {
+  getTodoStatsForSelection,
+  parseTodoScopeSelection,
+  type TodoScopeSelection,
+} from "@/lib/todo-scope";
+import type { TodoFilters as FiltersType, TodoItemData } from "@/types/todo";
 
-import { TodoQuickAdd } from "./TodoQuickAdd";
-import { TodoFilters } from "./TodoFilters";
-import { TodoSummaryCards } from "./TodoSummaryCards";
-import { TodoReminderBanner } from "./TodoReminderBanner";
-import { TodoListView } from "./TodoListView";
-import { TodoKanbanView } from "./TodoKanbanView";
-import { TodoDetailPanel } from "./TodoDetailPanel";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { TodoDetailPanel } from "./TodoDetailPanel";
+import { TodoFilters } from "./TodoFilters";
+import { TodoKanbanView } from "./TodoKanbanView";
+import { TodoListView } from "./TodoListView";
+import { TodoQuickAdd } from "./TodoQuickAdd";
+import { TodoReminderBanner } from "./TodoReminderBanner";
+import { TodoSummaryCards } from "./TodoSummaryCards";
+
+const TEXT = {
+  title: "C\u00f4ng vi\u1ec7c",
+  subtitle: "Qu\u1ea3n l\u00fd v\u00e0 theo d\u00f5i c\u00f4ng vi\u1ec7c",
+  mine: "C\u1ee7a t\u00f4i",
+  all: "T\u1ea5t c\u1ea3",
+  create: "Th\u00eam m\u1edbi",
+} as const;
 
 export default function TodosClient({
   userId,
@@ -50,8 +62,18 @@ export default function TodosClient({
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [orderDetailCode, setOrderDetailCode] = useState<string | null>(null);
 
-  const { todos, loading, pagination, fetchTodos, toggleComplete, changeStatus, deleteTodo, quickAdd, reorderKanban, updateLocal } =
-    useTodos();
+  const {
+    todos,
+    loading,
+    pagination,
+    fetchTodos,
+    toggleComplete,
+    changeStatus,
+    deleteTodo,
+    quickAdd,
+    reorderKanban,
+    updateLocal,
+  } = useTodos();
   const { stats, fetchStats } = useTodoStats();
 
   const canViewAll = userRole === "ADMIN" || userRole === "MANAGER";
@@ -66,15 +88,15 @@ export default function TodosClient({
 
   const doFetch = useCallback(() => {
     fetchTodos({ scope, assigneeId, filters, hideDone, page, pageSize: 20 });
-  }, [fetchTodos, scope, assigneeId, filters, hideDone, page]);
+  }, [assigneeId, fetchTodos, filters, hideDone, page, scope]);
 
   useEffect(() => {
-    doFetch();
+    void doFetch();
   }, [doFetch]);
 
   useEffect(() => {
-    fetchStats(assigneeId);
-  }, [fetchStats, assigneeId]);
+    void fetchStats(assigneeId);
+  }, [assigneeId, fetchStats]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -105,45 +127,43 @@ export default function TodosClient({
   const handleQuickAdd = async (title: string, priority: string) => {
     const ok = await quickAdd(title, priority);
     if (ok) {
-      doFetch();
-      fetchStats(assigneeId);
+      void doFetch();
+      void fetchStats(assigneeId);
     }
     return ok;
   };
 
-  const handleToggleComplete = async (id: string) => {
-    await toggleComplete(id);
-    fetchStats(assigneeId);
+  const handleToggleComplete = async (todo: TodoItemData) => {
+    await toggleComplete(todo);
+    void fetchStats(assigneeId);
   };
 
-  const handleStatusChange = async (id: string, status: string) => {
-    await changeStatus(id, status);
-    fetchStats(assigneeId);
+  const handleStatusChange = async (todo: TodoItemData, status: string) => {
+    await changeStatus(todo, status);
+    void fetchStats(assigneeId);
   };
 
   const handleDelete = async () => {
-    if (!deleteId) {
-      return;
-    }
-
+    if (!deleteId) return;
     await deleteTodo(deleteId);
-    fetchStats(assigneeId);
+    void fetchStats(assigneeId);
     setDeleteId(null);
   };
 
   const handleDragEnd = async (result: any) => {
-    if (!result.destination) {
-      return;
-    }
+    if (!result.destination) return;
 
     const statusMap: Record<string, string> = {
       todo: "TODO",
       inprogress: "IN_PROGRESS",
       done: "DONE",
     };
-    const newStatus = statusMap[result.destination.droppableId];
-    await reorderKanban(result.draggableId, newStatus, result.destination.index);
-    fetchStats(assigneeId);
+    const nextStatus = statusMap[result.destination.droppableId];
+    const draggedTodo = todos.find((todo) => todo.id === result.draggableId);
+    if (!draggedTodo || !nextStatus) return;
+
+    await reorderKanban(draggedTodo, nextStatus, result.destination.index);
+    void fetchStats(assigneeId);
   };
 
   const handleFilterChange = (nextFilters: FiltersType) => {
@@ -159,27 +179,28 @@ export default function TodosClient({
 
   const handleNewDialogClose = () => {
     setShowNewDialog(false);
-    doFetch();
-    fetchStats(assigneeId);
+    void doFetch();
+    void fetchStats(assigneeId);
   };
 
   const handleUpdateFromDetail = (updated: TodoItemData) => {
     updateLocal(updated);
-    fetchStats(assigneeId);
+    void fetchStats(assigneeId);
   };
 
   const handleDeleteFromDetail = () => {
-    doFetch();
-    fetchStats(assigneeId);
+    void doFetch();
+    void fetchStats(assigneeId);
   };
 
   return (
     <div className="flex h-full flex-col gap-3 sm:gap-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="m-0 text-lg font-bold text-slate-800 sm:text-xl">Công Việc</h1>
-          <p className="mt-0.5 text-xs text-gray-500 sm:text-[13px]">Quản lý và theo dõi công việc</p>
+          <h1 className="m-0 text-lg font-bold text-slate-800 sm:text-xl">{TEXT.title}</h1>
+          <p className="mt-0.5 text-xs text-gray-500 sm:text-[13px]">{TEXT.subtitle}</p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
           {canViewAll && (
             <select
@@ -190,8 +211,8 @@ export default function TodosClient({
               }}
               className="cursor-pointer rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-[13px] font-semibold outline-none transition-colors focus:border-blue-400"
             >
-              <option value="mine">Của tôi</option>
-              <option value="all">Tất cả</option>
+              <option value="mine">{TEXT.mine}</option>
+              <option value="all">{TEXT.all}</option>
               {users.map((user) => (
                 <option key={user.id} value={`user:${user.id}`}>
                   {user.name || user.id}
@@ -223,7 +244,7 @@ export default function TodosClient({
             onClick={() => setShowNewDialog(true)}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700 sm:px-4"
           >
-            <Plus size={15} /> <span className="hidden sm:inline">Thêm mới</span>
+            <Plus size={15} /> <span className="hidden sm:inline">{TEXT.create}</span>
           </button>
         </div>
       </div>

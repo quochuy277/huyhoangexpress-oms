@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import {
   applyDelayedFilters,
@@ -129,14 +130,14 @@ describe("delayed-data", () => {
         makeOrder({
           id: "today-order",
           requestCode: "REQ-TODAY",
-          delays: [{ time: "09:30", date: "22/03/2026", reason: "KhÃ´ng liÃªn láº¡c Ä‘Æ°á»£c KH" }],
-          uniqueReasons: ["KhÃ´ng liÃªn láº¡c Ä‘Æ°á»£c KH"],
+          delays: [{ time: "09:30", date: "22/03/2026", reason: "Không liên lạc được KH" }],
+          uniqueReasons: ["Không liên lạc được KH"],
         }),
         makeOrder({
           id: "old-order",
           requestCode: "REQ-OLD",
-          delays: [{ time: "14:00", date: "21/03/2026", reason: "KH háº¹n láº¡i ngÃ y giao" }],
-          uniqueReasons: ["KH háº¹n láº¡i ngÃ y giao"],
+          delays: [{ time: "14:00", date: "21/03/2026", reason: "KH hẹn lại ngày giao" }],
+          uniqueReasons: ["KH hẹn lại ngày giao"],
         }),
       ],
       {
@@ -166,9 +167,11 @@ describe("delayed-data", () => {
   });
 
   it("sorts the filtered set before pagination", () => {
-    expect(
-      sortDelayedOrders(orders, "codAmount", "desc").map((order) => order.requestCode),
-    ).toEqual(["REQ-003", "REQ-002", "REQ-001"]);
+    expect(sortDelayedOrders(orders, "codAmount", "desc").map((order) => order.requestCode)).toEqual([
+      "REQ-003",
+      "REQ-002",
+      "REQ-001",
+    ]);
   });
 
   it("builds export rows from the full filtered dataset", () => {

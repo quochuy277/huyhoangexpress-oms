@@ -36,15 +36,51 @@ describe("finance negative revenue route", () => {
     vi.clearAllMocks();
   });
 
-  it("returns shopName in negative revenue orders for analysis tab", async () => {
+  it("skips loading detail rows when the request does not ask for pagination", async () => {
+    vi.mocked(auth).mockResolvedValue(makeSession() as never);
+    vi.mocked(prisma.order.aggregate).mockResolvedValue({
+      _sum: { revenue: -120000 },
+      _count: 3,
+    } as never);
+    vi.mocked(prisma.order.groupBy)
+      .mockResolvedValueOnce([
+        { carrierName: "GHN", _count: 2 },
+      ] as never)
+      .mockResolvedValueOnce([
+        { deliveryStatus: "RETURNED_FULL", _count: 2 },
+        { deliveryStatus: "DELIVERED", _count: 1 },
+      ] as never);
+
+    const { GET } = await import("@/app/api/finance/negative-revenue/route");
+    const response = await GET(
+      new NextRequest("http://localhost/api/finance/negative-revenue?period=month"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.summary).toMatchObject({
+      totalOrders: 3,
+      totalLoss: -120000,
+      topCarrier: "GHN",
+      topReason: "Đơn hoàn",
+    });
+    expect(body.orders).toEqual([]);
+    expect(prisma.order.findMany).not.toHaveBeenCalled();
+  }, 10000);
+
+  it("returns shopName in paginated negative revenue orders for analysis tab", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession() as never);
     vi.mocked(prisma.order.aggregate).mockResolvedValue({
       _sum: { revenue: -120000 },
       _count: 1,
     } as never);
-    vi.mocked(prisma.order.groupBy).mockResolvedValue([
-      { carrierName: "GHN", _count: 1 },
-    ] as never);
+    vi.mocked(prisma.order.groupBy)
+      .mockResolvedValueOnce([
+        { carrierName: "GHN", _count: 1 },
+      ] as never)
+      .mockResolvedValueOnce([
+        { deliveryStatus: "RETURNED_FULL", _count: 1 },
+      ] as never);
     vi.mocked(prisma.order.findMany).mockResolvedValue([
       {
         requestCode: "REQ-001",
@@ -63,7 +99,7 @@ describe("finance negative revenue route", () => {
 
     const { GET } = await import("@/app/api/finance/negative-revenue/route");
     const response = await GET(
-      new NextRequest("http://localhost/api/finance/negative-revenue?period=month"),
+      new NextRequest("http://localhost/api/finance/negative-revenue?period=month&page=1&pageSize=20"),
     );
     const body = await response.json();
 
@@ -77,6 +113,8 @@ describe("finance negative revenue route", () => {
     ]);
     expect(prisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        skip: 0,
+        take: 20,
         select: expect.objectContaining({
           shopName: true,
           creatorShopName: true,

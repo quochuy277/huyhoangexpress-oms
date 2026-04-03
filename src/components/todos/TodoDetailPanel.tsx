@@ -1,38 +1,53 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  X, Loader2, Check, Pencil, Trash2, RotateCcw, Send, ExternalLink,
-} from "lucide-react";
+import { Check, ExternalLink, Loader2, Pencil, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { format } from "date-fns";
-import { PRIORITY_CONFIG, STATUS_CONFIG, SOURCE_CONFIG } from "./constants";
-import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
-import { useTodoUsers } from "@/hooks/useTodoUsers";
-import type { TodoItemData, TodoComment } from "@/types/todo";
+
 import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
+import { useTodoUsers } from "@/hooks/useTodoUsers";
+import type { TodoComment, TodoItemData } from "@/types/todo";
+
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { PRIORITY_CONFIG, SOURCE_CONFIG, STATUS_CONFIG } from "./constants";
 
 interface TodoDetailPanelProps {
   todo: TodoItemData;
   onClose: () => void;
-  onUpdate: (t: TodoItemData) => void;
+  onUpdate: (todo: TodoItemData) => void;
   onDelete: (id: string) => void;
   userId: string;
   userName: string;
   userRole: string;
 }
 
-function toDatetimeLocalValue(d: string | null) {
-  if (!d) return "";
-  return format(new Date(d), "yyyy-MM-dd'T'HH:mm");
+type TodoDetailState = TodoItemData & {
+  comments?: TodoComment[];
+};
+
+function toDatetimeLocalValue(value: string | null) {
+  if (!value) return "";
+  return format(new Date(value), "yyyy-MM-dd'T'HH:mm");
 }
 
-export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, userName, userRole }: TodoDetailPanelProps) {
+async function readJsonSafely(response: Response) {
+  return response.json().catch(() => null);
+}
+
+export function TodoDetailPanel({
+  todo,
+  onClose,
+  onUpdate,
+  onDelete,
+  userId,
+  userName,
+  userRole,
+}: TodoDetailPanelProps) {
   const canEditAssignee = userRole === "ADMIN" || userRole === "MANAGER";
   const { users } = useTodoUsers(canEditAssignee);
 
-  // Use passed todo data immediately, then enrich with API data (comments)
-  const [detail, setDetail] = useState<TodoItemData & { comments?: TodoComment[] }>({ ...todo, comments: [] });
+  const [detail, setDetail] = useState<TodoDetailState>({ ...todo, comments: [] });
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
@@ -40,46 +55,77 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
   const [titleInput, setTitleInput] = useState(todo.title);
   const [showDelete, setShowDelete] = useState(false);
   const [orderDetailCode, setOrderDetailCode] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // Fetch full detail (for comments & linked order)
+  const refreshDetail = async (showConflictNotice = false) => {
+    const response = await fetch(`/api/todos/${todo.id}`);
+    if (!response.ok) {
+      return;
+    }
+
+    const latest = await response.json();
+    setDetail(latest);
+    setTitleInput(latest.title);
+    onUpdate(latest);
+    if (showConflictNotice) {
+      setNotice("Công việc vừa được người khác cập nhật. Mình đã tải lại dữ liệu mới nhất.");
+    }
+  };
+
   useEffect(() => {
     setLoading(true);
+    setNotice(null);
     setDetail({ ...todo, comments: [] });
     setTitleInput(todo.title);
-    fetch(`/api/todos/${todo.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setDetail(d);
-        setTitleInput(d.title);
+
+    void fetch(`/api/todos/${todo.id}`)
+      .then((response) => response.json())
+      .then((data) => {
+        setDetail(data);
+        setTitleInput(data.title);
       })
       .finally(() => setLoading(false));
   }, [todo.id]);
 
   const saveField = async (field: string, value: unknown) => {
-    const res = await fetch(`/api/todos/${todo.id}`, {
+    setNotice(null);
+    const response = await fetch(`/api/todos/${todo.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
+      body: JSON.stringify({ [field]: value, version: detail.version }),
     });
-    if (res.ok) {
-      const updated = await res.json();
+
+    if (response.ok) {
+      const updated = await response.json();
       setDetail(updated);
       onUpdate(updated);
+      return;
     }
+
+    const payload = await readJsonSafely(response);
+    if (response.status === 409) {
+      await refreshDetail(true);
+      return;
+    }
+
+    setNotice(payload?.error || "Không thể cập nhật công việc. Vui lòng thử lại.");
   };
 
   const addComment = async () => {
     if (!comment.trim()) return;
+
     setSending(true);
+    setNotice(null);
     try {
-      const res = await fetch(`/api/todos/${todo.id}/comments`, {
+      const response = await fetch(`/api/todos/${todo.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: comment }),
       });
-      if (res.ok) {
-        const c: TodoComment = await res.json();
-        setDetail((d) => ({ ...d, comments: [c, ...(d.comments || [])] }));
+
+      if (response.ok) {
+        const newComment: TodoComment = await response.json();
+        setDetail((current) => ({ ...current, comments: [newComment, ...(current.comments || [])] }));
         setComment("");
       }
     } finally {
@@ -88,12 +134,27 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
   };
 
   const handleComplete = async () => {
-    const res = await fetch(`/api/todos/${todo.id}/complete`, { method: "PATCH" });
-    if (res.ok) {
-      const updated = await res.json();
-      setDetail((d) => ({ ...d, ...updated }));
+    setNotice(null);
+    const response = await fetch(`/api/todos/${todo.id}/complete`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: detail.version }),
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      setDetail((current) => ({ ...current, ...updated }));
       onUpdate({ ...detail, ...updated });
+      return;
     }
+
+    if (response.status === 409) {
+      await refreshDetail(true);
+      return;
+    }
+
+    const payload = await readJsonSafely(response);
+    setNotice(payload?.error || "Không thể cập nhật trạng thái công việc.");
   };
 
   const handleDelete = async () => {
@@ -102,199 +163,245 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
     onClose();
   };
 
-  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
   return createPortal(
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-[10050] bg-black/40" onClick={onClose} />
 
-      {/* Panel */}
-      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] z-[10051] bg-white shadow-[-4px_0_20px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden animate-[slideInRight_0.2s_ease-out]">
-        {/* Header */}
-        <div className="flex justify-between items-center px-5 py-4 border-b border-gray-200 shrink-0">
+      <div className="fixed right-0 top-0 bottom-0 z-[10051] flex w-full flex-col overflow-hidden bg-white shadow-[-4px_0_20px_rgba(0,0,0,0.1)] animate-[slideInRight_0.2s_ease-out] sm:w-[480px]">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4">
           <div className="text-sm font-bold text-slate-800">Chi tiết công việc</div>
-          <button onClick={onClose} className="bg-transparent border-none cursor-pointer text-gray-500 hover:text-gray-800 transition-colors">
+          <button
+            onClick={onClose}
+            className="cursor-pointer border-none bg-transparent text-gray-500 transition-colors hover:text-gray-800"
+          >
             <X size={18} />
           </button>
         </div>
 
-        {/* Content */}
         {loading && !detail.comments?.length ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <Loader2 className="animate-spin text-gray-500" size={24} />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto px-5 py-5 space-y-5">
-            {/* Title */}
+          <div className="flex-1 space-y-5 overflow-auto px-5 py-5">
+            {notice && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                {notice}
+              </div>
+            )}
+
             {editTitle ? (
               <div className="flex gap-2">
                 <input
                   value={titleInput}
-                  onChange={(e) => setTitleInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { saveField("title", titleInput); setEditTitle(false); } }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-base font-bold outline-none focus:border-blue-400"
+                  onChange={(event) => setTitleInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void saveField("title", titleInput);
+                      setEditTitle(false);
+                    }
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base font-bold outline-none focus:border-blue-400"
                   autoFocus
                 />
-                <button onClick={() => { saveField("title", titleInput); setEditTitle(false); }} className="px-3 py-2 rounded-lg border border-gray-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">
+                <button
+                  onClick={() => {
+                    void saveField("title", titleInput);
+                    setEditTitle(false);
+                  }}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-blue-600 transition-colors hover:bg-blue-50"
+                >
                   <Check size={14} />
                 </button>
-                <button onClick={() => setEditTitle(false)} className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 bg-white hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={() => setEditTitle(false)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-500 transition-colors hover:bg-gray-50"
+                >
                   <X size={14} />
                 </button>
               </div>
             ) : (
               <div
                 onClick={() => setEditTitle(true)}
-                className={`text-base font-bold text-slate-800 cursor-pointer flex items-center gap-1.5 group ${
+                className={`group flex cursor-pointer items-center gap-1.5 text-base font-bold text-slate-800 ${
                   detail.status === "DONE" ? "line-through opacity-50" : ""
                 }`}
               >
                 {detail.title}
-                <Pencil size={12} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                <Pencil size={12} className="opacity-0 transition-opacity group-hover:opacity-40" />
               </div>
             )}
 
-            {/* Badges */}
             <div className="flex flex-wrap gap-2">
-              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md ${STATUS_CONFIG[detail.status]?.twBg || ""}`}>
+              <span
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${STATUS_CONFIG[detail.status]?.twBg || ""}`}
+              >
                 {STATUS_CONFIG[detail.status]?.label}
               </span>
-              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md ${PRIORITY_CONFIG[detail.priority]?.twBg || ""}`}>
+              <span
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${PRIORITY_CONFIG[detail.priority]?.twBg || ""}`}
+              >
                 {PRIORITY_CONFIG[detail.priority]?.label}
               </span>
               {detail.source !== "MANUAL" && (
-                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md ${SOURCE_CONFIG[detail.source]?.twBg || ""}`}>
+                <span
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${SOURCE_CONFIG[detail.source]?.twBg || ""}`}
+                >
                   {SOURCE_CONFIG[detail.source]?.label}
                 </span>
               )}
             </div>
 
-            {/* Editable fields */}
             <div className="space-y-3">
-              {/* Description */}
               <div>
-                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Mô tả</label>
+                <label className="mb-1 block text-[11px] font-semibold text-gray-500">Mô tả</label>
                 <textarea
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none resize-y focus:border-blue-400 transition-colors"
+                  className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400"
                   value={detail.description || ""}
-                  onChange={(e) => setDetail((d) => ({ ...d, description: e.target.value }))}
-                  onBlur={(e) => saveField("description", e.target.value)}
+                  onChange={(event) => setDetail((current) => ({ ...current, description: event.target.value }))}
+                  onBlur={(event) => void saveField("description", event.target.value)}
                   placeholder="Thêm mô tả..."
                 />
               </div>
 
-              {/* Grid: priority, status, due, assignee */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 block mb-1">Mức ưu tiên</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-gray-500">Mức ưu tiên</label>
                   <select
                     value={detail.priority}
-                    onChange={(e) => saveField("priority", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none cursor-pointer focus:border-blue-400 transition-colors"
+                    onChange={(event) => void saveField("priority", event.target.value)}
+                    className="w-full cursor-pointer rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400"
                   >
-                    {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
+                    {Object.entries(PRIORITY_CONFIG).map(([key, value]) => (
+                      <option key={key} value={key}>
+                        {value.label}
+                      </option>
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 block mb-1">Trạng thái</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-gray-500">Trạng thái</label>
                   <select
                     value={detail.status}
-                    onChange={(e) => saveField("status", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none cursor-pointer focus:border-blue-400 transition-colors"
+                    onChange={(event) => void saveField("status", event.target.value)}
+                    className="w-full cursor-pointer rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400"
                   >
-                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
+                    {Object.entries(STATUS_CONFIG).map(([key, value]) => (
+                      <option key={key} value={key}>
+                        {value.label}
+                      </option>
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 block mb-1">Thời hạn</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-gray-500">Thời hạn</label>
                   <input
                     type="datetime-local"
                     value={toDatetimeLocalValue(detail.dueDate)}
-                    onChange={(e) => saveField("dueDate", e.target.value ? new Date(e.target.value).toISOString() : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 transition-colors"
+                    onChange={(event) =>
+                      void saveField(
+                        "dueDate",
+                        event.target.value ? new Date(event.target.value).toISOString() : null,
+                      )
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400"
                   />
                 </div>
+
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 block mb-1">Người phụ trách</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-gray-500">Người phụ trách</label>
                   {canEditAssignee ? (
                     <select
                       value={detail.assigneeId || ""}
-                      onChange={(e) => saveField("assigneeId", e.target.value || null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none cursor-pointer focus:border-blue-400 transition-colors"
+                      onChange={(event) => void saveField("assigneeId", event.target.value || null)}
+                      className="w-full cursor-pointer rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400"
                     >
                       <option value="">— Chưa phân công —</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name} ({u.role === "ADMIN" ? "Admin" : u.role === "MANAGER" ? "QL" : "NV"})
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.role === "ADMIN" ? "Admin" : user.role === "MANAGER" ? "QL" : "NV"})
                         </option>
                       ))}
                     </select>
                   ) : (
-                    <div className="text-sm text-slate-800 font-medium py-2">{detail.assignee?.name || "—"}</div>
+                    <div className="py-2 text-sm font-medium text-slate-800">{detail.assignee?.name || "—"}</div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Linked order */}
             {detail.linkedOrder && (
-              <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3.5">
-                <div className="text-xs font-bold text-slate-600 mb-2">🔗 Đơn hàng liên kết</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                  <div><span className="text-gray-400">Mã YC: </span><span className="text-blue-600 font-semibold">{detail.linkedOrder.requestCode}</span></div>
-                  <div><span className="text-gray-400">Shop: </span><span className="font-medium">{detail.linkedOrder.shopName}</span></div>
-                  <div><span className="text-gray-400">Trạng thái: </span><span className="font-medium">{detail.linkedOrder.status}</span></div>
-                  <div><span className="text-gray-400">COD: </span><span className="font-medium">{(detail.linkedOrder.codAmount || 0).toLocaleString("vi-VN")}đ</span></div>
+              <div className="rounded-[10px] border border-slate-200 bg-slate-50 p-3.5">
+                <div className="mb-2 text-xs font-bold text-slate-600">Đơn hàng liên kết</div>
+                <div className="grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
+                  <div>
+                    <span className="text-gray-400">Mã YC: </span>
+                    <span className="font-semibold text-blue-600">{detail.linkedOrder.requestCode}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Shop: </span>
+                    <span className="font-medium">{detail.linkedOrder.shopName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Trạng thái: </span>
+                    <span className="font-medium">{detail.linkedOrder.status}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">COD: </span>
+                    <span className="font-medium">
+                      {(detail.linkedOrder.codAmount || 0).toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
                 </div>
                 <button
                   onClick={() => setOrderDetailCode(detail.linkedOrder!.requestCode)}
-                  className="text-xs text-blue-600 font-semibold mt-2 inline-flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer hover:underline"
+                  className="mt-2 inline-flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-xs font-semibold text-blue-600 hover:underline"
                 >
                   Xem chi tiết đơn <ExternalLink size={11} />
                 </button>
               </div>
             )}
 
-            {/* Comments */}
             <div>
-              <div className="text-xs font-bold text-slate-600 mb-2.5">
-                💬 Ghi chú ({detail.comments?.length || 0})
-              </div>
-              <div className="flex gap-2 mb-3">
+              <div className="mb-2.5 text-xs font-bold text-slate-600">Ghi chú ({detail.comments?.length || 0})</div>
+              <div className="mb-3 flex gap-2">
                 <input
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addComment()}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 transition-colors"
+                  onChange={(event) => setComment(event.target.value)}
+                  onKeyDown={(event) => event.key === "Enter" && void addComment()}
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400"
                   placeholder="Thêm ghi chú..."
                 />
                 <button
-                  onClick={addComment}
+                  onClick={() => void addComment()}
                   disabled={sending}
-                  className="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 cursor-pointer hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  className="cursor-pointer rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-600 transition-colors hover:bg-blue-100 disabled:opacity-50"
                 >
                   {sending ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
                 </button>
               </div>
+
               <div className="space-y-0">
-                {(detail.comments || []).map((c) => (
-                  <div key={c.id} className="py-2 border-b border-slate-100 text-xs last:border-none">
+                {(detail.comments || []).map((todoComment) => (
+                  <div key={todoComment.id} className="border-b border-slate-100 py-2 text-xs last:border-none">
                     <div className="flex justify-between">
-                      <span className="font-semibold text-slate-800">{c.authorName}</span>
-                      <span className="text-gray-400">{format(new Date(c.createdAt), "dd/MM HH:mm")}</span>
+                      <span className="font-semibold text-slate-800">{todoComment.authorName}</span>
+                      <span className="text-gray-400">
+                        {format(new Date(todoComment.createdAt), "dd/MM HH:mm")}
+                      </span>
                     </div>
-                    <div className="text-slate-600 mt-1">{c.content}</div>
+                    <div className="mt-1 text-slate-600">{todoComment.content}</div>
                   </div>
                 ))}
               </div>
@@ -302,34 +409,32 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
           </div>
         )}
 
-        {/* Footer actions */}
-        {detail && (
-          <div className="px-5 py-3 border-t border-gray-200 flex justify-between shrink-0">
-            <button
-              onClick={() => setShowDelete(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium cursor-pointer hover:bg-red-50 transition-colors"
-            >
-              <Trash2 size={14} /> Xóa
-            </button>
-            <button
-              onClick={handleComplete}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg border-none text-white text-[13px] font-semibold cursor-pointer transition-colors ${
-                detail.status === "DONE"
-                  ? "bg-amber-500 hover:bg-amber-600"
-                  : "bg-green-600 hover:bg-green-700"
-              }`}
-            >
-              {detail.status === "DONE" ? (
-                <><RotateCcw size={14} /> Mở lại</>
-              ) : (
-                <><Check size={14} /> Hoàn thành</>
-              )}
-            </button>
-          </div>
-        )}
+        <div className="flex shrink-0 justify-between border-t border-gray-200 px-5 py-3">
+          <button
+            onClick={() => setShowDelete(true)}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+          >
+            <Trash2 size={14} /> Xóa
+          </button>
+          <button
+            onClick={() => void handleComplete()}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg border-none px-4 py-2 text-[13px] font-semibold text-white transition-colors ${
+              detail.status === "DONE" ? "bg-amber-500 hover:bg-amber-600" : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            {detail.status === "DONE" ? (
+              <>
+                <RotateCcw size={14} /> Mở lại
+              </>
+            ) : (
+              <>
+                <Check size={14} /> Hoàn thành
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Delete confirmation */}
       {showDelete && (
         <DeleteConfirmDialog
           title={detail.title}
@@ -338,10 +443,9 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
         />
       )}
 
-      {/* Order detail */}
       <OrderDetailDialog
         requestCode={orderDetailCode}
-        open={!!orderDetailCode}
+        open={Boolean(orderDetailCode)}
         onClose={() => setOrderDetailCode(null)}
         userRole={userRole}
         baseZIndex={10200}
@@ -349,6 +453,6 @@ export function TodoDetailPanel({ todo, onClose, onUpdate, onDelete, userId, use
 
       <style>{`@keyframes slideInRight { from { transform:translateX(100%) } to { transform:translateX(0) } }`}</style>
     </>,
-    document.body
+    document.body,
   );
 }

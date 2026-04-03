@@ -15,7 +15,11 @@ describe("todo scope helpers", () => {
   });
 
   test("prefers an explicit assignee filter when scope is all", () => {
-    expect(resolveTodoAssigneeFilter("all", "me-1", "staff-2")).toBe("staff-2");
+    expect(resolveTodoAssigneeFilter("all", "me-1", "staff-2", true)).toBe("staff-2");
+  });
+
+  test("falls back to the current user when someone without all-todo access asks for another assignee", () => {
+    expect(resolveTodoAssigneeFilter("all", "me-1", "staff-2", false)).toBe("me-1");
   });
 
   test("picks selected stats when the dropdown targets a specific user", () => {

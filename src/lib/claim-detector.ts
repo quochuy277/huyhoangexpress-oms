@@ -16,8 +16,8 @@ type AutoDetectedClaimInput = {
 /**
  * Auto-complete existing claims whose orders have reached a final delivery status.
  * Rule 1: Only non-excluded auto-scan groups are auto-completed by delivery status
- *         (SUSPICIOUS, DAMAGED, LOST, OTHER, FEE_COMPLAINT are excluded — require manual handling).
- * Rule 2: Claims of ANY issueType with claimStatus RESOLVED or CUSTOMER_COMPENSATED
+ *         (SUSPICIOUS, DAMAGED, LOST, OTHER, FEE_COMPLAINT are excluded - require manual handling).
+ * Rule 2: Claims of any issueType with claimStatus RESOLVED or CUSTOMER_COMPENSATED
  *         are also auto-completed.
  * Returns count of auto-completed claims.
  */
@@ -25,7 +25,7 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
   const byDeliveryStatus = await prisma.claimOrder.findMany({
     where: {
       isCompleted: false,
-      issueType: { notIn: AUTO_SCAN_EXCLUDED_ISSUE_TYPES as any[] },
+      issueType: { notIn: [...AUTO_SCAN_EXCLUDED_ISSUE_TYPES] as any[] },
       order: { deliveryStatus: { in: FINAL_STATUSES as any[] } },
     },
     select: { id: true },
@@ -40,8 +40,8 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
   });
 
   const idSet = new Set([
-    ...byDeliveryStatus.map(c => c.id),
-    ...byClaimStatus.map(c => c.id),
+    ...byDeliveryStatus.map((claim) => claim.id),
+    ...byClaimStatus.map((claim) => claim.id),
   ]);
 
   if (idSet.size === 0) return 0;
@@ -60,7 +60,7 @@ export async function autoCompleteResolvedClaims(): Promise<number> {
       },
     }),
     prisma.claimStatusHistory.createMany({
-      data: ids.map(id => ({
+      data: ids.map((id) => ({
         claimOrderId: id,
         toStatus: "RESOLVED" as any,
         changedBy: AUTO_SCAN_CHANGED_BY,
@@ -126,14 +126,14 @@ export async function detectInternalNoteIssues(): Promise<string[]> {
     select: { id: true },
   });
 
-  return orders.map(o => o.id);
+  return orders.map((order) => order.id);
 }
 
 /**
  * Create or reopen ClaimOrder records for auto-detected orders + auto-complete resolved ones.
  */
 export async function createAutoDetectedClaims(
-  userId: string
+  userId: string,
 ): Promise<{ newClaims: number; reopenedClaims: number; autoCompleted: number }> {
   const [slowIds, noteIds, autoCompleted] = await Promise.all([
     detectSlowJourneyOrders(),
@@ -147,13 +147,13 @@ export async function createAutoDetectedClaims(
   const deadline = new Date(now.getTime() + 15 * 86400000);
 
   const allDetectedClaims: AutoDetectedClaimInput[] = [
-    ...slowIds.map(id => ({
+    ...slowIds.map((id) => ({
       orderId: id,
       issueType: "SLOW_JOURNEY" as const,
       source: "AUTO_SLOW_JOURNEY" as const,
       note: "Tự động phát hiện: Hành trình chậm",
     })),
-    ...noteIds.map(id => ({
+    ...noteIds.map((id) => ({
       orderId: id,
       issueType: "OTHER" as const,
       issueDescription: "Phát hiện từ ghi chú nội bộ",
@@ -162,19 +162,30 @@ export async function createAutoDetectedClaims(
     })),
   ];
 
+  const detectedOrderIds = [...new Set(allDetectedClaims.map((claim) => claim.orderId))];
+  const existingClaims = detectedOrderIds.length > 0
+    ? await prisma.claimOrder.findMany({
+        where: {
+          orderId: { in: detectedOrderIds },
+        },
+        select: {
+          id: true,
+          orderId: true,
+          issueType: true,
+          claimStatus: true,
+          isCompleted: true,
+        },
+      })
+    : [];
+  const existingClaimsByOrderId = new Map(
+    existingClaims.map((claim) => [claim.orderId, claim]),
+  );
+
   for (const claim of allDetectedClaims) {
-    const existingClaim = await prisma.claimOrder.findUnique({
-      where: { orderId: claim.orderId },
-      select: {
-        id: true,
-        issueType: true,
-        claimStatus: true,
-        isCompleted: true,
-      },
-    });
+    const existingClaim = existingClaimsByOrderId.get(claim.orderId);
 
     if (!existingClaim) {
-      await prisma.claimOrder.create({
+      const createdClaim = await prisma.claimOrder.create({
         data: {
           orderId: claim.orderId,
           issueType: claim.issueType,
@@ -191,7 +202,15 @@ export async function createAutoDetectedClaims(
             },
           },
         },
+        select: {
+          id: true,
+          orderId: true,
+          issueType: true,
+          claimStatus: true,
+          isCompleted: true,
+        },
       });
+      existingClaimsByOrderId.set(claim.orderId, createdClaim);
       created++;
       continue;
     }
@@ -199,7 +218,7 @@ export async function createAutoDetectedClaims(
     if (!existingClaim.isCompleted) continue;
     if (existingClaim.issueType === claim.issueType) continue;
 
-    await prisma.claimOrder.update({
+    const reopenedClaim = await prisma.claimOrder.update({
       where: { id: existingClaim.id },
       data: {
         issueType: claim.issueType,
@@ -220,7 +239,15 @@ export async function createAutoDetectedClaims(
           },
         },
       },
+      select: {
+        id: true,
+        orderId: true,
+        issueType: true,
+        claimStatus: true,
+        isCompleted: true,
+      },
     });
+    existingClaimsByOrderId.set(claim.orderId, reopenedClaim);
     reopened++;
   }
 

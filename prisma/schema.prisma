@@ -242,8 +242,18 @@ model Order {
   @@index([receiverProvince])
   @@index([salesStaff])
   @@index([claimLocked])
+  @@index([carrierOrderCode])
+  @@index([receiverPhone])
+  @@index([regionGroup])
+  @@index([partialOrderType])
   @@index([deliveryStatus, createdTime])
   @@index([shopName, deliveryStatus])
+  @@index([carrierName, createdTime])
+  @@index([salesStaff, createdTime])
+  @@index([shopName, createdTime])
+  @@index([claimLocked, deliveryStatus, lastUpdated])
+  @@index([claimLocked, deliveryStatus, partialOrderType, warehouseArrivalDate])
+  @@index([createdTime, revenue])
   @@index([deliveredDate])
   @@index([revenue])
   @@index([creatorShopName, createdTime])
@@ -429,6 +439,7 @@ model TodoItem {
   priority        Priority    @default(MEDIUM)
   dueDate         DateTime?
   sortOrder       Int         @default(0)
+  version         Int         @default(0)
 
   linkedOrderId   String?
   linkedOrder     Order?      @relation(fields: [linkedOrderId], references: [id])
@@ -448,6 +459,9 @@ model TodoItem {
   @@index([assigneeId])
   @@index([status])
   @@index([dueDate])
+  @@index([assigneeId, status, dueDate])
+  @@index([assigneeId, sortOrder])
+  @@index([createdById])
 }
 
 model TodoComment {

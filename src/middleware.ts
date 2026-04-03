@@ -3,6 +3,7 @@ import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { PermissionSet } from "@/lib/permissions";
+import { hasPermission } from "@/lib/route-permissions";
 
 const { auth } = NextAuth(authConfig);
 
@@ -68,7 +69,7 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
   const permissions = session?.user?.permissions;
   if (permissions) {
     for (const [route, permKey] of Object.entries(ROUTE_PERMISSIONS)) {
-      if (pathname.startsWith(route) && !permissions[permKey]) {
+      if (pathname.startsWith(route) && !hasPermission(session?.user, permKey)) {
         return NextResponse.redirect(new URL("/orders", req.url));
       }
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 
 export async function GET(req: Request) {
   try {
@@ -8,6 +9,9 @@ export async function GET(req: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
+
+    const denied = requirePermission(session.user, "canViewOrders", "Bạn không có quyền xem biến động đơn hàng");
+    if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
     const uploadHistoryId = searchParams.get("uploadHistoryId");

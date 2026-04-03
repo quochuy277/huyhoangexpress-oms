@@ -1,15 +1,55 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Package, Truck, Warehouse, Download } from "lucide-react";
-import { PartialReturnTab } from "@/components/returns/PartialReturnTab";
-import { ReturnOrder } from "@/types/returns";
-import { FullReturnTab } from "@/components/returns/FullReturnTab";
-import { WaitingReturnTab } from "@/components/returns/WaitingReturnTab";
-import { ReturnFilterPanel, ReturnFilters } from "@/components/returns/ReturnFilterPanel";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { Download, Package, Truck, Warehouse } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-type TabKey = "partial" | "full" | "warehouse";
+import { ReturnFilterPanel, type ReturnFilters } from "@/components/returns/ReturnFilterPanel";
+import {
+  createEmptyReturnsSummary,
+  createEmptyReturnsTabData,
+  fetchReturnsSummary,
+  fetchReturnsTabData,
+  getReturnShopNames,
+  invalidateReturnsTabs,
+  shouldFetchReturnsTab,
+  type ReturnsSummaryCounts,
+  type ReturnsTabKey,
+} from "@/lib/returns-tab-data";
+
+const PartialReturnTab = dynamic(
+  () => import("@/components/returns/PartialReturnTab").then((mod) => mod.PartialReturnTab),
+  {
+    loading: () => (
+      <div className="flex h-40 items-center justify-center text-slate-400">
+        Đang tải tab...
+      </div>
+    ),
+  },
+);
+const FullReturnTab = dynamic(
+  () => import("@/components/returns/FullReturnTab").then((mod) => mod.FullReturnTab),
+  {
+    loading: () => (
+      <div className="flex h-40 items-center justify-center text-slate-400">
+        Đang tải tab...
+      </div>
+    ),
+  },
+);
+const WaitingReturnTab = dynamic(
+  () => import("@/components/returns/WaitingReturnTab").then((mod) => mod.WaitingReturnTab),
+  {
+    loading: () => (
+      <div className="flex h-40 items-center justify-center text-slate-400">
+        Đang tải tab...
+      </div>
+    ),
+  },
+);
+
+type TabKey = ReturnsTabKey;
 const VALID_TABS: TabKey[] = ["partial", "full", "warehouse"];
 
 export default function ReturnsPage() {
@@ -17,14 +57,13 @@ export default function ReturnsPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Read initial state from URL
   const tabParam = searchParams.get("tab");
   const initialTab: TabKey = VALID_TABS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "partial";
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
-  const [partialData, setPartialData] = useState<ReturnOrder[]>([]);
-  const [fullData, setFullData] = useState<ReturnOrder[]>([]);
-  const [warehouseData, setWarehouseData] = useState<ReturnOrder[]>([]);
+  const [tabData, setTabData] = useState(() => createEmptyReturnsTabData());
+  const [summaryCounts, setSummaryCounts] = useState<ReturnsSummaryCounts>(() => createEmptyReturnsSummary());
+  const [summaryReady, setSummaryReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState<ReturnFilters>({
@@ -35,16 +74,25 @@ export default function ReturnsPage() {
     confirmAsked: searchParams.get("confirm") || "",
   });
 
-  // Sync state to URL when tab or filters change
-  const updateUrl = useCallback((tab: TabKey, f: ReturnFilters) => {
+  const updateUrl = useCallback((tab: TabKey, nextFilters: ReturnFilters) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
-    // Set or clear filter params
-    if (f.search) params.set("search", f.search); else params.delete("search");
-    if (f.shopName) params.set("shop", f.shopName); else params.delete("shop");
-    if (f.daysRange) params.set("days", f.daysRange); else params.delete("days");
-    if (f.hasNotes) params.set("notes", f.hasNotes); else params.delete("notes");
-    if (f.confirmAsked) params.set("confirm", f.confirmAsked); else params.delete("confirm");
+
+    if (nextFilters.search) params.set("search", nextFilters.search);
+    else params.delete("search");
+
+    if (nextFilters.shopName) params.set("shop", nextFilters.shopName);
+    else params.delete("shop");
+
+    if (nextFilters.daysRange) params.set("days", nextFilters.daysRange);
+    else params.delete("days");
+
+    if (nextFilters.hasNotes) params.set("notes", nextFilters.hasNotes);
+    else params.delete("notes");
+
+    if (nextFilters.confirmAsked) params.set("confirm", nextFilters.confirmAsked);
+    else params.delete("confirm");
+
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [pathname, router, searchParams]);
 
@@ -53,93 +101,121 @@ export default function ReturnsPage() {
     updateUrl(tab, filters);
   }, [filters, updateUrl]);
 
-  const handleSetFilters = useCallback((f: ReturnFilters) => {
-    setFilters(f);
-    updateUrl(activeTab, f);
+  const handleSetFilters = useCallback((nextFilters: ReturnFilters) => {
+    setFilters(nextFilters);
+    updateUrl(activeTab, nextFilters);
   }, [activeTab, updateUrl]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const loadSummary = useCallback(async () => {
     try {
-      const [r1, r2, r3] = await Promise.all([
-        fetch("/api/orders/returns?tab=partial"),
-        fetch("/api/orders/returns?tab=full"),
-        fetch("/api/orders/returns?tab=warehouse"),
-      ]);
-      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
-      setPartialData(d1.data || []);
-      setFullData(d2.data || []);
-      setWarehouseData(d3.data || []);
-    } catch (err) {
-      console.error("Failed to fetch return data:", err);
-    } finally {
-      setLoading(false);
+      const counts = await fetchReturnsSummary(fetch);
+      setSummaryCounts(counts);
+      setSummaryReady(true);
+    } catch (error) {
+      console.error("Failed to fetch returns summary:", error);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const loadTab = useCallback(async (tab: TabKey, force = false) => {
+    const needsFetch = shouldFetchReturnsTab(tabData, tab, force);
+    if (!needsFetch) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const rows = await fetchReturnsTabData(fetch, tab);
+      setTabData((prev) => ({
+        ...prev,
+        [tab]: rows,
+      }));
+    } catch (error) {
+      console.error("Failed to fetch return data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [tabData]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    loadTab(activeTab);
+  }, [activeTab, loadTab]);
 
   const handleWarehouseConfirm = async (requestCode: string) => {
     try {
-      const res = await fetch(`/api/orders/${requestCode}/warehouse`, { method: "PATCH" });
-      if (res.ok) {
-        // Refresh data to move order from tab 1 → tab 3
-        fetchData();
+      const response = await fetch(`/api/orders/${requestCode}/warehouse`, { method: "PATCH" });
+      if (response.ok) {
+        setTabData((prev) => invalidateReturnsTabs(prev, ["partial", "warehouse"]));
+        await Promise.all([loadSummary(), loadTab(activeTab, true)]);
       }
-    } catch { /* silent */ }
+    } catch {
+      // silent
+    }
   };
 
   const handleConfirmAskedToggle = async (requestCode: string, value: boolean) => {
     try {
-      const res = await fetch(`/api/orders/${requestCode}/confirm-asked`, {
+      const response = await fetch(`/api/orders/${requestCode}/confirm-asked`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
       });
-      if (res.ok) {
-        // Refetch to get updated name/timestamp from server
-        const r3 = await fetch("/api/orders/returns?tab=warehouse");
-        const d3 = await r3.json();
-        setWarehouseData(d3.data || []);
+      if (response.ok) {
+        setTabData((prev) => invalidateReturnsTabs(prev, ["warehouse"]));
+        await loadTab("warehouse", true);
       }
-    } catch { /* silent */ }
+    } catch {
+      // silent
+    }
   };
 
   const handleCustomerConfirmedToggle = async (requestCode: string, value: boolean) => {
     try {
-      const res = await fetch(`/api/orders/${requestCode}/customer-confirmed`, {
+      const response = await fetch(`/api/orders/${requestCode}/customer-confirmed`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
       });
-      if (res.ok) {
-        const r3 = await fetch("/api/orders/returns?tab=warehouse");
-        const d3 = await r3.json();
-        setWarehouseData(d3.data || []);
+      if (response.ok) {
+        setTabData((prev) => invalidateReturnsTabs(prev, ["warehouse"]));
+        await loadTab("warehouse", true);
       }
-    } catch { /* silent */ }
+    } catch {
+      // silent
+    }
   };
 
-  // Collect unique shop names across all tabs for filter dropdown
-  const allShopNames = [...new Set([...partialData, ...fullData, ...warehouseData].map((o) => o.shopName).filter(Boolean))] as string[];
-  allShopNames.sort();
+  const partialData = tabData.partial ?? [];
+  const fullData = tabData.full ?? [];
+  const warehouseData = tabData.warehouse ?? [];
+  const allShopNames = getReturnShopNames(tabData);
+  const currentData =
+    activeTab === "partial" ? partialData : activeTab === "full" ? fullData : warehouseData;
 
-  const currentData = activeTab === "partial" ? partialData : activeTab === "full" ? fullData : warehouseData;
+  const countFor = (tab: TabKey, fallback: number) => (summaryReady ? summaryCounts[tab] : fallback);
 
-  // Export Excel
   const handleExport = () => {
-    const tabNames: Record<TabKey, string> = { partial: "Hoàn 1 phần", full: "Hoàn toàn bộ", warehouse: "Đã về kho" };
-    const headers = ["STT", "Mã Yêu Cầu", "Mã Đơn Đối Tác", "Tên Cửa Hàng", "Trạng Thái", "Ghi Chú"];
-    const rows = currentData.map((o, i) => [
-      i + 1,
-      o.requestCode,
-      o.carrierOrderCode || "",
-      o.shopName || "",
-      o.status,
-      o.staffNotes || "",
+    const headers = [
+      "STT",
+      "Mã Yêu Cầu",
+      "Mã Đơn Đối Tác",
+      "Tên Cửa Hàng",
+      "Trạng Thái",
+      "Ghi Chú",
+    ];
+    const rows = currentData.map((order, index) => [
+      index + 1,
+      order.requestCode,
+      order.carrierOrderCode || "",
+      order.shopName || "",
+      order.status,
+      order.staffNotes || "",
     ]);
 
-    const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -147,89 +223,145 @@ export default function ReturnsPage() {
     link.click();
   };
 
-  const tabs: { key: TabKey; label: string; count: number; color: string; bgColor: string; borderColor: string }[] = [
-    { key: "partial", label: "Đang hoàn 1 phần", count: partialData.length, color: "#2563EB", bgColor: "#EFF6FF", borderColor: "#2563EB" },
-    { key: "full", label: "Đang hoàn toàn bộ", count: fullData.length, color: "#D97706", bgColor: "#FFFBEB", borderColor: "#D97706" },
-    { key: "warehouse", label: "Đã về kho-Chờ trả", count: warehouseData.length, color: "#059669", bgColor: "#ECFDF5", borderColor: "#059669" },
+  const tabs: Array<{
+    key: TabKey;
+    label: string;
+    count: number;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+  }> = [
+    {
+      key: "partial",
+      label: "Đang hoàn 1 phần",
+      count: countFor("partial", partialData.length),
+      color: "#2563EB",
+      bgColor: "#EFF6FF",
+      borderColor: "#2563EB",
+    },
+    {
+      key: "full",
+      label: "Đang hoàn toàn bộ",
+      count: countFor("full", fullData.length),
+      color: "#D97706",
+      bgColor: "#FFFBEB",
+      borderColor: "#D97706",
+    },
+    {
+      key: "warehouse",
+      label: "Đã về kho - Chờ trả",
+      count: countFor("warehouse", warehouseData.length),
+      color: "#059669",
+      bgColor: "#ECFDF5",
+      borderColor: "#059669",
+    },
   ];
 
   return (
-    <div className="flex flex-col h-full gap-4">
-      {/* Page Title */}
+    <div className="flex h-full flex-col gap-4">
       <div>
         <h1 className="text-xl font-bold text-slate-800">Theo Dõi Đơn Hoàn</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Quản lý và theo dõi đơn hàng đang hoàn</p>
+        <p className="mt-0.5 text-sm text-slate-500">Quản lý và theo dõi đơn hàng đang hoàn</p>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {tabs.map((t) => (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        {tabs.map((tab) => (
           <button
-            key={t.key}
-            onClick={() => handleSetActiveTab(t.key)}
+            key={tab.key}
+            onClick={() => handleSetActiveTab(tab.key)}
             style={{
-              background: activeTab === t.key ? t.bgColor : "#fff",
-              border: `1.5px solid ${activeTab === t.key ? t.borderColor : "#e5e7eb"}`,
+              background: activeTab === tab.key ? tab.bgColor : "#fff",
+              border: `1.5px solid ${activeTab === tab.key ? tab.borderColor : "#e5e7eb"}`,
               borderRadius: "12px",
               padding: "16px 20px",
               cursor: "pointer",
               textAlign: "left",
               transition: "all 0.2s",
-              boxShadow: activeTab === t.key ? `0 2px 8px ${t.color}20` : "0 1px 3px rgba(0,0,0,0.05)",
+              boxShadow:
+                activeTab === tab.key
+                  ? `0 2px 8px ${tab.color}20`
+                  : "0 1px 3px rgba(0,0,0,0.05)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{
-                width: "36px", height: "36px", borderRadius: "10px",
-                background: `${t.color}15`, display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                {t.key === "partial" ? <Package style={{ width: "18px", height: "18px", color: t.color }} /> :
-                 t.key === "full" ? <Truck style={{ width: "18px", height: "18px", color: t.color }} /> :
-                 <Warehouse style={{ width: "18px", height: "18px", color: t.color }} />}
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: `${tab.color}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {tab.key === "partial" ? (
+                  <Package style={{ width: "18px", height: "18px", color: tab.color }} />
+                ) : tab.key === "full" ? (
+                  <Truck style={{ width: "18px", height: "18px", color: tab.color }} />
+                ) : (
+                  <Warehouse style={{ width: "18px", height: "18px", color: tab.color }} />
+                )}
               </div>
               <div>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: t.color, lineHeight: 1 }}>{t.count}</div>
-                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px", fontWeight: 500 }}>{t.label}</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: tab.color, lineHeight: 1 }}>
+                  {tab.count}
+                </div>
+                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px", fontWeight: 500 }}>
+                  {tab.label}
+                </div>
               </div>
             </div>
           </button>
         ))}
       </div>
 
-      {/* Tab Headers */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:gap-0">
         <div className="flex overflow-x-auto" style={{ borderBottom: "2px solid #e5e7eb" }}>
-          {tabs.map((t) => (
+          {tabs.map((tab) => (
             <button
-              key={t.key}
-              onClick={() => handleSetActiveTab(t.key)}
+              key={tab.key}
+              onClick={() => handleSetActiveTab(tab.key)}
               style={{
                 padding: "10px 16px",
                 fontSize: "13px",
-                fontWeight: activeTab === t.key ? 600 : 500,
-                color: activeTab === t.key ? t.color : "#6b7280",
+                fontWeight: activeTab === tab.key ? 600 : 500,
+                color: activeTab === tab.key ? tab.color : "#6b7280",
                 background: "transparent",
                 border: "none",
-                borderBottom: activeTab === t.key ? `2px solid ${t.color}` : "2px solid transparent",
+                borderBottom:
+                  activeTab === tab.key ? `2px solid ${tab.color}` : "2px solid transparent",
                 marginBottom: "-2px",
                 cursor: "pointer",
                 transition: "all 0.15s",
                 whiteSpace: "nowrap",
               }}
             >
-              {t.label} ({t.count})
+              {tab.label} ({tab.count})
             </button>
           ))}
         </div>
 
-        {/* Right side: page size + export */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px", padding: "6px 0" }}>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "6px 0",
+          }}
+        >
           <select
             value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
+            onChange={(event) => setPageSize(Number(event.target.value))}
             style={{
-              fontSize: "12px", padding: "4px 8px", border: "1px solid #d1d5db",
-              borderRadius: "6px", background: "#fff", color: "#374151", outline: "none",
+              fontSize: "12px",
+              padding: "4px 8px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              background: "#fff",
+              color: "#374151",
+              outline: "none",
             }}
           >
             <option value={20}>20/trang</option>
@@ -239,18 +371,24 @@ export default function ReturnsPage() {
           <button
             onClick={handleExport}
             style={{
-              display: "flex", alignItems: "center", gap: "4px",
-              fontSize: "12px", fontWeight: 600, color: "#2563EB",
-              background: "#EFF6FF", border: "1px solid #BFDBFE",
-              borderRadius: "8px", padding: "6px 12px", cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#2563EB",
+              background: "#EFF6FF",
+              border: "1px solid #BFDBFE",
+              borderRadius: "8px",
+              padding: "6px 12px",
+              cursor: "pointer",
             }}
           >
-            <Download style={{ width: "13px", height: "13px" }} /> Xuất Excel
+            <Download style={{ width: "13px", height: "13px" }} /> Xuất CSV
           </button>
         </div>
       </div>
 
-      {/* Filters */}
       <ReturnFilterPanel
         filters={filters}
         onChange={handleSetFilters}
@@ -258,26 +396,26 @@ export default function ReturnsPage() {
         activeTab={activeTab}
       />
 
-      {/* Table Content */}
-      <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col" style={{ minHeight: "400px" }}>
+      <div
+        className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+        style={{ minHeight: "400px" }}
+      >
         {loading ? (
-          <div className="flex-1 flex flex-col animate-pulse">
-            {/* Table header skeleton */}
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4">
-              <div className="h-4 w-8 bg-slate-200 rounded" />
-              <div className="h-4 w-28 bg-slate-200 rounded" />
-              <div className="h-4 w-24 bg-slate-200 rounded" />
-              <div className="h-4 w-32 bg-slate-200 rounded flex-1" />
-              <div className="h-4 w-20 bg-slate-200 rounded" />
+          <div className="flex flex-1 flex-col animate-pulse">
+            <div className="flex items-center gap-4 border-b border-slate-100 px-4 py-3">
+              <div className="h-4 w-8 rounded bg-slate-200" />
+              <div className="h-4 w-28 rounded bg-slate-200" />
+              <div className="h-4 w-24 rounded bg-slate-200" />
+              <div className="h-4 flex-1 rounded bg-slate-200" />
+              <div className="h-4 w-20 rounded bg-slate-200" />
             </div>
-            {/* Table rows skeleton */}
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="px-4 py-3 border-b border-slate-50 flex items-center gap-4">
-                <div className="h-3 w-8 bg-slate-100 rounded" />
-                <div className="h-3 w-28 bg-slate-100 rounded" />
-                <div className="h-3 w-24 bg-slate-100 rounded" />
-                <div className="h-3 w-32 bg-slate-100 rounded flex-1" />
-                <div className="h-5 w-20 bg-slate-100 rounded-full" />
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
+                <div className="h-3 w-8 rounded bg-slate-100" />
+                <div className="h-3 w-28 rounded bg-slate-100" />
+                <div className="h-3 w-24 rounded bg-slate-100" />
+                <div className="h-3 flex-1 rounded bg-slate-100" />
+                <div className="h-5 w-20 rounded-full bg-slate-100" />
               </div>
             ))}
           </div>
@@ -292,11 +430,7 @@ export default function ReturnsPage() {
               />
             )}
             {activeTab === "full" && (
-              <FullReturnTab
-                data={fullData}
-                filters={filters}
-                pageSize={pageSize}
-              />
+              <FullReturnTab data={fullData} filters={filters} pageSize={pageSize} />
             )}
             {activeTab === "warehouse" && (
               <WaitingReturnTab

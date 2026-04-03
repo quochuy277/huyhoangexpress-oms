@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireTodoAccess } from "@/lib/todo-permissions";
 
 // GET — List comments
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -8,6 +9,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session?.user?.id) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
+  const access = await requireTodoAccess(session.user, id);
+  if (access.error) return access.error;
   const comments = await prisma.todoComment.findMany({
     where: { todoItemId: id },
     orderBy: { createdAt: "desc" },
@@ -21,6 +24,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!session?.user?.id) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
+  const access = await requireTodoAccess(session.user, id);
+  if (access.error) return access.error;
   const { content } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "Nội dung trống" }, { status: 400 });
 

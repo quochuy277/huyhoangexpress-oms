@@ -22,6 +22,8 @@
 .DS_Store
 *.pem
 .worktrees/
+/.tmp/
+/backups/
 
 # debug
 npm-debug.log*

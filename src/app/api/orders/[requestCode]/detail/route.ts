@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, requirePermission } from "@/lib/route-permissions";
 
 export async function GET(
   request: Request,
@@ -10,6 +11,8 @@ export async function GET(
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const denied = requirePermission(session.user, "canViewOrders", "Bạn không có quyền xem đơn hàng");
+  if (denied) return denied;
 
   const { requestCode } = await params;
   if (!requestCode) {
@@ -36,13 +39,13 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const userRole = session.user.role || "VIEWER";
-    const isStaffOrViewer = userRole === "STAFF" || userRole === "VIEWER";
-
     const response: any = { ...order };
-    if (isStaffOrViewer) {
+    if (!hasPermission(session.user, "canViewCarrierFee")) {
       delete response.carrierFee;
       delete response.ghsvInsuranceFee;
+    }
+    if (!hasPermission(session.user, "canViewRevenue")) {
+      delete response.revenue;
     }
 
     return NextResponse.json(response);

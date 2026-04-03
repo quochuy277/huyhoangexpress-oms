@@ -20,13 +20,11 @@ CREATE TYPE "ClaimSource" AS ENUM ('AUTO_SLOW_JOURNEY', 'AUTO_INTERNAL_NOTE', 'F
 -- AlterEnum
 BEGIN;
 CREATE TYPE "ClaimStatus_new" AS ENUM ('PENDING', 'VERIFYING_CARRIER', 'CLAIM_SUBMITTED', 'COMPENSATION_REQUESTED', 'RESOLVED', 'CARRIER_COMPENSATED', 'CARRIER_REJECTED', 'CUSTOMER_COMPENSATED', 'CUSTOMER_REJECTED');
-ALTER TABLE "public"."ClaimOrder" ALTER COLUMN "claimStatus" DROP DEFAULT;
+ALTER TABLE "ClaimOrder" ALTER COLUMN "claimStatus" DROP DEFAULT;
 ALTER TABLE "ClaimOrder" ALTER COLUMN "claimStatus" TYPE "ClaimStatus_new" USING ("claimStatus"::text::"ClaimStatus_new");
-ALTER TABLE "ClaimStatusHistory" ALTER COLUMN "fromStatus" TYPE "ClaimStatus_new" USING ("fromStatus"::text::"ClaimStatus_new");
-ALTER TABLE "ClaimStatusHistory" ALTER COLUMN "toStatus" TYPE "ClaimStatus_new" USING ("toStatus"::text::"ClaimStatus_new");
 ALTER TYPE "ClaimStatus" RENAME TO "ClaimStatus_old";
 ALTER TYPE "ClaimStatus_new" RENAME TO "ClaimStatus";
-DROP TYPE "public"."ClaimStatus_old";
+DROP TYPE "ClaimStatus_old";
 ALTER TABLE "ClaimOrder" ALTER COLUMN "claimStatus" SET DEFAULT 'PENDING';
 COMMIT;
 
@@ -67,8 +65,27 @@ CREATE TABLE "ClaimStatusHistory" (
     CONSTRAINT "ClaimStatusHistory_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ClaimChangeLog" (
+    "id" TEXT NOT NULL,
+    "claimOrderId" TEXT NOT NULL,
+    "fieldName" TEXT NOT NULL,
+    "oldValue" TEXT,
+    "newValue" TEXT,
+    "changedBy" TEXT NOT NULL,
+    "changedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ClaimChangeLog_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE INDEX "ClaimStatusHistory_claimOrderId_idx" ON "ClaimStatusHistory"("claimOrderId");
+
+-- CreateIndex
+CREATE INDEX "ClaimChangeLog_claimOrderId_idx" ON "ClaimChangeLog"("claimOrderId");
+
+-- CreateIndex
+CREATE INDEX "ClaimChangeLog_changedAt_idx" ON "ClaimChangeLog"("changedAt");
 
 -- CreateIndex
 CREATE INDEX "ClaimOrder_issueType_idx" ON "ClaimOrder"("issueType");
@@ -81,3 +98,6 @@ CREATE INDEX "Order_claimLocked_idx" ON "Order"("claimLocked");
 
 -- AddForeignKey
 ALTER TABLE "ClaimStatusHistory" ADD CONSTRAINT "ClaimStatusHistory_claimOrderId_fkey" FOREIGN KEY ("claimOrderId") REFERENCES "ClaimOrder"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ClaimChangeLog" ADD CONSTRAINT "ClaimChangeLog_claimOrderId_fkey" FOREIGN KEY ("claimOrderId") REFERENCES "ClaimOrder"("id") ON DELETE CASCADE ON UPDATE CASCADE;

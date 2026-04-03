@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -9,13 +10,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const permissions = session.user.permissions;
-    if (!permissions?.canDeleteOrders) {
-      return NextResponse.json(
-        { error: "Bạn không có quyền xóa đơn hàng" },
-        { status: 403 }
-      );
-    }
+    const denied = requirePermission(session.user, "canDeleteOrders", "Bạn không có quyền xóa đơn hàng");
+    if (denied) return denied;
 
     const { requestCodes } = await req.json();
 

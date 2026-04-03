@@ -254,9 +254,12 @@ export function sortDelayedOrders(
   });
 }
 
-export function buildDelayedExportRows(orders: ProcessedDelayedOrder[]) {
+export function buildDelayedExportRows(
+  orders: ProcessedDelayedOrder[],
+  startIndex = 1,
+) {
   return orders.map((order, index) => ({
-    STT: index + 1,
+    STT: startIndex + index,
     "Mã Yêu Cầu": order.requestCode,
     "Mã Đơn KH": order.customerOrderCode || "",
     "Mã Đơn Đối Tác": order.carrierOrderCode || "",

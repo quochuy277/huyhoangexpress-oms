@@ -1,0 +1,2 @@
+-- Superseded by 20260403080000_baseline_existing_database.
+-- This migration remains as a no-op to preserve the recorded history.

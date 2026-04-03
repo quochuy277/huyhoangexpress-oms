@@ -4,9 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import OverviewTab from "./OverviewTab";
 import type { FinanceCategoryOption, FinanceLandingData } from "@/lib/finance/landing";
 
+const OverviewTab = dynamic(() => import("./OverviewTab"), {
+  loading: () => (
+    <div className="flex h-96 items-center justify-center text-slate-400">Đang tải...</div>
+  ),
+});
 const AnalysisTab = dynamic(() => import("./AnalysisTab"), {
   ssr: false,
   loading: () => (

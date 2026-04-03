@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import type { Prisma, DeliveryStatus } from "@prisma/client";
 import { mapStatusToVietnamese } from "@/lib/status-mapper";
 import { exportLimiter } from "@/lib/rate-limiter";
+import { requirePermission } from "@/lib/route-permissions";
 
 export async function GET(req: NextRequest) {
   // Auth check
@@ -12,9 +13,8 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
-  if (!session.user.permissions?.canExportOrders) {
-    return NextResponse.json({ error: "Không có quyền xuất file" }, { status: 403 });
-  }
+  const denied = requirePermission(session.user, "canExportOrders", "Bạn không có quyền xuất file");
+  if (denied) return denied;
 
   // Rate limit
   const rateLimited = exportLimiter.check(session.user.id!);
@@ -76,7 +76,8 @@ export async function GET(req: NextRequest) {
       codAmount: true,
       shippingFee: true,
       totalFee: true,
-      carrierFee: true,      revenue: true,
+      carrierFee: true,
+      revenue: true,
       carrierName: true,
       carrierOrderCode: true,
       regionGroup: true,

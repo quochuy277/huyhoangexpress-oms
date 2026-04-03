@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { uploadLimiter } from "@/lib/rate-limiter";
 import { processOrderImport } from "@/lib/order-import-service";
+import { requirePermission } from "@/lib/route-permissions";
 
 // Vercel serverless max duration (seconds)
 export const maxDuration = 60;
@@ -13,16 +14,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
+  const denied = requirePermission(session.user, "canUploadExcel", "Bạn không có quyền tải lên file");
+  if (denied) return denied;
+
   // Rate limit
   const rateLimited = uploadLimiter.check(session.user.id!);
   if (rateLimited) return rateLimited;
-  const permissions = session.user.permissions;
-  if (!permissions?.canUploadExcel) {
-    return NextResponse.json(
-      { error: "Bạn không có quyền tải lên file" },
-      { status: 403 }
-    );
-  }
 
   // 2. Get file from form data
   const formData = await req.formData();

@@ -13,6 +13,6 @@ describe("DelayedFilterPanel", () => {
         riskFilter: "high",
         todayOnly: true,
       }),
-    ).toEqual(["Shop A", "HoÃ£n 4+", "ÄÆ¡n hoÃ£n hÃ´m nay"]);
+    ).toEqual(["Shop A", "Hoãn 4+", "Đơn hoãn hôm nay"]);
   });
 });

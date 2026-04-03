@@ -24,8 +24,13 @@ export function resolveTodoAssigneeFilter(
   scope: string,
   sessionUserId: string,
   assigneeId?: string | null,
+  canViewAll = false,
 ) {
   if (scope === "mine") {
+    return sessionUserId;
+  }
+
+  if (!canViewAll) {
     return sessionUserId;
   }
 

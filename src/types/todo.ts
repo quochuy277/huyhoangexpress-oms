@@ -33,6 +33,7 @@ export interface TodoItemData {
   priority: Priority;
   dueDate: string | null;
   sortOrder: number;
+  version: number;
   source: TodoSource;
   assigneeId: string | null;
   assignee: TodoAssignee | null;

@@ -47,7 +47,7 @@ export type ProcessedDelayedOrder = {
 
 const TIMESTAMP_RE = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(.*)$/i;
 
-function normalizeAsciiText(value: string): string {
+function normalizeAsciiText(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -118,16 +118,7 @@ export function parseDelays(note: string): { time: string; date: string; reason:
       continue;
     }
 
-    if (isDeliveryDelayPrefix(parsed.eventText)) {
-      delays.push({
-        time: parsed.time,
-        date: parsed.date,
-        reason: parsed.eventText.replace(/^.+?:\s*/i, "").trim(),
-      });
-      continue;
-    }
-
-    if (isReturnDelayPrefix(parsed.eventText)) {
+    if (isDeliveryDelayPrefix(parsed.eventText) || isReturnDelayPrefix(parsed.eventText)) {
       delays.push({
         time: parsed.time,
         date: parsed.date,
@@ -198,7 +189,8 @@ export function countDelaysInNote(note: string): number {
     .split("\n")
     .map((line) => parseDelayLine(line))
     .filter((line): line is ParsedDelayLine => Boolean(line))
-    .filter((line) => isDeliveryDelayPrefix(line.eventText) || isReturnDelayPrefix(line.eventText)).length;
+    .filter((line) => isDeliveryDelayPrefix(line.eventText) || isReturnDelayPrefix(line.eventText))
+    .length;
 }
 
 export function normalizeReason(reason: string): string {

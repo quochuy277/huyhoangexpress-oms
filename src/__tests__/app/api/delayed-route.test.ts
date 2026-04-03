@@ -131,4 +131,29 @@ describe("delayed route", () => {
     ]);
     expect(body.data.summary.total).toBe(1);
   });
+
+  it("caps delayed scanning and returns a warning flag when the dataset is too large", async () => {
+    vi.mocked(auth).mockResolvedValue(makeSession(true) as never);
+    vi.mocked(prisma.order.findMany).mockResolvedValue(
+      Array.from({ length: 2001 }, (_, index) => makeRawOrder(index + 1)) as never,
+    );
+
+    const { GET } = await import("@/app/api/orders/delayed/route");
+    const response = await GET(new NextRequest("http://localhost/api/orders/delayed?page=1&pageSize=50"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 2001,
+        orderBy: { lastUpdated: "desc" },
+      }),
+    );
+    expect(body.data.meta).toEqual({
+      isTruncated: true,
+      scanLimit: 2000,
+      warning: "Dữ liệu quá lớn, vui lòng dùng bộ lọc để xem kết quả chính xác hơn",
+    });
+    expect(body.data.pagination.total).toBe(2000);
+  });
 });

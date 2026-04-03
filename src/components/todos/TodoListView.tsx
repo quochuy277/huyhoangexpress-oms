@@ -1,98 +1,139 @@
 "use client";
 
-import { Pencil, Trash2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2, UserCheck } from "lucide-react";
 import { format } from "date-fns";
-import { PRIORITY_CONFIG, STATUS_CONFIG, SOURCE_CONFIG } from "./constants";
+
+import { PRIORITY_CONFIG, SOURCE_CONFIG, STATUS_CONFIG } from "./constants";
 import type { TodoItemData, TodoPagination } from "@/types/todo";
+
+const TEXT = {
+  empty: "Ch\u01b0a c\u00f3 c\u00f4ng vi\u1ec7c n\u00e0o",
+  assignedBy: (name: string) => `Giao b\u1edfi ${name}`,
+  created: "T\u1ea1o",
+  commentIcon: "💬",
+  clock: "⏰",
+  done: "✓",
+  emptyCell: "—",
+  edit: "S\u1eeda",
+  delete: "X\u00f3a",
+  total: "T\u1ed5ng",
+  headers: {
+    title: "Ti\u00eau \u0111\u1ec1",
+    orderCode: "M\u00e3 \u0111\u01a1n",
+    priority: "\u01afu ti\u00ean",
+    status: "Tr\u1ea1ng th\u00e1i",
+    dueDate: "Th\u1eddi h\u1ea1n",
+    createdAt: "Ng\u00e0y t\u1ea1o",
+    completedAt: "Ho\u00e0n th\u00e0nh",
+    assignee: "Ng\u01b0\u1eddi PT",
+    source: "Ngu\u1ed3n",
+  },
+} as const;
 
 interface TodoListViewProps {
   todos: TodoItemData[];
   pagination: TodoPagination;
-  onToggleComplete: (id: string) => void;
-  onStatusChange: (id: string, status: string) => void;
+  onToggleComplete: (todo: TodoItemData) => void;
+  onStatusChange: (todo: TodoItemData, status: string) => void;
   onSelect: (todo: TodoItemData) => void;
   onDelete: (id: string) => void;
   onViewOrder: (code: string) => void;
   onPageChange: (page: number) => void;
 }
 
-function isDueOverdue(d: string | null) {
-  if (!d) return false;
-  return new Date(d) < new Date();
+function isDueOverdue(dateValue: string | null) {
+  if (!dateValue) return false;
+  return new Date(dateValue) < new Date();
 }
-function isDueToday(d: string | null) {
-  if (!d) return false;
-  return new Date(d).toDateString() === new Date().toDateString();
+
+function isDueToday(dateValue: string | null) {
+  if (!dateValue) return false;
+  return new Date(dateValue).toDateString() === new Date().toDateString();
 }
 
 export function TodoListView({
-  todos, pagination, onToggleComplete, onStatusChange, onSelect, onDelete, onViewOrder, onPageChange,
+  todos,
+  pagination,
+  onToggleComplete,
+  onStatusChange,
+  onSelect,
+  onDelete,
+  onViewOrder,
+  onPageChange,
 }: TodoListViewProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      {/* Mobile card view */}
-      <div className="block sm:hidden divide-y divide-gray-100">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="block divide-y divide-gray-100 sm:hidden">
         {todos.length === 0 ? (
-          <div className="text-center py-10 text-gray-400 text-sm">Chưa có công việc nào</div>
+          <div className="py-10 text-center text-sm text-gray-400">{TEXT.empty}</div>
         ) : (
-          todos.map((t) => {
-            const isDone = t.status === "DONE";
-            const overdue = !isDone && isDueOverdue(t.dueDate);
-            const today = !isDone && isDueToday(t.dueDate);
+          todos.map((todo) => {
+            const isDone = todo.status === "DONE";
+            const overdue = !isDone && isDueOverdue(todo.dueDate);
+            const today = !isDone && isDueToday(todo.dueDate);
+
             return (
-              <div key={t.id} className={`px-4 py-3 ${isDone ? "opacity-50" : ""}`}>
+              <div key={todo.id} className={`px-4 py-3 ${isDone ? "opacity-50" : ""}`}>
                 <div className="flex items-start gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 -m-2 shrink-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center">
                     <input
                       type="checkbox"
                       checked={isDone}
-                      onChange={() => onToggleComplete(t.id)}
-                      className="w-[18px] h-[18px] accent-blue-600 cursor-pointer"
+                      onChange={() => onToggleComplete(todo)}
+                      className="h-[18px] w-[18px] cursor-pointer accent-blue-600"
                     />
                   </div>
-                  <div className="flex-1 min-w-0">
+
+                  <div className="min-w-0 flex-1">
                     <div
-                      onClick={() => onSelect(t)}
-                      className={`text-sm font-semibold text-slate-800 cursor-pointer truncate ${isDone ? "line-through" : ""}`}
+                      onClick={() => onSelect(todo)}
+                      className={`cursor-pointer truncate text-sm font-semibold text-slate-800 ${isDone ? "line-through" : ""}`}
                     >
-                      {t.title}
+                      {todo.title}
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[t.priority]?.twBg || ""}`}>
-                        {PRIORITY_CONFIG[t.priority]?.label}
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${PRIORITY_CONFIG[todo.priority]?.twBg || ""}`}>
+                        {PRIORITY_CONFIG[todo.priority]?.label}
                       </span>
-                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[t.status]?.twBg || ""}`}>
-                        {STATUS_CONFIG[t.status]?.label}
+                      <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_CONFIG[todo.status]?.twBg || ""}`}>
+                        {STATUS_CONFIG[todo.status]?.label}
                       </span>
-                      {t.source !== "MANUAL" && (
-                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}>
-                          {SOURCE_CONFIG[t.source]?.label}
+                      {todo.source !== "MANUAL" && (
+                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${SOURCE_CONFIG[todo.source]?.twBg || ""}`}>
+                          {SOURCE_CONFIG[todo.source]?.label}
                         </span>
                       )}
                     </div>
-                    {/* Admin assigned indicator */}
-                    {t.createdBy && t.assignee && t.createdById !== t.assigneeId && (
-                      <div className="flex items-center gap-1 mt-1.5 text-[11px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 w-fit">
+
+                    {todo.createdBy && todo.assignee && todo.createdById !== todo.assigneeId && (
+                      <div className="mt-1.5 flex w-fit items-center gap-1 rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[11px] text-purple-600">
                         <UserCheck size={10} />
-                        <span className="font-medium">Giao bởi {t.createdBy.name}</span>
+                        <span className="font-medium">{TEXT.assignedBy(todo.createdBy.name)}</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {t.dueDate && (
+
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {todo.dueDate && (
                           <span className={`font-medium ${overdue ? "text-red-600" : today ? "text-amber-600" : ""}`}>
-                            ⏰ {format(new Date(t.dueDate), "dd/MM HH:mm")}
+                            {TEXT.clock} {format(new Date(todo.dueDate), "dd/MM HH:mm")}
                           </span>
                         )}
-                        <span className="text-gray-400">Tạo: {format(new Date(t.createdAt), "dd/MM HH:mm")}</span>
-                        {t.completedAt && (
-                          <span className="text-green-600">✓ {format(new Date(t.completedAt), "dd/MM HH:mm")}</span>
+                        <span className="text-gray-400">{TEXT.created}: {format(new Date(todo.createdAt), "dd/MM HH:mm")}</span>
+                        {todo.completedAt && (
+                          <span className="text-green-600">{TEXT.done} {format(new Date(todo.completedAt), "dd/MM HH:mm")}</span>
                         )}
-                        {t.assignee?.name && <span>{t.assignee.name}</span>}
+                        {todo.assignee?.name && <span>{todo.assignee.name}</span>}
                       </div>
+
                       <div className="flex gap-1">
-                        <button onClick={() => onSelect(t)} className="p-2.5 rounded-md border border-gray-200 bg-white text-gray-500"><Pencil size={16} /></button>
-                        <button onClick={() => onDelete(t.id)} className="p-2.5 rounded-md border border-red-200 bg-white text-red-600"><Trash2 size={16} /></button>
+                        <button onClick={() => onSelect(todo)} className="rounded-md border border-gray-200 bg-white p-2.5 text-gray-500">
+                          <Pencil size={16} />
+                        </button>
+                        <button onClick={() => onDelete(todo.id)} className="rounded-md border border-red-200 bg-white p-2.5 text-red-600">
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -103,134 +144,131 @@ export function TodoListView({
         )}
       </div>
 
-      {/* Desktop table view */}
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full border-collapse text-xs min-w-[800px]">
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="min-w-[800px] w-full border-collapse text-xs">
           <thead>
-            <tr className="bg-slate-50 border-b-[1.5px] border-gray-200">
-              <th className="p-2 w-9 text-center">☐</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600">Tiêu Đề</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[120px]">Mã Đơn</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[90px]">Ưu Tiên</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[110px]">Trạng Thái</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[100px]">Thời Hạn</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[110px]">Ngày Tạo</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[110px]">Hoàn Thành</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[100px]">Người PT</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600 w-[80px]">Nguồn</th>
-              <th className="px-2.5 py-2 w-[70px]"></th>
+            <tr className="border-b-[1.5px] border-gray-200 bg-slate-50">
+              <th className="w-9 p-2 text-center">☐</th>
+              <th className="px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.title}</th>
+              <th className="w-[120px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.orderCode}</th>
+              <th className="w-[90px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.priority}</th>
+              <th className="w-[110px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.status}</th>
+              <th className="w-[100px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.dueDate}</th>
+              <th className="w-[110px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.createdAt}</th>
+              <th className="w-[110px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.completedAt}</th>
+              <th className="w-[100px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.assignee}</th>
+              <th className="w-[80px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.source}</th>
+              <th className="w-[70px] px-2.5 py-2" />
             </tr>
           </thead>
+
           <tbody>
             {todos.length === 0 ? (
               <tr>
-                <td colSpan={11} className="text-center py-10 text-gray-400">
-                  Chưa có công việc nào
-                </td>
+                <td colSpan={11} className="py-10 text-center text-gray-400">{TEXT.empty}</td>
               </tr>
             ) : (
-              todos.map((t, i) => {
-                const isDone = t.status === "DONE";
-                const overdue = !isDone && isDueOverdue(t.dueDate);
-                const today = !isDone && isDueToday(t.dueDate);
+              todos.map((todo, index) => {
+                const isDone = todo.status === "DONE";
+                const overdue = !isDone && isDueOverdue(todo.dueDate);
+                const today = !isDone && isDueToday(todo.dueDate);
+
                 return (
                   <tr
-                    key={t.id}
+                    key={todo.id}
                     className={`border-b border-slate-100 transition-colors hover:bg-blue-50/30 ${
-                      i % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                      index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
                     } ${isDone ? "opacity-50" : ""}`}
                   >
                     <td className="p-2 text-center">
                       <input
                         type="checkbox"
                         checked={isDone}
-                        onChange={() => onToggleComplete(t.id)}
-                        className="w-4 h-4 cursor-pointer accent-blue-600"
+                        onChange={() => onToggleComplete(todo)}
+                        className="h-4 w-4 cursor-pointer accent-blue-600"
                       />
                     </td>
+
                     <td className="px-2.5 py-2">
-                      <span
-                        onClick={() => onSelect(t)}
-                        className={`font-semibold text-slate-800 cursor-pointer hover:text-blue-600 transition-colors ${isDone ? "line-through" : ""}`}
-                      >
-                        {t.title}
+                      <span onClick={() => onSelect(todo)} className={`cursor-pointer font-semibold text-slate-800 transition-colors hover:text-blue-600 ${isDone ? "line-through" : ""}`}>
+                        {todo.title}
                       </span>
-                      {(t._count?.comments ?? 0) > 0 && (
-                        <span className="text-[10px] text-gray-400 ml-1.5">💬{t._count!.comments}</span>
+                      {(todo._count?.comments ?? 0) > 0 && (
+                        <span className="ml-1.5 text-[10px] text-gray-400">{TEXT.commentIcon}{todo._count!.comments}</span>
                       )}
                     </td>
+
                     <td className="px-2.5 py-2">
-                      {t.linkedOrder ? (
-                        <button
-                          onClick={() => onViewOrder(t.linkedOrder!.requestCode)}
-                          className="bg-transparent border-none p-0 text-blue-600 font-semibold cursor-pointer text-xs hover:underline"
-                        >
-                          {t.linkedOrder.requestCode}
+                      {todo.linkedOrder ? (
+                        <button onClick={() => onViewOrder(todo.linkedOrder!.requestCode)} className="border-none bg-transparent p-0 text-xs font-semibold text-blue-600 hover:underline">
+                          {todo.linkedOrder!.requestCode}
                         </button>
                       ) : (
-                        <span className="text-gray-300">—</span>
+                        <span className="text-gray-300">{TEXT.emptyCell}</span>
                       )}
                     </td>
+
                     <td className="px-2.5 py-2">
-                      <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${PRIORITY_CONFIG[t.priority]?.twBg || ""}`}
-                      >
-                        {PRIORITY_CONFIG[t.priority]?.label}
+                      <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_CONFIG[todo.priority]?.twBg || ""}`}>
+                        {PRIORITY_CONFIG[todo.priority]?.label}
                       </span>
                     </td>
+
                     <td className="px-2.5 py-2">
                       <select
-                        value={t.status}
-                        onChange={(e) => onStatusChange(t.id, e.target.value)}
-                        className={`text-[11px] font-semibold px-1.5 py-1 rounded-md border border-gray-200 cursor-pointer outline-none ${STATUS_CONFIG[t.status]?.twBg || ""}`}
+                        value={todo.status}
+                        onChange={(event) => onStatusChange(todo, event.target.value)}
+                        className={`cursor-pointer rounded-md border border-gray-200 px-1.5 py-1 text-[11px] font-semibold outline-none ${STATUS_CONFIG[todo.status]?.twBg || ""}`}
                       >
-                        {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                          <option key={k} value={k}>{v.label}</option>
+                        {Object.entries(STATUS_CONFIG).map(([key, value]) => (
+                          <option key={key} value={key}>{value.label}</option>
                         ))}
                       </select>
                     </td>
-                    <td className={`px-2.5 py-2 ${overdue ? "text-red-600 font-semibold" : today ? "text-amber-600 font-semibold" : "text-slate-600"}`}>
-                      {t.dueDate ? format(new Date(t.dueDate), "dd/MM/yyyy HH:mm") : <span className="text-gray-300">—</span>}
+
+                    <td className={`px-2.5 py-2 ${overdue ? "font-semibold text-red-600" : today ? "font-semibold text-amber-600" : "text-slate-600"}`}>
+                      {todo.dueDate ? format(new Date(todo.dueDate), "dd/MM/yyyy HH:mm") : <span className="text-gray-300">{TEXT.emptyCell}</span>}
                     </td>
-                    <td className="px-2.5 py-2 text-slate-500">
-                      {format(new Date(t.createdAt), "dd/MM/yyyy HH:mm")}
-                    </td>
+
+                    <td className="px-2.5 py-2 text-slate-500">{format(new Date(todo.createdAt), "dd/MM/yyyy HH:mm")}</td>
+
                     <td className="px-2.5 py-2">
-                      {t.completedAt ? (
-                        <span className="text-green-600 font-medium">{format(new Date(t.completedAt), "dd/MM/yyyy HH:mm")}</span>
+                      {todo.completedAt ? (
+                        <span className="font-medium text-green-600">{format(new Date(todo.completedAt), "dd/MM/yyyy HH:mm")}</span>
                       ) : (
-                        <span className="text-gray-300">—</span>
+                        <span className="text-gray-300">{TEXT.emptyCell}</span>
                       )}
                     </td>
-                    <td className="px-2.5 py-2 font-medium text-slate-800 max-w-[100px]">
-                      <div className="truncate">{t.assignee?.name || "—"}</div>
-                      {t.createdBy && t.assignee && t.createdById !== t.assigneeId && (
-                        <div className="flex items-center gap-0.5 text-[11px] text-purple-600 mt-0.5" title={`Giao bởi ${t.createdBy.name}`}>
+
+                    <td className="max-w-[100px] px-2.5 py-2 font-medium text-slate-800">
+                      <div className="truncate">{todo.assignee?.name || TEXT.emptyCell}</div>
+                      {todo.createdBy && todo.assignee && todo.createdById !== todo.assigneeId && (
+                        <div className="mt-0.5 flex items-center gap-0.5 text-[11px] text-purple-600" title={TEXT.assignedBy(todo.createdBy.name)}>
                           <UserCheck size={10} />
-                          <span className="truncate">Giao bởi {t.createdBy.name}</span>
+                          <span className="truncate">{TEXT.assignedBy(todo.createdBy.name)}</span>
                         </div>
                       )}
                     </td>
+
                     <td className="px-2.5 py-2">
-                      <span
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}
-                      >
-                        {SOURCE_CONFIG[t.source]?.label}
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${SOURCE_CONFIG[todo.source]?.twBg || ""}`}>
+                        {SOURCE_CONFIG[todo.source]?.label}
                       </span>
                     </td>
+
                     <td className="px-2.5 py-2">
                       <div className="flex gap-1">
                         <button
-                          onClick={() => onSelect(t)}
-                          className="p-1 rounded-md border border-gray-200 bg-white text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                          title="Sửa"
+                          onClick={() => onSelect(todo)}
+                          className="rounded-md border border-gray-200 bg-white p-1 text-gray-500 transition-colors hover:bg-gray-50"
+                          title={TEXT.edit}
                         >
                           <Pencil size={12} />
                         </button>
                         <button
-                          onClick={() => onDelete(t.id)}
-                          className="p-1 rounded-md border border-red-200 bg-white text-red-600 cursor-pointer hover:bg-red-50 transition-colors"
-                          title="Xóa"
+                          onClick={() => onDelete(todo.id)}
+                          className="rounded-md border border-red-200 bg-white p-1 text-red-600 transition-colors hover:bg-red-50"
+                          title={TEXT.delete}
                         >
                           <Trash2 size={12} />
                         </button>
@@ -244,25 +282,22 @@ export function TodoListView({
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 text-xs text-gray-500">
-          <span>Tổng: {pagination.total}</span>
-          <div className="flex gap-2 items-center">
+        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5 text-xs text-gray-500">
+          <span>{TEXT.total}: {pagination.total}</span>
+          <div className="flex items-center gap-2">
             <button
               disabled={pagination.page <= 1}
               onClick={() => onPageChange(pagination.page - 1)}
-              className="p-2 rounded-md border border-gray-200 bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="rounded-md border border-gray-200 bg-white p-2 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="font-semibold tabular-nums">
-              {pagination.page}/{pagination.totalPages}
-            </span>
+            <span className="tabular-nums font-semibold">{pagination.page}/{pagination.totalPages}</span>
             <button
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => onPageChange(pagination.page + 1)}
-              className="p-2 rounded-md border border-gray-200 bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="rounded-md border border-gray-200 bg-white p-2 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronRight size={16} />
             </button>

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import type { TodoItemData, TodoPagination, TodoFilters } from "@/types/todo";
+
+import type { TodoFilters, TodoItemData, TodoPagination } from "@/types/todo";
 
 interface UseTodosOptions {
   scope: "mine" | "all";
@@ -8,6 +9,14 @@ interface UseTodosOptions {
   hideDone: boolean;
   page: number;
   pageSize: number;
+}
+
+async function readErrorMessage(response: Response) {
+  const payload = await response.json().catch(() => null);
+  if (payload && typeof payload.error === "string") {
+    return payload.error;
+  }
+  return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
 export function useTodos() {
@@ -38,102 +47,137 @@ export function useTodos() {
       const res = await fetch(`/api/todos?${params}`);
       const data = await res.json();
       setTodos(data.todos || []);
-      setPagination((p) => ({ ...p, ...data.pagination }));
+      setPagination((current) => ({ ...current, ...data.pagination }));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Optimistic toggle complete
-  const toggleComplete = useCallback(async (id: string) => {
-    setTodos((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        const newStatus = t.status === "DONE" ? "TODO" : "DONE";
+  const toggleComplete = useCallback(async (todo: TodoItemData) => {
+    let previousTodos: TodoItemData[] = [];
+    setTodos((prev) => {
+      previousTodos = prev;
+      return prev.map((item) => {
+        if (item.id !== todo.id) return item;
+        const nextStatus = item.status === "DONE" ? "TODO" : "DONE";
         return {
-          ...t,
-          status: newStatus,
-          completedAt: newStatus === "DONE" ? new Date().toISOString() : null,
+          ...item,
+          status: nextStatus,
+          completedAt: nextStatus === "DONE" ? new Date().toISOString() : null,
+          version: item.version + 1,
         };
-      })
-    );
-    try {
-      await fetch(`/api/todos/${id}/complete`, { method: "PATCH" });
-    } catch {
-      // revert will happen on next fetch
-    }
-  }, []);
+      });
+    });
 
-  // Optimistic status change
-  const changeStatus = useCallback(async (id: string, status: string) => {
-    setTodos((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        return {
-          ...t,
-          status: status as TodoItemData["status"],
-          completedAt: status === "DONE" ? new Date().toISOString() : t.completedAt,
-        };
-      })
-    );
     try {
-      await fetch(`/api/todos/${id}/status`, {
+      const response = await fetch(`/api/todos/${todo.id}/complete`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ version: todo.version }),
       });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      const updated = await response.json();
+      setTodos((prev) => prev.map((item) => (item.id === todo.id ? { ...item, ...updated } : item)));
     } catch {
-      // revert will happen on next fetch
+      setTodos(previousTodos);
     }
   }, []);
 
-  // Optimistic delete
+  const changeStatus = useCallback(async (todo: TodoItemData, status: string) => {
+    let previousTodos: TodoItemData[] = [];
+    setTodos((prev) => {
+      previousTodos = prev;
+      return prev.map((item) => {
+        if (item.id !== todo.id) return item;
+        return {
+          ...item,
+          status: status as TodoItemData["status"],
+          completedAt: status === "DONE" ? new Date().toISOString() : null,
+          version: item.version + 1,
+        };
+      });
+    });
+
+    try {
+      const response = await fetch(`/api/todos/${todo.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, version: todo.version }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      const updated = await response.json();
+      setTodos((prev) => prev.map((item) => (item.id === todo.id ? { ...item, ...updated } : item)));
+    } catch {
+      setTodos(previousTodos);
+    }
+  }, []);
+
   const deleteTodo = useCallback(async (id: string) => {
-    setTodos((prev) => prev.filter((t) => t.id !== id));
+    setTodos((prev) => prev.filter((todo) => todo.id !== id));
     try {
       await fetch(`/api/todos/${id}`, { method: "DELETE" });
     } catch {
-      // revert will happen on next fetch
+      // UI will resync on the next fetch
     }
   }, []);
 
-  // Quick add
   const quickAdd = useCallback(async (title: string, priority: string): Promise<boolean> => {
     try {
-      const res = await fetch("/api/todos", {
+      const response = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title.trim(), priority }),
       });
-      return res.ok;
+      return response.ok;
     } catch {
       return false;
     }
   }, []);
 
-  // Kanban drag reorder (optimistic)
-  const reorderKanban = useCallback(async (draggableId: string, newStatus: string, newIndex: number) => {
-    setTodos((prev) =>
-      prev.map((t) =>
-        t.id === draggableId
-          ? { ...t, status: newStatus as TodoItemData["status"], completedAt: newStatus === "DONE" ? new Date().toISOString() : null }
-          : t
-      )
-    );
+  const reorderKanban = useCallback(async (todo: TodoItemData, newStatus: string, newIndex: number) => {
+    let previousTodos: TodoItemData[] = [];
+    setTodos((prev) => {
+      previousTodos = prev;
+      return prev.map((item) =>
+        item.id === todo.id
+          ? {
+              ...item,
+              status: newStatus as TodoItemData["status"],
+              completedAt: newStatus === "DONE" ? new Date().toISOString() : null,
+              sortOrder: newIndex,
+              version: item.version + 1,
+            }
+          : item,
+      );
+    });
+
     try {
-      await fetch("/api/todos/reorder", {
+      const response = await fetch("/api/todos/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: [{ id: draggableId, status: newStatus, sortOrder: newIndex }] }),
+        body: JSON.stringify({
+          items: [{ id: todo.id, status: newStatus, sortOrder: newIndex, version: todo.version }],
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
     } catch {
-      // revert will happen on next fetch
+      setTodos(previousTodos);
     }
   }, []);
 
-  // Update a single todo in local state (from detail panel)
   const updateLocal = useCallback((updated: TodoItemData) => {
-    setTodos((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+    setTodos((prev) => prev.map((todo) => (todo.id === updated.id ? { ...todo, ...updated } : todo)));
   }, []);
 
   return {

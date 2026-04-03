@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/route-permissions";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ requestCode: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
+  const denied = requirePermission(session.user, "canViewOrders", "Bạn không có quyền xem đơn hàng");
+  if (denied) return denied;
+
   const { requestCode } = await params;
 
   if (!requestCode) {
@@ -18,8 +27,6 @@ export async function GET(
         accept: "*/*",
         "accept-language":
           "vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5,hr;q=0.4",
-        "cache-control": "no-cache",
-        pragma: "no-cache",
         priority: "u=1, i",
         referer: "https://giaohangsieuviet.com/",
         "sec-ch-ua":
@@ -32,7 +39,8 @@ export async function GET(
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
       },
-      cache: "no-store",
+      cache: "force-cache",
+      next: { revalidate: 300 },
     });
 
     const text = await response.text();

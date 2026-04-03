@@ -1,9 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckSquare, Loader2, X } from "lucide-react";
+
 import { useTodoUsers } from "@/hooks/useTodoUsers";
+
+const TEXT = {
+  success: "\u0110\u00e3 t\u1ea1o c\u00f4ng vi\u1ec7c th\u00e0nh c\u00f4ng",
+  genericError: "C\u00f3 l\u1ed7i x\u1ea3y ra",
+  networkError: "L\u1ed7i k\u1ebft n\u1ed1i, vui l\u00f2ng th\u1eed l\u1ea1i",
+  title: "Th\u00eam v\u00e0o C\u00f4ng Vi\u1ec7c",
+  closeLabel: "\u0110\u00f3ng h\u1ed9p tho\u1ea1i th\u00eam c\u00f4ng vi\u1ec7c",
+  todoTitle: "Ti\u00eau \u0111\u1ec1 c\u00f4ng vi\u1ec7c",
+  todoPlaceholder: "Nh\u1eadp ti\u00eau \u0111\u1ec1...",
+  description: "M\u00f4 t\u1ea3",
+  descriptionPlaceholder: "M\u00f4 t\u1ea3 chi ti\u1ebft...",
+  priority: "M\u1ee9c \u01b0u ti\u00ean",
+  low: "Th\u1ea5p",
+  medium: "Trung b\u00ecnh",
+  high: "Cao",
+  urgent: "Kh\u1ea9n c\u1ea5p",
+  dueDate: "Th\u1eddi h\u1ea1n",
+  assignTo: "G\u00e1n cho nh\u00e2n vi\u00ean",
+  assignSelf: "T\u00f4i (m\u1eb7c \u0111\u1ecbnh)",
+  cancel: "H\u1ee7y",
+  submitting: "\u0110ang t\u1ea1o...",
+  submit: "T\u1ea1o c\u00f4ng vi\u1ec7c",
+} as const;
 
 interface AddTodoDialogProps {
   open: boolean;
@@ -45,6 +69,7 @@ export function AddTodoDialog({
 
   useEffect(() => {
     if (!open) return;
+
     setTitle(defaultTitle);
     setDescription(defaultDescription);
     setPriority(defaultPriority);
@@ -53,8 +78,8 @@ export function AddTodoDialog({
     setToast(null);
 
     if (!userRole) {
-      fetch("/api/auth/me")
-        .then((r) => (r.ok ? r.json() : null))
+      void fetch("/api/auth/me")
+        .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
           if (data?.role) setResolvedRole(data.role);
         })
@@ -62,15 +87,16 @@ export function AddTodoDialog({
     } else {
       setResolvedRole(userRole);
     }
-  }, [open, defaultTitle, defaultDescription, defaultPriority, userRole]);
+  }, [defaultDescription, defaultPriority, defaultTitle, open, userRole]);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
+
     setIsSubmitting(true);
     setToast(null);
 
     try {
-      const res = await fetch("/api/todos", {
+      const response = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,18 +110,18 @@ export function AddTodoDialog({
         }),
       });
 
-      if (res.ok) {
-        setToast({ type: "success", msg: "Đã tạo công việc thành công" });
+      if (response.ok) {
+        setToast({ type: "success", msg: TEXT.success });
         setTimeout(() => {
           onClose();
           setToast(null);
         }, 1000);
       } else {
-        const data = await res.json().catch(() => ({}));
-        setToast({ type: "error", msg: data.error || "Có lỗi xảy ra" });
+        const data = await response.json().catch(() => ({}));
+        setToast({ type: "error", msg: data.error || TEXT.genericError });
       }
     } catch {
-      setToast({ type: "error", msg: "Lỗi kết nối, vui lòng thử lại" });
+      setToast({ type: "error", msg: TEXT.networkError });
     } finally {
       setIsSubmitting(false);
     }
@@ -103,34 +129,34 @@ export function AddTodoDialog({
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [onClose, open]);
 
   if (!open || !mounted) return null;
 
   const inputClass =
-    "w-full bg-white border-[1.5px] border-gray-300 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
+    "w-full rounded-lg border-[1.5px] border-gray-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 
-  const dialog = (
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClose} />
 
       <div className="fixed inset-0 z-[9999] flex items-end justify-center p-0 pointer-events-none sm:items-center sm:p-4">
-        <div className="flex h-[100dvh] w-full max-w-full flex-col rounded-none border-0 bg-white shadow-xl pointer-events-auto animate-[dialogIn_0.2s_ease-out] sm:h-auto sm:max-h-[calc(100vh-32px)] sm:w-[480px] sm:rounded-xl sm:border-[1.5px] sm:border-blue-600">
+        <div className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col rounded-none border-0 bg-white shadow-xl animate-[dialogIn_0.2s_ease-out] sm:h-auto sm:max-h-[calc(100vh-32px)] sm:w-[480px] sm:rounded-xl sm:border-[1.5px] sm:border-blue-600">
           <div className="shrink-0 border-b border-gray-200 p-5 pb-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckSquare className="text-blue-600" size={20} />
-                <span className="text-lg font-semibold text-slate-800">Thêm vào Công Việc</span>
+                <span className="text-lg font-semibold text-slate-800">{TEXT.title}</span>
               </div>
               <button
                 onClick={onClose}
                 className="rounded-md border-none bg-transparent p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-slate-800"
-                aria-label="Đóng hộp thoại thêm công việc"
+                aria-label={TEXT.closeLabel}
               >
                 <X size={18} />
               </button>
@@ -140,25 +166,25 @@ export function AddTodoDialog({
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 sm:px-6">
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">
-                Tiêu đề công việc <span className="text-red-500">*</span>
+                {TEXT.todoTitle} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                placeholder="Nhập tiêu đề..."
+                onChange={(event) => setTitle(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && void handleSubmit()}
+                placeholder={TEXT.todoPlaceholder}
                 className={inputClass}
                 autoFocus
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">Mô tả</label>
+              <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">{TEXT.description}</label>
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Mô tả chi tiết..."
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={TEXT.descriptionPlaceholder}
                 rows={3}
                 className={`${inputClass} resize-none font-[inherit]`}
               />
@@ -166,28 +192,25 @@ export function AddTodoDialog({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">
-                  Mức ưu tiên
-                </label>
+                <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">{TEXT.priority}</label>
                 <select
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as typeof priority)}
+                  onChange={(event) => setPriority(event.target.value as typeof priority)}
                   className={`${inputClass} cursor-pointer`}
                 >
-                  <option value="LOW">Thấp</option>
-                  <option value="MEDIUM">Trung bình</option>
-                  <option value="HIGH">Cao</option>
-                  <option value="URGENT">Khẩn cấp</option>
+                  <option value="LOW">{TEXT.low}</option>
+                  <option value="MEDIUM">{TEXT.medium}</option>
+                  <option value="HIGH">{TEXT.high}</option>
+                  <option value="URGENT">{TEXT.urgent}</option>
                 </select>
               </div>
+
               <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">
-                  Thời hạn
-                </label>
+                <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">{TEXT.dueDate}</label>
                 <input
                   type="datetime-local"
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  onChange={(event) => setDueDate(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -195,18 +218,16 @@ export function AddTodoDialog({
 
             {canAssign && users.length > 0 && (
               <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">
-                  Gán cho nhân viên
-                </label>
+                <label className="mb-1.5 block text-[13px] font-semibold text-gray-700">{TEXT.assignTo}</label>
                 <select
                   value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
+                  onChange={(event) => setAssigneeId(event.target.value)}
                   className={`${inputClass} cursor-pointer`}
                 >
-                  <option value="">Tôi (mặc định)</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.role})
+                  <option value="">{TEXT.assignSelf}</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.role})
                     </option>
                   ))}
                 </select>
@@ -232,22 +253,22 @@ export function AddTodoDialog({
               onClick={onClose}
               className="rounded-lg border border-gray-300 bg-transparent px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
-              Hủy
+              {TEXT.cancel}
             </button>
             <button
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
               disabled={isSubmitting || !title.trim()}
               className="flex items-center gap-1.5 rounded-lg border-none bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-              {isSubmitting ? "Đang tạo..." : "Tạo công việc"}
+              {isSubmitting ? TEXT.submitting : TEXT.submit}
             </button>
           </div>
         </div>
       </div>
-      <style>{`@keyframes dialogIn { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }`}</style>
-    </>
-  );
 
-  return createPortal(dialog, document.body);
+      <style>{`@keyframes dialogIn { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }`}</style>
+    </>,
+    document.body,
+  );
 }

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Inline mock — avoids ESM hoisting issues with vitest-mock-extended
+// Inline mock - avoids ESM hoisting issues with vitest-mock-extended
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     order: {
@@ -23,20 +23,17 @@ vi.mock("@/lib/prisma", () => ({
 import { createAutoDetectedClaims, detectSlowJourneyOrders } from "@/lib/claim-detector";
 import { prisma } from "@/lib/prisma";
 
-// ============================================================
-// Helper
-// ============================================================
 function makeOrder(
   id: string,
   regionGroup: string,
-  daysAgo: number
+  daysAgo: number,
 ): { id: string; requestCode: string; pickupTime: Date; regionGroup: string } {
   const pickupTime = new Date(Date.now() - daysAgo * 86400000);
   return { id, requestCode: `RC-${id}`, pickupTime, regionGroup };
 }
 
 function mockOrders(
-  orders: { id: string; requestCode: string; pickupTime: Date; regionGroup: string }[]
+  orders: { id: string; requestCode: string; pickupTime: Date; regionGroup: string }[],
 ) {
   vi.mocked(prisma.order.findMany).mockResolvedValue(orders as never);
 }
@@ -50,18 +47,16 @@ function mockAutoDetectSlowOrder(orderId = "order-1", daysAgo = 5, regionGroup =
 function mockNoAutoCompleteCandidates() {
   vi.mocked(prisma.claimOrder.findMany)
     .mockResolvedValueOnce([] as never)
+    .mockResolvedValueOnce([] as never)
     .mockResolvedValueOnce([] as never);
 }
 
-// ============================================================
-// detectSlowJourneyOrders — region-based thresholds
-// ============================================================
 describe("detectSlowJourneyOrders", () => {
   beforeEach(() => {
     vi.mocked(prisma.order.findMany).mockReset();
   });
 
-  // --- Nội Tỉnh (0.x, 1.x, 2.x) → threshold 4 ngày ---
+  // --- Nội Tỉnh (0.x, 1.x, 2.x) -> threshold 4 ngày ---
 
   it("does NOT detect Nội Tỉnh order with 3 days (under 4-day threshold)", async () => {
     mockOrders([makeOrder("order-1", "0.123", 3)]);
@@ -87,7 +82,7 @@ describe("detectSlowJourneyOrders", () => {
     expect(result).toContain("order-4");
   });
 
-  // --- Nội Miền (3.x, 4.x) → threshold 10 ngày ---
+  // --- Nội Miền (3.x, 4.x) -> threshold 10 ngày ---
 
   it("does NOT detect Nội Miền order with 9 days (under 10-day threshold)", async () => {
     mockOrders([makeOrder("order-5", "3.789", 9)]);
@@ -107,7 +102,7 @@ describe("detectSlowJourneyOrders", () => {
     expect(result).toContain("order-7");
   });
 
-  // --- Liên Miền (5.x, 6.x) → threshold 15 ngày ---
+  // --- Liên Miền (5.x, 6.x) -> threshold 15 ngày ---
 
   it("does NOT detect Liên Miền order with 14 days (under 15-day threshold)", async () => {
     mockOrders([makeOrder("order-8", "5.456", 14)]);
@@ -127,7 +122,7 @@ describe("detectSlowJourneyOrders", () => {
     expect(result).toContain("order-10");
   });
 
-  // --- Unknown region → fallback 15 ngày ---
+  // --- Unknown region -> fallback 15 ngày ---
 
   it("detects unknown region order with 16 days (fallback 15-day threshold)", async () => {
     mockOrders([makeOrder("order-11", "", 16)]);
@@ -141,14 +136,12 @@ describe("detectSlowJourneyOrders", () => {
     expect(result).not.toContain("order-12");
   });
 
-  // --- Multiple orders ---
-
   it("returns only orders exceeding their threshold", async () => {
     mockOrders([
-      makeOrder("slow-1", "0.1", 5),   // Nội Tỉnh, 5 > 4 → detect
-      makeOrder("ok-1", "0.1", 2),     // Nội Tỉnh, 2 < 4 → skip
-      makeOrder("slow-2", "3.1", 12),  // Nội Miền, 12 > 10 → detect
-      makeOrder("ok-2", "3.1", 8),     // Nội Miền, 8 < 10 → skip
+      makeOrder("slow-1", "0.1", 5),   // Nội Tỉnh, 5 > 4 -> detect
+      makeOrder("ok-1", "0.1", 2),     // Nội Tỉnh, 2 < 4 -> skip
+      makeOrder("slow-2", "3.1", 12),  // Nội Miền, 12 > 10 -> detect
+      makeOrder("ok-2", "3.1", 8),     // Nội Miền, 8 < 10 -> skip
     ]);
 
     const result = await detectSlowJourneyOrders();
@@ -180,19 +173,23 @@ describe("createAutoDetectedClaims", () => {
 
   it("skips auto-scan when the order already has an incomplete claim", async () => {
     mockAutoDetectSlowOrder();
-    mockNoAutoCompleteCandidates();
-    vi.mocked(prisma.claimOrder.findUnique).mockResolvedValue({
-      id: "claim-1",
-      orderId: "order-1",
-      issueType: "SUSPICIOUS",
-      issueDescription: "Old issue",
-      claimStatus: "VERIFYING_CARRIER",
-      isCompleted: false,
-      processingContent: "Manual handling",
-      carrierCompensation: 100,
-      customerCompensation: 50,
-      source: "MANUAL",
-    } as never);
+    vi.mocked(prisma.claimOrder.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "claim-1",
+          orderId: "order-1",
+          issueType: "SUSPICIOUS",
+          issueDescription: "Old issue",
+          claimStatus: "VERIFYING_CARRIER",
+          isCompleted: false,
+          processingContent: "Manual handling",
+          carrierCompensation: 100,
+          customerCompensation: 50,
+          source: "MANUAL",
+        },
+      ] as never);
 
     const result = await createAutoDetectedClaims("user-1");
 
@@ -203,19 +200,23 @@ describe("createAutoDetectedClaims", () => {
 
   it("reopens a completed claim when auto-scan finds a different issue type", async () => {
     mockAutoDetectSlowOrder();
-    mockNoAutoCompleteCandidates();
-    vi.mocked(prisma.claimOrder.findUnique).mockResolvedValue({
-      id: "claim-1",
-      orderId: "order-1",
-      issueType: "OTHER",
-      issueDescription: "Phat hien tu ghi chu noi bo",
-      claimStatus: "RESOLVED",
-      isCompleted: true,
-      processingContent: "Keep this manual note",
-      carrierCompensation: 100,
-      customerCompensation: 50,
-      source: "AUTO_INTERNAL_NOTE",
-    } as never);
+    vi.mocked(prisma.claimOrder.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "claim-1",
+          orderId: "order-1",
+          issueType: "OTHER",
+          issueDescription: "Phát hiện từ ghi chú nội bộ",
+          claimStatus: "RESOLVED",
+          isCompleted: true,
+          processingContent: "Keep this manual note",
+          carrierCompensation: 100,
+          customerCompensation: 50,
+          source: "AUTO_INTERNAL_NOTE",
+        },
+      ] as never);
     vi.mocked(prisma.claimOrder.update).mockResolvedValue({ id: "claim-1" } as never);
 
     const result = await createAutoDetectedClaims("user-1");
@@ -252,21 +253,73 @@ describe("createAutoDetectedClaims", () => {
 
   it("keeps a completed claim closed when auto-scan finds the same issue type", async () => {
     mockAutoDetectSlowOrder();
-    mockNoAutoCompleteCandidates();
-    vi.mocked(prisma.claimOrder.findUnique).mockResolvedValue({
-      id: "claim-1",
-      orderId: "order-1",
-      issueType: "SLOW_JOURNEY",
-      issueDescription: null,
-      claimStatus: "RESOLVED",
-      isCompleted: true,
-      source: "AUTO_SLOW_JOURNEY",
-    } as never);
+    vi.mocked(prisma.claimOrder.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "claim-1",
+          orderId: "order-1",
+          issueType: "SLOW_JOURNEY",
+          issueDescription: null,
+          claimStatus: "RESOLVED",
+          isCompleted: true,
+          source: "AUTO_SLOW_JOURNEY",
+        },
+      ] as never);
 
     const result = await createAutoDetectedClaims("user-1");
 
     expect(result).toEqual({ newClaims: 0, reopenedClaims: 0, autoCompleted: 0 });
     expect(prisma.claimOrder.create).not.toHaveBeenCalled();
     expect(prisma.claimOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("batch-loads existing claims with findMany instead of querying findUnique in a loop", async () => {
+    vi.mocked(prisma.order.findMany)
+      .mockResolvedValueOnce([
+        makeOrder("order-1", "0.123", 5),
+        makeOrder("order-2", "0.123", 6),
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    vi.mocked(prisma.claimOrder.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "claim-1",
+          orderId: "order-1",
+          issueType: "OTHER",
+          claimStatus: "RESOLVED",
+          isCompleted: true,
+        },
+      ] as never);
+
+    vi.mocked(prisma.claimOrder.update).mockResolvedValue({ id: "claim-1" } as never);
+    vi.mocked(prisma.claimOrder.create).mockResolvedValue({ id: "claim-2" } as never);
+
+    const result = await createAutoDetectedClaims("user-1");
+
+    expect(result).toEqual({ newClaims: 1, reopenedClaims: 1, autoCompleted: 0 });
+    expect(prisma.claimOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: { in: ["order-1", "order-2"] } },
+        select: expect.objectContaining({
+          id: true,
+          orderId: true,
+          issueType: true,
+          claimStatus: true,
+          isCompleted: true,
+        }),
+      }),
+    );
+    expect(prisma.claimOrder.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("keeps existing helper setup for auto-complete candidates empty", async () => {
+    mockNoAutoCompleteCandidates();
+
+    expect(prisma.claimOrder.findMany).toHaveBeenCalledTimes(0);
   });
 });

@@ -1,10 +1,22 @@
 "use client";
 
 import { format } from "date-fns";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Circle, GripVertical, UserCheck } from "lucide-react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { PRIORITY_CONFIG, SOURCE_CONFIG } from "./constants";
+
 import type { TodoItemData } from "@/types/todo";
+
+import { PRIORITY_CONFIG, SOURCE_CONFIG } from "./constants";
+
+const TEXT = {
+  todo: "C\u1ea7n l\u00e0m",
+  inProgress: "\u0110ang l\u00e0m",
+  done: "Ho\u00e0n th\u00e0nh",
+  assignedBy: (name: string) => `Giao b\u1edfi ${name}`,
+  created: "T\u1ea1o",
+  clock: "⏰",
+  check: "✓",
+} as const;
 
 interface TodoKanbanViewProps {
   todos: TodoItemData[];
@@ -12,19 +24,20 @@ interface TodoKanbanViewProps {
   onSelect: (todo: TodoItemData) => void;
 }
 
-function isDueOverdue(d: string | null) {
-  if (!d) return false;
-  return new Date(d) < new Date();
+function isDueOverdue(value: string | null) {
+  if (!value) return false;
+  return new Date(value) < new Date();
 }
-function isDueToday(d: string | null) {
-  if (!d) return false;
-  return new Date(d).toDateString() === new Date().toDateString();
+
+function isDueToday(value: string | null) {
+  if (!value) return false;
+  return new Date(value).toDateString() === new Date().toDateString();
 }
 
 const columns = [
-  { id: "todo", label: "Cần làm", statusKey: "TODO", color: "text-gray-500", borderColor: "border-gray-300", hoverBg: "bg-gray-100" },
-  { id: "inprogress", label: "Đang làm", statusKey: "IN_PROGRESS", color: "text-amber-600", borderColor: "border-amber-300", hoverBg: "bg-amber-50" },
-  { id: "done", label: "Hoàn thành", statusKey: "DONE", color: "text-green-600", borderColor: "border-green-300", hoverBg: "bg-green-50" },
+  { id: "todo", label: TEXT.todo, statusKey: "TODO", color: "text-gray-500", borderColor: "border-gray-300" },
+  { id: "inprogress", label: TEXT.inProgress, statusKey: "IN_PROGRESS", color: "text-amber-600", borderColor: "border-amber-300" },
+  { id: "done", label: TEXT.done, statusKey: "DONE", color: "text-green-600", borderColor: "border-green-300" },
 ] as const;
 
 const dotColors: Record<string, string> = {
@@ -35,116 +48,100 @@ const dotColors: Record<string, string> = {
 
 export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewProps) {
   const grouped: Record<string, TodoItemData[]> = {
-    TODO: todos.filter((t) => t.status === "TODO"),
-    IN_PROGRESS: todos.filter((t) => t.status === "IN_PROGRESS"),
-    DONE: todos.filter((t) => t.status === "DONE").slice(0, 10),
+    TODO: todos.filter((todo) => todo.status === "TODO"),
+    IN_PROGRESS: todos.filter((todo) => todo.status === "IN_PROGRESS"),
+    DONE: todos.filter((todo) => todo.status === "DONE").slice(0, 10),
   };
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      {/* Mobile: vertical stack / Desktop: 3 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 h-full">
-        {columns.map((col) => {
-          const items = grouped[col.statusKey] || [];
+      <div className="grid h-full grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        {columns.map((column) => {
+          const items = grouped[column.statusKey] || [];
           return (
-            <Droppable key={col.id} droppableId={col.id}>
+            <Droppable key={column.id} droppableId={column.id}>
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className={`rounded-xl p-3 min-h-[160px] sm:min-h-[200px] border transition-colors ${
-                    snapshot.isDraggingOver
-                      ? `bg-slate-100 ${col.borderColor}`
-                      : "bg-slate-50 border-gray-200"
+                  className={`min-h-[160px] rounded-xl border p-3 transition-colors sm:min-h-[200px] ${
+                    snapshot.isDraggingOver ? `bg-slate-100 ${column.borderColor}` : "border-gray-200 bg-slate-50"
                   }`}
                 >
-                  {/* Column header */}
-                  <div className={`text-[13px] font-bold ${col.color} mb-2.5 flex items-center gap-1.5`}>
-                    <Circle size={8} fill={dotColors[col.color]} color={dotColors[col.color]} />
-                    {col.label}
-                    <span className="text-gray-400 font-medium ml-0.5">({items.length})</span>
+                  <div className={`mb-2.5 flex items-center gap-1.5 text-[13px] font-bold ${column.color}`}>
+                    <Circle size={8} fill={dotColors[column.color]} color={dotColors[column.color]} />
+                    {column.label}
+                    <span className="ml-0.5 font-medium text-gray-400">({items.length})</span>
                   </div>
 
-                  {/* Cards */}
-                  {items.map((t, idx) => (
-                    <Draggable key={t.id} draggableId={t.id} index={idx}>
-                      {(prov, snap) => (
+                  {items.map((todo, index) => (
+                    <Draggable key={todo.id} draggableId={todo.id} index={index}>
+                      {(draggableProvided, draggableSnapshot) => (
                         <div
-                          ref={prov.innerRef}
-                          {...prov.draggableProps}
-                          onClick={() => onSelect(t)}
-                          className={`bg-white border border-gray-200 rounded-[10px] p-3 mb-2 cursor-pointer transition-shadow ${
-                            snap.isDragging ? "shadow-lg" : "shadow-sm hover:shadow-md"
-                          } ${col.statusKey === "DONE" ? "opacity-60" : ""}`}
-                          style={prov.draggableProps.style}
+                          ref={draggableProvided.innerRef}
+                          {...draggableProvided.draggableProps}
+                          onClick={() => onSelect(todo)}
+                          className={`mb-2 cursor-pointer rounded-[10px] border border-gray-200 bg-white p-3 transition-shadow ${
+                            draggableSnapshot.isDragging ? "shadow-lg" : "shadow-sm hover:shadow-md"
+                          } ${column.statusKey === "DONE" ? "opacity-60" : ""}`}
+                          style={draggableProvided.draggableProps.style}
                         >
-                          {/* Title + Priority dot with drag handle */}
                           <div className="flex items-start gap-1">
-                            <div {...prov.dragHandleProps} className="flex items-center p-1.5 -ml-1 shrink-0 text-gray-300 hover:text-gray-500 touch-none">
+                            <div
+                              {...draggableProvided.dragHandleProps}
+                              className="flex shrink-0 items-center p-1.5 -ml-1 text-gray-300 hover:text-gray-500 touch-none"
+                            >
                               <GripVertical size={14} />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start gap-2 mb-1.5">
-                                <div className="text-[13px] font-semibold text-slate-800 leading-snug line-clamp-2">
-                                  {t.title}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1.5 flex items-start justify-between gap-2">
+                                <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-800">
+                                  {todo.title}
                                 </div>
-                                <span
-                                  className="w-2 h-2 rounded-full shrink-0 mt-1"
-                                  style={{ background: PRIORITY_CONFIG[t.priority]?.dot }}
-                                />
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: PRIORITY_CONFIG[todo.priority]?.dot }} />
                               </div>
                             </div>
                           </div>
 
-                          {/* Linked order */}
-                          {t.linkedOrder && (
-                            <div className="text-[11px] text-blue-600 font-medium mb-1.5 truncate">
-                              {t.linkedOrder.requestCode}
+                          {todo.linkedOrder && (
+                            <div className="mb-1.5 truncate text-[11px] font-medium text-blue-600">
+                              {todo.linkedOrder.requestCode}
                             </div>
                           )}
 
-                          {/* Admin assigned indicator */}
-                          {t.createdBy && t.assignee && t.createdById !== t.assigneeId && (
-                            <div className="flex items-center gap-0.5 text-[11px] text-purple-600 bg-purple-50 rounded px-1.5 py-0.5 mt-1 w-fit">
+                          {todo.createdBy && todo.assignee && todo.createdById !== todo.assigneeId && (
+                            <div className="mt-1 flex w-fit items-center gap-0.5 rounded bg-purple-50 px-1.5 py-0.5 text-[11px] text-purple-600">
                               <UserCheck size={9} />
-                              <span className="font-medium truncate max-w-[120px]">Giao bởi {t.createdBy.name}</span>
+                              <span className="max-w-[120px] truncate font-medium">{TEXT.assignedBy(todo.createdBy.name)}</span>
                             </div>
                           )}
 
-                          {/* Dates: created + completed */}
-                          <div className="flex gap-2 items-center mt-1 text-[11px] text-gray-400">
-                            <span>Tạo: {format(new Date(t.createdAt), "dd/MM HH:mm")}</span>
-                            {t.completedAt && (
-                              <span className="text-green-600">✓ {format(new Date(t.completedAt), "dd/MM HH:mm")}</span>
-                            )}
+                          <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-400">
+                            <span>{TEXT.created}: {format(new Date(todo.createdAt), "dd/MM HH:mm")}</span>
+                            {todo.completedAt && <span className="text-green-600">{TEXT.check} {format(new Date(todo.completedAt), "dd/MM HH:mm")}</span>}
                           </div>
 
-                          {/* Footer: source + due + assignee */}
-                          <div className="flex justify-between items-center mt-1">
-                            <div className="flex gap-1.5 items-center flex-wrap">
-                              <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${SOURCE_CONFIG[t.source]?.twBg || ""}`}>
-                                {SOURCE_CONFIG[t.source]?.label}
+                          <div className="mt-1 flex items-center justify-between">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${SOURCE_CONFIG[todo.source]?.twBg || ""}`}>
+                                {SOURCE_CONFIG[todo.source]?.label}
                               </span>
-                              {t.dueDate && (
-                                <span
-                                  className={`text-[11px] font-medium flex items-center gap-0.5 ${
-                                    isDueOverdue(t.dueDate) ? "text-red-600" : isDueToday(t.dueDate) ? "text-amber-600" : "text-gray-500"
-                                  }`}
-                                >
-                                  ⏰ {format(new Date(t.dueDate), "dd/MM HH:mm")}
+                              {todo.dueDate && (
+                                <span className={`flex items-center gap-0.5 text-[11px] font-medium ${
+                                  isDueOverdue(todo.dueDate) ? "text-red-600" : isDueToday(todo.dueDate) ? "text-amber-600" : "text-gray-500"
+                                }`}>
+                                  {TEXT.clock} {format(new Date(todo.dueDate), "dd/MM HH:mm")}
                                 </span>
                               )}
                             </div>
-                            {t.assignee?.name && (
-                              <span className="text-[11px] text-gray-400 font-medium truncate max-w-[60px]">
-                                {t.assignee.name.split(" ").pop()}
-                              </span>
-                            )}
+                            {todo.assignee?.name && <span className="max-w-[60px] truncate text-[11px] font-medium text-gray-400">{todo.assignee.name.split(" ").pop()}</span>}
                           </div>
                         </div>
                       )}
                     </Draggable>
                   ))}
+
                   {provided.placeholder}
                 </div>
               )}

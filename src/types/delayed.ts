@@ -29,11 +29,18 @@ export type DelayedPagination = {
   totalPages: number;
 };
 
+export type DelayedMeta = {
+  isTruncated: boolean;
+  scanLimit: number;
+  warning: string | null;
+};
+
 export type DelayedResponseData = {
   rows: ProcessedDelayedOrder[];
   summary: DelayedSummary;
   facets: DelayedFacets;
   pagination: DelayedPagination;
+  meta: DelayedMeta;
 };
 
 export type DelayedResponse = {

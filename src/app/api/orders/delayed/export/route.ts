@@ -1,26 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
-import type { Prisma } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { processDelayedOrder, type ProcessedDelayedOrder } from "@/lib/delay-analyzer";
+import { applyDelayedFilters, buildDelayedExportRows } from "@/lib/delayed-data";
 import {
-  applyDelayedFilters,
-  buildDelayedExportRows,
-  sortDelayedOrders,
-} from "@/lib/delayed-data";
+  buildDelayedOrdersWhere,
+  DELAYED_EXPORT_BATCH_SIZE,
+  DELAYED_ORDER_SELECT,
+  escapeCsvCell,
+  getDelayedExportOrderBy,
+} from "@/lib/delayed-query";
+import { prisma } from "@/lib/prisma";
 import { exportLimiter } from "@/lib/rate-limiter";
+import { requirePermission } from "@/lib/route-permissions";
+
+function rowsToCsv(rows: Record<string, string | number>[]) {
+  return rows
+    .map((row) => Object.values(row).map((value) => escapeCsvCell(value)).join(","))
+    .join("\n");
+}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
 
   if (!session?.user) {
-    return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  if (!session.user.permissions?.canViewDelayed) {
-    return NextResponse.json({ error: "Khong co quyen xuat delayed" }, { status: 403 });
-  }
+  const denied = requirePermission(
+    session.user,
+    "canViewDelayed",
+    "Bạn không có quyền xuất danh sách đơn hoàn",
+  );
+  if (denied) return denied;
 
   const rateLimited = exportLimiter.check(session.user.id!);
   if (rateLimited) {
@@ -39,102 +51,88 @@ export async function GET(req: NextRequest) {
   const sortKey = (searchParams.get("sortKey") || "delayCount") as keyof ProcessedDelayedOrder;
   const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
 
-  const andConditions: Prisma.OrderWhereInput[] = [];
-
-  if (search) {
-    andConditions.push({
-      OR: [
-        { requestCode: { contains: search, mode: "insensitive" } },
-        { shopName: { contains: search, mode: "insensitive" } },
-        { receiverName: { contains: search, mode: "insensitive" } },
-        { receiverPhone: { contains: search } },
-        { carrierOrderCode: { contains: search, mode: "insensitive" } },
-        { customerOrderCode: { contains: search, mode: "insensitive" } },
-      ],
-    });
-  }
-
-  if (shopFilter) andConditions.push({ shopName: shopFilter });
-  if (carrierFilter) andConditions.push({ carrierName: carrierFilter });
-  if (statusFilter) andConditions.push({ status: statusFilter });
-
-  const where: Prisma.OrderWhereInput = {
-    claimLocked: false,
-    OR: [
-      { deliveryStatus: { in: ["DELIVERY_DELAYED", "RETURN_CONFIRMED"] } },
-      {
-        AND: [
-          { deliveryStatus: "DELIVERING" },
-          {
-            OR: [
-              { publicNotes: { contains: "Hoan giao hang", mode: "insensitive" } },
-              { publicNotes: { contains: "Hoãn giao hàng" } },
-              { publicNotes: { contains: "Delay giao hang", mode: "insensitive" } },
-              { publicNotes: { contains: "Delay giao hàng" } },
-            ],
-          },
-        ],
-      },
-    ],
-    ...(andConditions.length > 0 ? { AND: andConditions } : {}),
-  };
-
-  const rawOrders = await prisma.order.findMany({
-    where,
-    select: {
-      id: true,
-      requestCode: true,
-      customerOrderCode: true,
-      carrierOrderCode: true,
-      shopName: true,
-      receiverName: true,
-      receiverPhone: true,
-      receiverAddress: true,
-      receiverWard: true,
-      receiverDistrict: true,
-      receiverProvince: true,
-      status: true,
-      deliveryStatus: true,
-      codAmount: true,
-      createdTime: true,
-      pickupTime: true,
-      lastUpdated: true,
-      publicNotes: true,
-      carrierName: true,
-      staffNotes: true,
-      claimOrder: { select: { issueType: true } },
-    },
-    take: 10000,
-  });
-
-  let processedOrders = rawOrders.map((order) => processDelayedOrder(order));
-  processedOrders = applyDelayedFilters(processedOrders, {
-    search,
-    shop: shopFilter,
-    status: statusFilter,
-    delay: delayCountFilter,
-    reason: reasonFilter,
-    risk: riskFilter || "all",
-    today: todayOnly,
-  });
-  processedOrders = sortDelayedOrders(processedOrders, sortKey, sortDir);
-
-  const rows = buildDelayedExportRows(processedOrders);
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  worksheet["!cols"] = Object.keys(rows[0] || {}).map((key) => ({
-    wch: Math.max(key.length, 14),
-  }));
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Delayed");
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  const encoder = new TextEncoder();
   const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const headers = [
+    "STT",
+    "Mã Yêu Cầu",
+    "Mã Đơn KH",
+    "Mã Đơn Đối Tác",
+    "Shop",
+    "Người Nhận",
+    "SDT",
+    "Địa Chỉ",
+    "Trạng Thái",
+    "Số Lần Hoãn",
+    "Mức Độ Rủi Ro",
+    "COD (VND)",
+    "Lý Do",
+  ];
 
-  return new NextResponse(buffer, {
+  const stream = new ReadableStream({
+    async start(controller) {
+      let skip = 0;
+      let exportIndex = 1;
+
+      controller.enqueue(encoder.encode(`\uFEFF${headers.map((header) => escapeCsvCell(header)).join(",")}\n`));
+
+      try {
+        while (true) {
+          const batch = await prisma.order.findMany({
+            where: buildDelayedOrdersWhere({
+              search,
+              shopFilter,
+              carrierFilter,
+              statusFilter,
+            }),
+            select: DELAYED_ORDER_SELECT,
+            orderBy: getDelayedExportOrderBy(sortKey, sortDir),
+            skip,
+            take: DELAYED_EXPORT_BATCH_SIZE,
+          });
+
+          if (batch.length === 0) {
+            break;
+          }
+
+          let processedOrders = batch.map((order) => processDelayedOrder(order));
+          processedOrders = applyDelayedFilters(processedOrders, {
+            search: "",
+            shop: "",
+            status: "",
+            delay: delayCountFilter,
+            reason: reasonFilter,
+            risk: riskFilter || "all",
+            today: todayOnly,
+          });
+
+          if (processedOrders.length > 0) {
+            const csvRows = buildDelayedExportRows(processedOrders, exportIndex);
+            exportIndex += csvRows.length;
+            controller.enqueue(encoder.encode(`${rowsToCsv(csvRows)}\n`));
+          }
+
+          if (batch.length < DELAYED_EXPORT_BATCH_SIZE) {
+            break;
+          }
+
+          skip += DELAYED_EXPORT_BATCH_SIZE;
+        }
+
+        controller.close();
+      } catch (error) {
+        console.error("Error streaming delayed export:", error);
+        controller.error(error);
+      }
+    },
+  });
+
+  return new NextResponse(stream, {
     status: 200,
     headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="delayed-${timestamp}.xlsx"`,
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="delayed-${timestamp}.csv"`,
+      "Cache-Control": "no-store",
     },
   });
 }

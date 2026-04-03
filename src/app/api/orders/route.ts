@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, DeliveryStatus } from "@prisma/client";
 import { ordersQuerySchema, parseSearchParams } from "@/lib/validations";
+import { requirePermission } from "@/lib/route-permissions";
 
 const ALLOWED_SORT_COLUMNS = [
   "createdTime", "requestCode", "shopName", "receiverName",
@@ -15,6 +16,9 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
+
+  const denied = requirePermission(session.user, "canViewOrders", "Bạn không có quyền xem đơn hàng");
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
   const parsed = ordersQuerySchema.safeParse(parseSearchParams(searchParams));

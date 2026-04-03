@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveTodoAssigneeFilter } from "@/lib/todo-scope";
+import { canViewAllTodos } from "@/lib/todo-permissions";
 
 async function countStatsForAssignee({
   assigneeId,
@@ -51,9 +52,10 @@ export async function GET(req: Request) {
   }
 
   const userId = session.user.id;
+  const canViewAll = canViewAllTodos(session.user);
   const url = new URL(req.url);
   const assigneeId = url.searchParams.get("assigneeId") || "";
-  const selectedAssigneeId = resolveTodoAssigneeFilter("all", userId, assigneeId);
+  const selectedAssigneeId = resolveTodoAssigneeFilter("all", userId, assigneeId, canViewAll);
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -62,8 +64,19 @@ export async function GET(req: Request) {
   weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
   const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
 
-  const [mine, all, selected] = await Promise.all([
-    countStatsForAssignee({ assigneeId: userId, todayStart, todayEnd, weekStart, weekEnd }),
+  const mine = await countStatsForAssignee({
+    assigneeId: userId,
+    todayStart,
+    todayEnd,
+    weekStart,
+    weekEnd,
+  });
+
+  if (!canViewAll) {
+    return NextResponse.json({ mine, all: mine, selected: null });
+  }
+
+  const [all, selected] = await Promise.all([
     countStatsForAssignee({ assigneeId: null, todayStart, todayEnd, weekStart, weekEnd }),
     selectedAssigneeId
       ? countStatsForAssignee({
