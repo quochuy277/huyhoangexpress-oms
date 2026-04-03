@@ -8,6 +8,10 @@ vi.mock("@/lib/orders-list", () => ({
   getOrdersList: vi.fn(),
 }));
 
+vi.mock("@/components/orders/OrdersClient", () => ({
+  OrdersClient: () => null,
+}));
+
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`);
