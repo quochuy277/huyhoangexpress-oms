@@ -3,6 +3,7 @@
 import { Search, X, Download, Loader2, Settings2, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useState, useTransition, useEffect, memo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { DeliveryStatus } from "@prisma/client";
 import { STATUS_CATEGORIES } from "@/lib/status-mapper";
 
@@ -39,14 +40,20 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [options, setOptions] = useState<FilterOptions>({ shopNames: [], salesStaffs: [], regionGroups: [] });
+  const { data: optionsData } = useQuery<FilterOptions>({
+    queryKey: ["orders-filter-options"],
+    queryFn: async () => {
+      const response = await fetch("/api/orders/options");
+      if (!response.ok) {
+        throw new Error("Không thể tải bộ lọc nâng cao");
+      }
 
-  useEffect(() => {
-    fetch("/api/orders/options")
-      .then((res) => res.json())
-      .then((data) => setOptions(data))
-      .catch(console.error);
-  }, []);
+      return response.json();
+    },
+    enabled: showAdvanced,
+    staleTime: 30 * 60 * 1000,
+  });
+  const options = optionsData ?? { shopNames: [], salesStaffs: [], regionGroups: [] };
 
   const currentSearch = searchParams.get("search") || "";
   const currentStatus = searchParams.get("status") || "";
@@ -76,7 +83,7 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
       }
       params.delete("page");
       startTransition(() => {
-        router.push(`${pathname}?${params.toString()}`);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
       });
     },
     [router, pathname, searchParams]
@@ -84,7 +91,7 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
 
   const clearAll = useCallback(() => {
     startTransition(() => {
-      router.push(pathname);
+      router.replace(pathname, { scroll: false });
     });
   }, [router, pathname]);
 
@@ -136,7 +143,7 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
             <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Tìm theo mã đơn, tên, SĐT, mã vận đơn..."
+              placeholder="Tìm mã yêu cầu, mã đối tác, SĐT hoặc 4 số cuối SĐT..."
               value={draftSearch}
               onChange={(e) => setDraftSearch(e.target.value)}
               className="w-full min-h-11 pl-8 sm:pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -149,6 +156,10 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           </button>
         </form>
+
+        <p className="w-full text-xs text-slate-500 sm:w-auto sm:flex-1">
+          Mặc định chỉ hiển thị đơn trong 30 ngày gần nhất. Khi tìm đúng mã yêu cầu, mã đối tác hoặc SĐT đầy đủ, hệ thống sẽ tìm toàn bộ lịch sử.
+        </p>
         
         <button
           onClick={() => setMobileOpen(v => !v)}

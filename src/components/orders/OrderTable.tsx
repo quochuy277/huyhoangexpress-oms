@@ -11,42 +11,22 @@ import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
-import type { DeliveryStatus, Priority } from "@prisma/client";
-
-interface OrderRow {
-  id: string;
-  requestCode: string;
-  carrierOrderCode: string | null;
-  shopName: string | null;
-  deliveryStatus: DeliveryStatus;
-  status: string;
-  createdTime: string | null;
-  codAmount: number;
-  totalFee: number;
-  customerWeight: number | null;
-  partialOrderType: string | null;
-  staffNotes: string | null;
-  revenue: number; // Used for something? No, removed from display.
-  receiverPhone: string | null;
-  receiverName: string | null;
-  claimOrder?: { issueType: string } | null;
-}
-
-interface ApiResponse {
-  orders: OrderRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+import type { Priority } from "@prisma/client";
+import type { OrderRow, OrdersApiResponse } from "@/types/orders";
 
 interface OrderTableProps {
   userRole: string;
   selectedRows: string[];
   setSelectedRows: (rows: string[]) => void;
+  initialOrdersData: OrdersApiResponse | null;
 }
 
-function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTableProps) {
+function OrderTableInner({
+  userRole,
+  selectedRows,
+  setSelectedRows,
+  initialOrdersData,
+}: OrderTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -54,24 +34,33 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
   const [claimOrder, setClaimOrder] = useState<OrderRow | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
+  const usedInitialDataRef = useRef(false);
   const queryClient = useQueryClient();
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
 
-  const currentPage = parseInt(searchParams.get("page") || "1", 10);
   const sortBy = searchParams.get("sortBy") || "createdTime";
   const sortOrder = searchParams.get("sortOrder") || "desc";
+  const currentQueryString = searchParams.toString();
+  const initialData = !usedInitialDataRef.current ? initialOrdersData ?? undefined : undefined;
 
-  const queryKey = ["orders", searchParams.toString()];
-  const { data, isLoading: loading } = useQuery<ApiResponse>({
+  const queryKey = ["orders", currentQueryString];
+  const { data, isLoading: loading, isFetching } = useQuery<OrdersApiResponse>({
     queryKey,
     queryFn: async () => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(currentQueryString);
       const res = await fetch(`/api/orders?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch orders");
       return res.json();
     },
+    initialData,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
+    placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    usedInitialDataRef.current = true;
+  }, []);
 
   const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ["orders"] });
 
@@ -84,13 +73,13 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
       params.set("sortOrder", "desc");
     }
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const goToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(page));
-    router.push(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +121,12 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
   ];
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+    <div className="relative bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+      {isFetching && !loading && (
+        <div className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
+          Đang cập nhật...
+        </div>
+      )}
       {/* Mobile card view */}
       <div className="block sm:hidden flex-1 overflow-y-auto divide-y divide-slate-100">
         {loading ? (
@@ -436,7 +430,7 @@ function OrderTableInner({ userRole, selectedRows, setSelectedRows }: OrderTable
                   const params = new URLSearchParams(searchParams.toString());
                   params.set("pageSize", e.target.value);
                   params.set("page", "1");
-                  router.push(`${pathname}?${params.toString()}`);
+                  router.replace(`${pathname}?${params.toString()}`, { scroll: false });
                 }}
               >
                 <option value="20">20</option>

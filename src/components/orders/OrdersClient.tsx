@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, Suspense, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { ExcelUpload } from "@/components/orders/ExcelUpload";
 import { OrderFilters } from "@/components/orders/OrderFilters";
 import { OrderTable } from "@/components/orders/OrderTable";
-import { OrderChangesTab } from "@/components/orders/OrderChangesTab";
 import { UploadHistoryDialog } from "@/components/orders/UploadHistoryDialog";
 import { DeleteOrdersDialog } from "@/components/orders/DeleteOrdersDialog";
 import {
@@ -19,14 +19,30 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOrdersToastClassNames } from "@/components/orders/ordersResponsive";
+import type { OrdersApiResponse } from "@/types/orders";
 
 interface OrdersClientProps {
   userRole: string;
+  initialOrdersData: OrdersApiResponse | null;
 }
 
 type TabType = "orders" | "changes";
 
-export function OrdersClient({ userRole }: OrdersClientProps) {
+const OrderChangesTab = dynamic(
+  () =>
+    import("@/components/orders/OrderChangesTab").then((mod) => ({
+      default: mod.OrderChangesTab,
+    })),
+  {
+    loading: () => (
+      <div className="flex h-40 items-center justify-center text-slate-400">
+        Đang tải tab...
+      </div>
+    ),
+  },
+);
+
+export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -251,6 +267,7 @@ export function OrdersClient({ userRole }: OrdersClientProps) {
                 userRole={userRole}
                 selectedRows={selectedRows}
                 setSelectedRows={setSelectedRows}
+                initialOrdersData={initialOrdersData}
               />
             </Suspense>
           </div>
