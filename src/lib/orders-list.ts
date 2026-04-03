@@ -172,17 +172,28 @@ export async function getOrdersList(
 ): Promise<OrdersListResponse> {
   const query = buildOrdersListQuery(params);
 
-  const orders = await prismaClient.order.findMany({
+  const findManyArgs = {
     where: query.where,
     select: ORDER_SELECT,
     orderBy: { [query.safeSortBy]: params.sortOrder },
     skip: query.skip,
     take: query.take,
-  });
+  } satisfies Prisma.OrderFindManyArgs;
 
-  const total = query.skipCount
-    ? orders.length
-    : await prismaClient.order.count({ where: query.where });
+  const ordersPromise = prismaClient.order.findMany(findManyArgs);
+
+  let orders: Prisma.OrderGetPayload<{ select: typeof ORDER_SELECT }>[];
+  let total: number;
+
+  if (query.skipCount) {
+    orders = await ordersPromise;
+    total = orders.length;
+  } else {
+    [orders, total] = await Promise.all([
+      ordersPromise,
+      prismaClient.order.count({ where: query.where }),
+    ]);
+  }
 
   return {
     orders,

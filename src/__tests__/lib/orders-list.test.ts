@@ -89,4 +89,45 @@ describe("getOrdersList", () => {
     expect(prismaMock.order.count).not.toHaveBeenCalled();
     expect(result.total).toBe(1);
   });
+
+  it("starts count without waiting for findMany on browse queries", async () => {
+    let releaseFindMany: ((value: unknown[]) => void) | null = null;
+    const findManyPromise = new Promise<unknown[]>((resolve) => {
+      releaseFindMany = resolve;
+    });
+
+    const prismaMock = {
+      order: {
+        findMany: vi.fn().mockReturnValue(findManyPromise),
+        count: vi.fn().mockResolvedValue(42),
+      },
+    };
+
+    const pendingResult = getOrdersList(
+      {
+        page: 1,
+        pageSize: 20,
+        search: "",
+        status: "",
+        carrier: "",
+        fromDate: "",
+        toDate: "",
+        hasNotes: "",
+        shopName: "",
+        salesStaff: "",
+        partialOrderType: "",
+        regionGroup: "",
+        sortBy: "createdTime",
+        sortOrder: "desc",
+      },
+      prismaMock as never,
+    );
+
+    await Promise.resolve();
+    expect(prismaMock.order.count).toHaveBeenCalledTimes(1);
+
+    expect(releaseFindMany).not.toBeNull();
+    releaseFindMany!([]);
+    await pendingResult;
+  });
 });

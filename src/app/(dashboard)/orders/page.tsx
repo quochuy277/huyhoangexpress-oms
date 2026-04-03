@@ -3,6 +3,7 @@ import { OrdersClient } from "@/components/orders/OrdersClient";
 import { getOrdersList } from "@/lib/orders-list";
 import { ordersQuerySchema } from "@/lib/validations";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import type { OrdersApiResponse } from "@/types/orders";
 
 export const metadata: Metadata = { title: "Quản Lý Đơn Hàng" };
@@ -13,7 +14,14 @@ interface OrdersPageProps {
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const session = await auth();
+  if (!session?.user) redirect("/login");
+
   const userRole = session?.user?.role || "VIEWER";
+  const permissions = session.user.permissions;
+  if (!permissions?.canViewOrders && userRole !== "ADMIN") {
+    redirect("/");
+  }
+
   const resolvedSearchParams = await searchParams;
   const rawParams = Object.entries(resolvedSearchParams).reduce<Record<string, string>>(
     (accumulator, [key, value]) => {
