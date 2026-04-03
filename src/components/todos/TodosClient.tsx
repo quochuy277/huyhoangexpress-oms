@@ -25,11 +25,11 @@ import { TodoReminderBanner } from "./TodoReminderBanner";
 import { TodoSummaryCards } from "./TodoSummaryCards";
 
 const TEXT = {
-  title: "C\u00f4ng vi\u1ec7c",
-  subtitle: "Qu\u1ea3n l\u00fd v\u00e0 theo d\u00f5i c\u00f4ng vi\u1ec7c",
-  mine: "C\u1ee7a t\u00f4i",
-  all: "T\u1ea5t c\u1ea3",
-  create: "Th\u00eam m\u1edbi",
+  title: "Công việc",
+  subtitle: "Quản lý và theo dõi công việc",
+  mine: "Của tôi",
+  all: "Tất cả",
+  create: "Thêm mới",
 } as const;
 
 export default function TodosClient({

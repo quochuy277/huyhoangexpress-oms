@@ -32,7 +32,7 @@ export function TodoQuickAdd({ onAdd }: TodoQuickAddProps) {
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={(event) => event.key === "Enter" && void handleAdd()}
-        placeholder="Th\u00eam vi\u1ec7c nhanh... (Enter)"
+        placeholder="Thêm việc nhanh... (Enter)"
         className="min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-gray-400"
       />
       <div className="flex shrink-0 items-center gap-1">

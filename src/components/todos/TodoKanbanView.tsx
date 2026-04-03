@@ -9,11 +9,11 @@ import type { TodoItemData } from "@/types/todo";
 import { PRIORITY_CONFIG, SOURCE_CONFIG } from "./constants";
 
 const TEXT = {
-  todo: "C\u1ea7n l\u00e0m",
-  inProgress: "\u0110ang l\u00e0m",
-  done: "Ho\u00e0n th\u00e0nh",
-  assignedBy: (name: string) => `Giao b\u1edfi ${name}`,
-  created: "T\u1ea1o",
+  todo: "Cần làm",
+  inProgress: "Đang làm",
+  done: "Hoàn thành",
+  assignedBy: (name: string) => `Giao bởi ${name}`,
+  created: "Tạo",
   clock: "⏰",
   check: "✓",
 } as const;
