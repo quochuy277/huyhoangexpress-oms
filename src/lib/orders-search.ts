@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 export type OrderSearchKind =
   | "empty"
   | "requestCode"
@@ -63,4 +65,53 @@ export function getDefaultRecentFromDate(now = new Date()) {
   from.setDate(from.getDate() - 30);
   from.setHours(0, 0, 0, 0);
   return from;
+}
+
+export function buildOrderSearchFilters(args: {
+  search?: string | null;
+  fromDate?: string;
+  toDate?: string;
+  now?: Date;
+}): {
+  searchMeta: {
+    kind: OrderSearchKind;
+    normalized: string;
+  };
+  filters: Prisma.OrderWhereInput[];
+} {
+  const searchMeta = classifyOrderSearch(args.search);
+  const filters: Prisma.OrderWhereInput[] = [];
+
+  if (searchMeta.kind === "requestCode") {
+    filters.push({ requestCode: searchMeta.normalized });
+  } else if (searchMeta.kind === "carrierCode") {
+    filters.push({ carrierOrderCode: searchMeta.normalized });
+  } else if (searchMeta.kind === "phoneFull") {
+    filters.push({ receiverPhone: searchMeta.normalized });
+  } else if (searchMeta.kind === "phoneLast4") {
+    filters.push({ receiverPhone: { endsWith: searchMeta.normalized } });
+  } else if (searchMeta.kind === "text") {
+    filters.push({
+      OR: [
+        { receiverName: { contains: searchMeta.normalized, mode: "insensitive" } },
+        { shopName: { contains: searchMeta.normalized, mode: "insensitive" } },
+        { carrierOrderCode: { contains: searchMeta.normalized, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (
+    shouldApplyDefaultRecentWindow({
+      searchKind: searchMeta.kind,
+      fromDate: args.fromDate,
+      toDate: args.toDate,
+    })
+  ) {
+    filters.push({ createdTime: { gte: getDefaultRecentFromDate(args.now) } });
+  }
+
+  return {
+    searchMeta,
+    filters,
+  };
 }

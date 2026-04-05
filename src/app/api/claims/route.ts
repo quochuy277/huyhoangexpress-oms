@@ -58,7 +58,9 @@ export async function GET(req: NextRequest) {
         { carrierOrderCode: { startsWith: search, mode: "insensitive" } },
         { carrierOrderCode: { equals: search, mode: "insensitive" } },
         ...(normalizedPhone ? [{ receiverPhone: { contains: normalizedPhone, mode: "insensitive" as const } }] : []),
-        ...(normalizedPhone !== search && search ? [{ receiverPhone: { contains: search, mode: "insensitive" as const } }] : []),
+        ...(normalizedPhone !== search && search
+          ? [{ receiverPhone: { contains: search, mode: "insensitive" as const } }]
+          : []),
         { shopName: { contains: search, mode: "insensitive" } },
       ];
     }
@@ -170,7 +172,7 @@ export async function POST(req: NextRequest) {
     if (existing) {
       return NextResponse.json(
         {
-          error: "Đơn đã có trong đơn có vấn đề",
+          error: "Đơn đã có trong Đơn có vấn đề",
           code: "CLAIM_ALREADY_EXISTS",
           claim: {
             id: existing.id,
@@ -179,7 +181,7 @@ export async function POST(req: NextRequest) {
             requestCode: existing.order?.requestCode || null,
           },
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 

@@ -1,11 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import {
-  classifyOrderSearch,
-  getDefaultRecentFromDate,
-  shouldApplyDefaultRecentWindow,
-} from "@/lib/orders-search";
+import { buildOrderSearchFilters } from "@/lib/orders-search";
 
 export const ALLOWED_ORDER_SORT_COLUMNS = [
   "createdTime",
@@ -64,44 +60,20 @@ export const ORDER_SELECT = {
 } satisfies Prisma.OrderSelect;
 
 export type OrdersListResponse = {
-  orders: Prisma.OrderGetPayload<{ select: typeof ORDER_SELECT }>[],
-  total: number,
-  page: number,
-  pageSize: number,
-  totalPages: number,
+  orders: Prisma.OrderGetPayload<{ select: typeof ORDER_SELECT }>[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 export function buildOrdersListQuery(params: OrdersListParams) {
-  const andFilters: Prisma.OrderWhereInput[] = [];
-  const searchMeta = classifyOrderSearch(params.search);
-
-  if (searchMeta.kind === "requestCode") {
-    andFilters.push({ requestCode: searchMeta.normalized });
-  } else if (searchMeta.kind === "carrierCode") {
-    andFilters.push({ carrierOrderCode: searchMeta.normalized });
-  } else if (searchMeta.kind === "phoneFull") {
-    andFilters.push({ receiverPhone: searchMeta.normalized });
-  } else if (searchMeta.kind === "phoneLast4") {
-    andFilters.push({ receiverPhone: { endsWith: searchMeta.normalized } });
-  } else if (searchMeta.kind === "text") {
-    andFilters.push({
-      OR: [
-        { receiverName: { contains: searchMeta.normalized, mode: "insensitive" } },
-        { shopName: { contains: searchMeta.normalized, mode: "insensitive" } },
-        { carrierOrderCode: { contains: searchMeta.normalized, mode: "insensitive" } },
-      ],
-    });
-  }
-
-  if (
-    shouldApplyDefaultRecentWindow({
-      searchKind: searchMeta.kind,
-      fromDate: params.fromDate,
-      toDate: params.toDate,
-    })
-  ) {
-    andFilters.push({ createdTime: { gte: getDefaultRecentFromDate() } });
-  }
+  const { searchMeta, filters: searchFilters } = buildOrderSearchFilters({
+    search: params.search,
+    fromDate: params.fromDate,
+    toDate: params.toDate,
+  });
+  const andFilters: Prisma.OrderWhereInput[] = [...searchFilters];
 
   if (params.status) {
     andFilters.push({

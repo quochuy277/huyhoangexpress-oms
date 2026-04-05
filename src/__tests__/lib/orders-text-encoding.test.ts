@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const MOJIBAKE_PATTERN = /Ã¡|Ã¢|Ã£|Ã¨|Ã©|Ãª|Ã¬|Ã­|Ã²|Ã³|Ã´|Ãµ|Ã¹|Ãº|Ã½|Ä|Ä‘|Æ°|Æ¡|áº|á»|â€|â†|ðŸ|ï¿½|�/;
+const MOJIBAKE_PATTERN = /ÃƒÂ¡|ÃƒÂ¢|ÃƒÂ£|ÃƒÂ¨|ÃƒÂ©|ÃƒÂª|ÃƒÂ¬|ÃƒÂ­|ÃƒÂ²|ÃƒÂ³|ÃƒÂ´|ÃƒÂµ|ÃƒÂ¹|ÃƒÂº|ÃƒÂ½|Ã„Â|Ã„â€˜|Ã†Â°|Ã†Â¡|Ã¡Âº|Ã¡Â»|Ã¢â‚¬|Ã¢â€ |Ã°Å¸|Ã¯Â¿Â½|ï¿½/;
 
 const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
   {

@@ -251,12 +251,16 @@ function AddClaimDialog({
                 <Search size={16} style={{ position: "absolute", left: "12px", top: "12px", color: "#9ca3af" }} />
                 <input
                   style={{ ...inputStyle, paddingLeft: "36px" }}
-                  placeholder="Tìm mã đơn, SĐT, mã đối tác..."
+                  placeholder="Tìm mã yêu cầu, mã đối tác, SĐT hoặc 4 số cuối SĐT..."
                   value={searchQ}
                   onChange={e => onSearchChange(e.target.value)}
                   autoFocus
                 />
               </div>
+              <p style={{ margin: "0 0 16px", fontSize: "12px", color: "#64748b", lineHeight: "1.5" }}>
+                Mặc định chỉ tìm trong 30 ngày gần nhất. Khi nhập đúng mã yêu cầu, mã đối tác
+                hoặc SĐT đầy đủ, hệ thống sẽ tìm toàn bộ lịch sử.
+              </p>
               {searching && <div style={{ textAlign: "center", padding: "20px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={18} /> Đang tìm...</div>}
               {results.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -274,7 +278,7 @@ function AddClaimDialog({
                     >
                       <div>
                         <div style={{ fontWeight: 600, fontSize: "13px", color: "#1a1a1a" }}>{o.requestCode}</div>
-                        <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>{o.shopName} — {o.carrierName}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>{o.shopName} - {o.carrierName}</div>
                         {o.existingClaim && (
                           <div style={{ fontSize: "11px", color: "#b45309", marginTop: "4px", fontWeight: 600 }}>
                             Đã có trong Đơn có vấn đề {o.existingClaim.isCompleted ? "(đã hoàn tất)" : "(chưa hoàn tất)"}

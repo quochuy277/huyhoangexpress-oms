@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildOrderSearchFilters,
   classifyOrderSearch,
   getDefaultRecentFromDate,
   shouldApplyDefaultRecentWindow,
@@ -86,6 +87,89 @@ describe("shouldApplyDefaultRecentWindow", () => {
         toDate: "",
       }),
     ).toBe(false);
+  });
+});
+
+describe("buildOrderSearchFilters", () => {
+  it("builds exact request code lookup without recent window", () => {
+    expect(
+      buildOrderSearchFilters({
+        search: "b65achm0007569",
+      }),
+    ).toEqual({
+      searchMeta: {
+        kind: "requestCode",
+        normalized: "B65ACHM0007569",
+      },
+      filters: [{ requestCode: "B65ACHM0007569" }],
+    });
+  });
+
+  it("builds text lookup with the shared recent window", () => {
+    const result = buildOrderSearchFilters({
+      search: "431 Oni",
+    });
+
+    expect(result.searchMeta).toEqual({
+      kind: "text",
+      normalized: "431 Oni",
+    });
+    expect(result.filters).toEqual(
+      expect.arrayContaining([
+        {
+          OR: [
+            { receiverName: { contains: "431 Oni", mode: "insensitive" } },
+            { shopName: { contains: "431 Oni", mode: "insensitive" } },
+            { carrierOrderCode: { contains: "431 Oni", mode: "insensitive" } },
+          ],
+        },
+        expect.objectContaining({
+          createdTime: expect.objectContaining({ gte: expect.any(Date) }),
+        }),
+      ]),
+    );
+  });
+
+  it("builds phone last4 lookup and keeps the recent window", () => {
+    expect(
+      buildOrderSearchFilters({
+        search: "3551",
+      }),
+    ).toMatchObject({
+      searchMeta: {
+        kind: "phoneLast4",
+        normalized: "3551",
+      },
+      filters: expect.arrayContaining([
+        { receiverPhone: { endsWith: "3551" } },
+        expect.objectContaining({
+          createdTime: expect.objectContaining({ gte: expect.any(Date) }),
+        }),
+      ]),
+    });
+  });
+
+  it("skips the recent window when an explicit date range exists", () => {
+    expect(
+      buildOrderSearchFilters({
+        search: "431 Oni",
+        fromDate: "2026-03-01",
+      }),
+    ).toEqual({
+      searchMeta: {
+        kind: "text",
+        normalized: "431 Oni",
+      },
+      filters: [
+        {
+          OR: [
+            { receiverName: { contains: "431 Oni", mode: "insensitive" } },
+            { shopName: { contains: "431 Oni", mode: "insensitive" } },
+            { carrierOrderCode: { contains: "431 Oni", mode: "insensitive" } },
+          ],
+        },
+      ],
+    });
   });
 });
 

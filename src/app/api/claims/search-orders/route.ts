@@ -3,13 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
+import { buildOrderSearchFilters } from "@/lib/orders-search";
 
 function normalizeSearchInput(value: string) {
   return value.trim();
-}
-
-function normalizePhone(value: string) {
-  return value.replace(/\D/g, "");
 }
 
 export async function GET(req: NextRequest) {
@@ -24,23 +21,14 @@ export async function GET(req: NextRequest) {
     }
 
     const q = normalizeSearchInput(req.nextUrl.searchParams.get("q") || "");
-    const normalizedPhone = normalizePhone(q);
     if (q.length < 2) {
       return NextResponse.json({ orders: [] });
     }
 
+    const { filters } = buildOrderSearchFilters({ search: q });
+
     const orders = await prisma.order.findMany({
-      where: {
-        OR: [
-          { requestCode: { startsWith: q, mode: "insensitive" } },
-          { requestCode: { equals: q, mode: "insensitive" } },
-          { carrierOrderCode: { startsWith: q, mode: "insensitive" } },
-          { carrierOrderCode: { equals: q, mode: "insensitive" } },
-          ...(normalizedPhone ? [{ receiverPhone: { contains: normalizedPhone, mode: "insensitive" as const } }] : []),
-          ...(normalizedPhone !== q && q ? [{ receiverPhone: { contains: q, mode: "insensitive" as const } }] : []),
-          { shopName: { contains: q, mode: "insensitive" } },
-        ],
-      },
+      where: filters.length > 0 ? { AND: filters } : {},
       select: {
         id: true,
         requestCode: true,
