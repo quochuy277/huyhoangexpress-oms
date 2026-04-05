@@ -24,8 +24,35 @@ interface UploadError {
 
 interface UploadResult {
   success: boolean;
+  outcome: "success" | "partial" | "failed";
   summary: UploadSummary;
   errors: UploadError[];
+}
+
+export function getUploadResultPresentation(result: UploadResult) {
+  const seconds = `${(result.summary.processingTime / 1000).toFixed(1)}s`;
+
+  if (result.outcome === "success") {
+    return {
+      tone: "success" as const,
+      title: `Tải lên thành công! (${seconds})`,
+      shouldRefreshData: true,
+    };
+  }
+
+  if (result.outcome === "partial") {
+    return {
+      tone: "warning" as const,
+      title: `Tải lên hoàn tất một phần (${seconds})`,
+      shouldRefreshData: true,
+    };
+  }
+
+  return {
+    tone: "error" as const,
+    title: "Tải lên thất bại",
+    shouldRefreshData: false,
+  };
 }
 
 interface ExcelUploadProps {
@@ -71,7 +98,7 @@ export function ExcelUpload({ onUploadComplete }: ExcelUploadProps) {
         setError((data as unknown as { error: string }).error || "Lỗi tải lên");
       } else {
         setResult(data);
-        if (data.success) {
+        if (getUploadResultPresentation(data).shouldRefreshData) {
           onUploadComplete?.(data.summary?.totalChanges);
         }
       }
@@ -169,24 +196,29 @@ export function ExcelUpload({ onUploadComplete }: ExcelUploadProps) {
       {/* Upload result */}
       {result && (
         <div className="space-y-3">
-          {/* Summary */}
-          <div
-            className={`flex items-center gap-2 p-3 rounded-lg text-sm font-medium ${
-              result.success
+          {(() => {
+            const presentation = getUploadResultPresentation(result);
+            const toneClasses =
+              presentation.tone === "success"
                 ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                : "bg-red-50 border border-red-200 text-red-700"
-            }`}
-          >
-            {result.success ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-            ) : (
-              <XCircle className="w-4 h-4 shrink-0" />
-            )}
-            {result.success
-              ? `Tải lên thành công! (${(result.summary.processingTime / 1000).toFixed(1)}s)`
-              : "Tải lên thất bại"
-            }
-          </div>
+                : presentation.tone === "warning"
+                  ? "bg-amber-50 border border-amber-200 text-amber-700"
+                  : "bg-red-50 border border-red-200 text-red-700";
+
+            const Icon =
+              presentation.tone === "success"
+                ? CheckCircle2
+                : presentation.tone === "warning"
+                  ? AlertTriangle
+                  : XCircle;
+
+            return (
+              <div className={`flex items-center gap-2 p-3 rounded-lg text-sm font-medium ${toneClasses}`}>
+                <Icon className="w-4 h-4 shrink-0" />
+                {presentation.title}
+              </div>
+            );
+          })()}
 
           {/* Stats grid */}
           {result.summary && (

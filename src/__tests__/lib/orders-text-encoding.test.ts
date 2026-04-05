@@ -28,6 +28,23 @@ const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
     path: "src/app/api/orders/route.ts",
     phrases: ["Chưa đăng nhập", "Bạn không có quyền xem đơn hàng", "Tham số không hợp lệ"],
   },
+  {
+    path: "src/app/api/orders/auto-import/route.ts",
+    phrases: [
+      "Thiếu file trong form data",
+      "File quá lớn. Kích thước tối đa: 10MB",
+      "Định dạng file không hỗ trợ. Chỉ chấp nhận .xlsx và .xls",
+    ],
+  },
+  {
+    path: "src/components/orders/ExcelUpload.tsx",
+    phrases: [
+      "Tải lên hoàn tất một phần",
+      "Tải lên thành công!",
+      "Tải lên thất bại",
+      "Đang xử lý file Excel...",
+    ],
+  },
 ];
 
 describe("orders text encoding", () => {

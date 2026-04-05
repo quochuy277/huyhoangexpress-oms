@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
     return NextResponse.json(
-      { error: "Missing file in form data" },
+      { error: "Thiếu file trong form data" },
       { status: 400 }
     );
   }
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
     return NextResponse.json(
-      { error: "File too large. Max: 10MB" },
+      { error: "File quá lớn. Kích thước tối đa: 10MB" },
       { status: 400 }
     );
   }
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
   if (!validExtensions.includes(ext)) {
     return NextResponse.json(
-      { error: "Invalid file format. Only .xlsx and .xls accepted" },
+      { error: "Định dạng file không hỗ trợ. Chỉ chấp nhận .xlsx và .xls" },
       { status: 400 }
     );
   }

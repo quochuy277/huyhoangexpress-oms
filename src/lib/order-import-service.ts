@@ -6,13 +6,37 @@ import type { DetectedChange } from "@/lib/change-detector";
 import type { ParsedOrder } from "@/lib/excel-parser";
 import { Prisma, PrismaClient } from "@prisma/client";
 
-type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+type ExecuteRawClient = Pick<PrismaClient, "$executeRaw">;
 
 const BATCH_SIZE = 500;
-const SQL_SUB_BATCH = 250;
+const SQL_SUB_BATCH = 125;
+const MAX_SUB_BATCH_ATTEMPTS = 4;
+const RETRY_BACKOFF_MS = [250, 750, 1500] as const;
+
+export type ImportOutcome = "success" | "partial" | "failed";
+
+export interface SubBatchFailureLog {
+  batchIndex: number;
+  subBatchIndex: number;
+  rowStart: number;
+  rowEnd: number;
+  requestCodeStart: string;
+  requestCodeEnd: string;
+  attempts: number;
+  durationMs: number;
+  retryable: boolean;
+  errorMessage: string;
+}
+
+export interface RetrySummary {
+  retriedSubBatches: number;
+  totalRetryAttempts: number;
+  exhaustedSubBatches: number;
+}
 
 export interface ImportResult {
   success: boolean;
+  outcome: ImportOutcome;
   summary: {
     totalRows: number;
     validRows: number;
@@ -31,7 +55,10 @@ function generateCuid(): string {
   return crypto.randomUUID();
 }
 
-async function bulkUpsertSubBatch(orders: ParsedOrder[], client: TxClient = prisma): Promise<void> {
+async function bulkUpsertSubBatch(
+  orders: ParsedOrder[],
+  client: ExecuteRawClient = prisma,
+): Promise<void> {
   if (orders.length === 0) return;
 
   const rowSqls = orders.map((order) => {
@@ -158,6 +185,49 @@ async function bulkUpsertSubBatch(orders: ParsedOrder[], client: TxClient = pris
   `;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableImportError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+
+  return [
+    "transaction api error",
+    "transaction not found",
+    "transaction already closed",
+    "expired transaction",
+    "timeout",
+    "timed out",
+    "connection reset",
+    "connection terminated",
+    "connection closed",
+    "deadlock",
+    "econnreset",
+    "etimedout",
+    "server has closed the connection",
+  ].some((pattern) => normalized.includes(pattern));
+}
+
+function getImportOutcome(args: {
+  succeededRows: number;
+  failedRows: number;
+  parseErrors: number;
+}): ImportOutcome {
+  if (args.succeededRows === 0) {
+    return "failed";
+  }
+
+  if (args.failedRows > 0 || args.parseErrors > 0) {
+    return "partial";
+  }
+
+  return "success";
+}
+
 // Cache system user ID across requests within the same serverless instance
 let cachedSystemUserId: string | null = null;
 
@@ -193,8 +263,10 @@ export async function processOrderImport(opts: {
   const parseResult = parseExcelBuffer(opts.buffer);
 
   if (parseResult.orders.length === 0) {
+    const outcome = "failed";
     return {
       success: false,
+      outcome,
       summary: {
         ...parseResult.summary,
         newOrders: 0,
@@ -214,10 +286,17 @@ export async function processOrderImport(opts: {
   let failedCount = 0;
   const allDetectedChanges: DetectedChange[] = [];
   const upsertErrors: Array<{ row: number; requestCode: string; message: string }> = [];
+  const subBatchFailures: SubBatchFailureLog[] = [];
+  const retrySummary: RetrySummary = {
+    retriedSubBatches: 0,
+    totalRetryAttempts: 0,
+    exhaustedSubBatches: 0,
+  };
 
   for (let batchStart = 0; batchStart < parseResult.orders.length; batchStart += BATCH_SIZE) {
     const batch = parseResult.orders.slice(batchStart, batchStart + BATCH_SIZE);
     const requestCodes = batch.map((o) => o.requestCode);
+    const batchIndex = Math.floor(batchStart / BATCH_SIZE);
 
     // a. Query existing orders BEFORE upsert
     const existingOrders = await prisma.order.findMany({
@@ -230,43 +309,110 @@ export async function processOrderImport(opts: {
     });
     const existingMap = new Map(existingOrders.map((o) => [o.requestCode, o]));
 
-    // b. Detect changes in memory
-    for (const order of batch) {
-      const existing = existingMap.get(order.requestCode);
-      if (existing) {
-        const changes = detectOrderChanges(existing, order.deliveryStatus, order.internalNotes);
-        allDetectedChanges.push(...changes);
-      }
-    }
+    for (let subBatchStart = 0; subBatchStart < batch.length; subBatchStart += SQL_SUB_BATCH) {
+      const subBatch = batch.slice(subBatchStart, subBatchStart + SQL_SUB_BATCH);
+      const subBatchIndex = Math.floor(subBatchStart / SQL_SUB_BATCH);
+      const rowStart = batchStart + subBatchStart + 2;
+      const rowEnd = rowStart + subBatch.length - 1;
+      const requestCodeStart = subBatch[0]?.requestCode ?? "unknown";
+      const requestCodeEnd = subBatch[subBatch.length - 1]?.requestCode ?? requestCodeStart;
+      const subBatchStartedAt = Date.now();
+      let attempt = 0;
+      let lastError: unknown = null;
+      let lastRetryable = false;
+      let subBatchSucceeded = false;
 
-    // c. Bulk upsert using sub-batches of raw SQL (within a transaction)
-    try {
-      await prisma.$transaction(async (tx) => {
-        for (let i = 0; i < batch.length; i += SQL_SUB_BATCH) {
-          const subBatch = batch.slice(i, i + SQL_SUB_BATCH);
-          await bulkUpsertSubBatch(subBatch, tx);
-        }
-      });
+      while (attempt < MAX_SUB_BATCH_ATTEMPTS) {
+        attempt++;
 
-      for (const order of batch) {
-        if (existingMap.has(order.requestCode)) {
-          updatedCount++;
-        } else {
-          newCount++;
+        try {
+          await bulkUpsertSubBatch(subBatch);
+          subBatchSucceeded = true;
+          break;
+        } catch (err) {
+          lastError = err;
+          lastRetryable = isRetryableImportError(err);
+
+          if (lastRetryable && attempt < MAX_SUB_BATCH_ATTEMPTS) {
+            const retryDelay = RETRY_BACKOFF_MS[attempt - 1] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1];
+            console.error(
+              `[orders-import] sub-batch retry ${batchIndex}:${subBatchIndex} attempt ${attempt}/${MAX_SUB_BATCH_ATTEMPTS} failed (${rowStart}-${rowEnd}, ${requestCodeStart}..${requestCodeEnd}): ${err instanceof Error ? err.message : String(err)}`,
+            );
+            await sleep(retryDelay);
+            continue;
+          }
+
+          break;
         }
       }
-    } catch (err) {
-      failedCount += batch.length;
+
+      if (attempt > 1) {
+        retrySummary.retriedSubBatches++;
+        retrySummary.totalRetryAttempts += attempt - 1;
+      }
+
+      if (subBatchSucceeded) {
+        for (const order of subBatch) {
+          if (existingMap.has(order.requestCode)) {
+            updatedCount++;
+            const existing = existingMap.get(order.requestCode);
+            if (existing) {
+              const changes = detectOrderChanges(existing, order.deliveryStatus, order.internalNotes);
+              allDetectedChanges.push(...changes);
+            }
+          } else {
+            newCount++;
+          }
+        }
+        continue;
+      }
+
+      if (lastRetryable) {
+        retrySummary.exhaustedSubBatches++;
+      }
+
+      const errorMessage = lastError instanceof Error ? lastError.message : String(lastError);
+      const durationMs = Date.now() - subBatchStartedAt;
+      const failureLog: SubBatchFailureLog = {
+        batchIndex,
+        subBatchIndex,
+        rowStart,
+        rowEnd,
+        requestCodeStart,
+        requestCodeEnd,
+        attempts: attempt,
+        durationMs,
+        retryable: lastRetryable,
+        errorMessage,
+      };
+
+      subBatchFailures.push(failureLog);
+      failedCount += subBatch.length;
+
+      const attemptsText =
+        attempt > 1
+          ? `Sub-batch import thất bại sau khi thử lại ${attempt - 1} lần: ${errorMessage}`
+          : `Sub-batch import thất bại: ${errorMessage}`;
+
       upsertErrors.push({
-        row: batchStart + 2,
-        requestCode: batch[0]?.requestCode ?? "unknown",
-        message: `Batch failed: ${err instanceof Error ? err.message : String(err)}`,
+        row: rowStart,
+        requestCode: requestCodeStart,
+        message: attemptsText,
       });
+
+      console.error(
+        `[orders-import] sub-batch failed ${batchIndex}:${subBatchIndex} (${rowStart}-${rowEnd}, ${requestCodeStart}..${requestCodeEnd}) after ${attempt} attempt(s): ${errorMessage}`,
+      );
     }
   }
 
   const processingTime = Date.now() - startTime;
   const totalChanges = allDetectedChanges.length;
+  const outcome = getImportOutcome({
+    succeededRows: newCount + updatedCount,
+    failedRows: failedCount,
+    parseErrors: parseResult.summary.errorRows,
+  });
 
   // 3. Save upload history
   let uploadHistoryId: string | null = null;
@@ -281,10 +427,11 @@ export async function processOrderImport(opts: {
         skippedRows: parseResult.summary.skippedRows,
         failedRows: failedCount + parseResult.summary.errorRows,
         errorLog:
-          upsertErrors.length > 0 || parseResult.errors.length > 0
+          subBatchFailures.length > 0 || parseResult.errors.length > 0
             ? JSON.stringify({
                 parseErrors: parseResult.errors.slice(0, 20),
-                upsertErrors: upsertErrors.slice(0, 20),
+                subBatchFailures: subBatchFailures.slice(0, 20),
+                retrySummary,
               })
             : null,
         carrierName: parseResult.orders[0]?.carrierName || null,
@@ -322,13 +469,16 @@ export async function processOrderImport(opts: {
   }
 
   // 5. Auto-detect claims (non-blocking)
-  createAutoDetectedClaims(opts.uploadedById).catch((err) =>
-    console.error("Auto-detect claims after upload failed:", err)
-  );
+  if (newCount + updatedCount > 0) {
+    createAutoDetectedClaims(opts.uploadedById).catch((err) =>
+      console.error("Auto-detect claims after upload failed:", err)
+    );
+  }
 
   // 6. Return result
   return {
-    success: true,
+    success: outcome === "success",
+    outcome,
     summary: {
       totalRows: parseResult.summary.totalRows,
       validRows: parseResult.summary.validRows,
