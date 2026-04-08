@@ -18,6 +18,17 @@ export function createEmptyReturnsTabData(): ReturnsTabDataMap {
   };
 }
 
+export function createReturnsTabDataWithInitial(
+  tab: ReturnsTabKey,
+  rows: ReturnOrder[],
+): ReturnsTabDataMap {
+  return {
+    partial: tab === "partial" ? rows : null,
+    full: tab === "full" ? rows : null,
+    warehouse: tab === "warehouse" ? rows : null,
+  };
+}
+
 export function createEmptyReturnsSummary(): ReturnsSummaryCounts {
   return {
     partial: 0,

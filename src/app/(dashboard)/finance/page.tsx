@@ -1,6 +1,7 @@
 import FinancePageClient from "@/components/finance/FinancePageClient";
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/cached-session";
 import { getFinanceLandingData, resolvePnlRange } from "@/lib/finance/landing";
+import { getFinanceAnalysisInitialData, getFinanceCashbookInitialData } from "@/lib/finance/page-data";
 import { parsePeriodFromURL } from "@/lib/finance-period";
 import { redirect } from "next/navigation";
 
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export default async function FinancePage({ searchParams }: Props) {
-  const session = await auth();
+  const session = await getCachedSession();
   if (!session?.user) redirect("/login");
 
   const { role, permissions } = session.user;
@@ -18,8 +19,16 @@ export default async function FinancePage({ searchParams }: Props) {
   const isAdmin = role === "ADMIN";
   const resolvedSearchParams = await searchParams;
   const activeTab = typeof resolvedSearchParams.tab === "string" ? resolvedSearchParams.tab : "overview";
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (typeof value === "string") {
+      params.set(key, value);
+    }
+  }
 
   let initialLandingData = null;
+  let initialAnalysisData = null;
+  let initialCashbookData = null;
   if (activeTab === "overview") {
     const url = new URL("http://localhost/finance");
     for (const [key, value] of Object.entries(resolvedSearchParams)) {
@@ -36,6 +45,10 @@ export default async function FinancePage({ searchParams }: Props) {
         typeof resolvedSearchParams.pnlTo === "string" ? resolvedSearchParams.pnlTo : null,
       ),
     });
+  } else if (activeTab === "analysis") {
+    initialAnalysisData = await getFinanceAnalysisInitialData(params);
+  } else if (activeTab === "cashbook") {
+    initialCashbookData = await getFinanceCashbookInitialData(params);
   }
 
   return (
@@ -43,6 +56,8 @@ export default async function FinancePage({ searchParams }: Props) {
       isAdmin={isAdmin}
       initialLandingData={initialLandingData}
       initialCategories={initialLandingData?.categories}
+      initialAnalysisData={initialAnalysisData}
+      initialCashbookData={initialCashbookData}
     />
   );
 }

@@ -49,6 +49,7 @@ const partialResult = {
 describe("orders import routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.AUTO_IMPORT_API_KEY = "test-auto-import-key";
     vi.mocked(auth).mockResolvedValue({
       user: {
         id: "user-1",
@@ -84,11 +85,30 @@ describe("orders import routes", () => {
     const { POST } = await import("@/app/api/orders/auto-import/route");
     const response = await POST(new NextRequest("http://localhost/api/orders/auto-import", {
       method: "POST",
+      headers: {
+        "x-api-key": "test-auto-import-key",
+      },
       body: formData,
     }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body).toEqual(partialResult);
+  });
+
+  it("rejects the auto-import route when the API key is missing", async () => {
+    const formData = new FormData();
+    formData.append("file", new File(["dummy"], "orders.xlsx"));
+
+    const { POST } = await import("@/app/api/orders/auto-import/route");
+    const response = await POST(new NextRequest("http://localhost/api/orders/auto-import", {
+      method: "POST",
+      body: formData,
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: "Invalid API key" });
+    expect(vi.mocked(processOrderImport)).not.toHaveBeenCalled();
   });
 });

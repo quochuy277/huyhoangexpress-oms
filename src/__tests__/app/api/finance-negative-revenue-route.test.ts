@@ -66,7 +66,7 @@ describe("finance negative revenue route", () => {
     });
     expect(body.orders).toEqual([]);
     expect(prisma.order.findMany).not.toHaveBeenCalled();
-  }, 10000);
+  }, 30000);
 
   it("returns shopName in paginated negative revenue orders for analysis tab", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession() as never);

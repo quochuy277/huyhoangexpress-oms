@@ -1,17 +1,9 @@
-import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
+import { getClaimsListData } from "@/lib/claims-page-data";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
-
-function normalizeSearchInput(value: string) {
-  return value.trim();
-}
-
-function normalizePhone(value: string) {
-  return value.replace(/\D/g, "");
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,103 +19,29 @@ export async function GET(req: NextRequest) {
     const params = req.nextUrl.searchParams;
     const page = Math.max(1, parseInt(params.get("page") || "1", 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(params.get("pageSize") || "20", 10)));
-    const search = normalizeSearchInput(params.get("search") || "");
-    const normalizedPhone = normalizePhone(search);
+    const search = params.get("search") || "";
     const issueType = params.get("issueType") || "";
     const claimStatus = params.get("claimStatus") || "";
     const shopName = params.get("shopName") || "";
     const orderStatus = params.get("orderStatus") || "";
-    const carrier = params.get("carrier") || "";
     const showCompleted = params.get("showCompleted") === "true";
     const sortBy = params.get("sortBy") || "deadline";
     const sortDir = (params.get("sortDir") || "asc") as "asc" | "desc";
 
-    const where: Prisma.ClaimOrderWhereInput = {
-      isCompleted: showCompleted,
-    };
-
-    if (issueType) {
-      where.issueType = { in: issueType.split(",") as any[] };
-    }
-
-    if (claimStatus) {
-      where.claimStatus = claimStatus as any;
-    }
-
-    const orderWhere: Prisma.OrderWhereInput = {};
-    if (search) {
-      orderWhere.OR = [
-        { requestCode: { startsWith: search, mode: "insensitive" } },
-        { requestCode: { equals: search, mode: "insensitive" } },
-        { carrierOrderCode: { startsWith: search, mode: "insensitive" } },
-        { carrierOrderCode: { equals: search, mode: "insensitive" } },
-        ...(normalizedPhone ? [{ receiverPhone: { contains: normalizedPhone, mode: "insensitive" as const } }] : []),
-        ...(normalizedPhone !== search && search
-          ? [{ receiverPhone: { contains: search, mode: "insensitive" as const } }]
-          : []),
-        { shopName: { contains: search, mode: "insensitive" } },
-      ];
-    }
-    if (shopName) {
-      orderWhere.shopName = shopName;
-    }
-    if (orderStatus) {
-      orderWhere.status = orderStatus;
-    }
-    if (carrier) {
-      orderWhere.carrierName = carrier;
-    }
-    if (Object.keys(orderWhere).length > 0) {
-      where.order = orderWhere;
-    }
-
-    let orderBy: Prisma.ClaimOrderOrderByWithRelationInput = { deadline: "asc" };
-    if (sortBy === "deadline") orderBy = { deadline: sortDir };
-    if (sortBy === "detectedDate") orderBy = { detectedDate: sortDir };
-    if (sortBy === "claimStatus") orderBy = { claimStatus: sortDir };
-    if (sortBy === "issueType") orderBy = { issueType: sortDir };
-    if (sortBy === "shopName") orderBy = { order: { shopName: sortDir } };
-    if (sortBy === "status") orderBy = { order: { status: sortDir } };
-    if (sortBy === "codAmount") orderBy = { order: { codAmount: sortDir } };
-
-    const [claims, total] = await Promise.all([
-      prisma.claimOrder.findMany({
-        where,
-        include: {
-          order: {
-            select: {
-              requestCode: true,
-              carrierOrderCode: true,
-              carrierName: true,
-              shopName: true,
-              status: true,
-              deliveryStatus: true,
-              codAmount: true,
-              totalFee: true,
-              staffNotes: true,
-              receiverPhone: true,
-              receiverName: true,
-              receiverAddress: true,
-            },
-          },
-          createdBy: { select: { name: true } },
-        },
-        orderBy,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.claimOrder.count({ where }),
-    ]);
-
-    return NextResponse.json({
-      claims,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      },
+    const data = await getClaimsListData({
+      page,
+      pageSize,
+      search,
+      issueType: issueType ? issueType.split(",") : [],
+      status: claimStatus,
+      shopName,
+      orderStatus,
+      showCompleted,
+      sortBy,
+      sortDir,
     });
+
+    return NextResponse.json(data);
   } catch (error) {
     console.error("GET /api/claims error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

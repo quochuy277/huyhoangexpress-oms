@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart } from "recharts";
 import { buildCashbookTransactionSummary, buildShopPayoutSummary } from "./financeResponsive";
 
@@ -17,19 +17,22 @@ const GROUP_LABELS: Record<string, { label: string; color: string }> = {
 const PIE_COLORS = ["#10b981", "#ef4444", "#94a3b8", "#2563eb", "#8b5cf6", "#f59e0b", "#64748b"];
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
 
-export default function CashbookTab() {
+export default function CashbookTab({ initialData = null }: { initialData?: any }) {
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
-  const [uploads, setUploads] = useState<any[]>([]);
-  const [summary, setSummary] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [pagination, setPagination] = useState({ total: 0, page: 1, pageSize: 20, pages: 0 });
+  const [uploads, setUploads] = useState<any[]>(() => initialData?.uploads || []);
+  const [summary, setSummary] = useState<any>(() => initialData?.summary || null);
+  const [transactions, setTransactions] = useState<any[]>(() => initialData?.transactions || []);
+  const [pagination, setPagination] = useState<{ total: number; page: number; pageSize: number; pages: number }>(
+    () => initialData?.pagination || { total: 0, page: 1, pageSize: 20, pages: 0 },
+  );
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const skipInitialFetchRef = useRef(Boolean(initialData));
 
   const fetchData = useCallback(async () => {
     const groupParam = groupFilter.length > 0 ? `&group=${groupFilter.join(",")}` : "";
@@ -43,7 +46,14 @@ export default function CashbookTab() {
     setSummary(sumRes); setTransactions(txRes.transactions || []); setPagination(txRes.pagination || pagination); setUploads(upRes.uploads || []);
   }, [period, pagination.page, pagination.pageSize, groupFilter, search, customFrom, customTo]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
+
+    void fetchData();
+  }, [fetchData]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

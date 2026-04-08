@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/cached-session";
 import { prisma } from "@/lib/prisma";
 import { formatVND, formatDate, formatDateOnly } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
@@ -23,7 +23,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   const { requestCode } = await params;
   const { from } = await searchParams;
 
-  const session = await auth();
+  const session = await getCachedSession();
   const userRole = session?.user?.role || "VIEWER";
   const isStaffOrViewer = userRole === "STAFF" || userRole === "VIEWER";
 

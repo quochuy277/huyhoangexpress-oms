@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
   Activity, Calendar, Clock, ChevronLeft, ChevronRight, Monitor,
   AlertTriangle, FileText, Loader2, Plus, X, Check,
 } from "lucide-react";
+import type { AttendanceBootstrapData } from "@/lib/attendance-bootstrap-state";
+import { shouldFetchAttendanceBootstrap } from "@/lib/attendance-bootstrap-state";
 
 const cardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px" };
 const inputStyle: React.CSSProperties = { width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "13px", outline: "none" };
@@ -36,21 +38,23 @@ const LOGOUT_REASONS: Record<string, string> = {
 interface Props {
   userId: string;
   userName: string;
+  initialData?: AttendanceBootstrapData | null;
 }
 
-export default function MyAttendanceTab({ userId, userName }: Props) {
+export default function MyAttendanceTab({ userId, userName, initialData = null }: Props) {
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [attendance, setAttendance] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [loginHistory, setLoginHistory] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>(() => initialData?.attendance || []);
+  const [stats, setStats] = useState<any>(() => initialData?.stats || null);
+  const [loginHistory, setLoginHistory] = useState<any[]>(() => initialData?.loginHistory || []);
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyTotal, setHistoryTotal] = useState(0);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [historyTotal, setHistoryTotal] = useState(() => initialData?.historyPagination?.total || 0);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>(() => initialData?.leaveRequests || []);
+  const [loading, setLoading] = useState(() => shouldFetchAttendanceBootstrap(initialData));
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [leaveLoading, setLeaveLoading] = useState(false);
-  const [currentSession, setCurrentSession] = useState<any>(null);
+  const [currentSession, setCurrentSession] = useState<any>(() => (initialData?.loginHistory || []).find((record: any) => !record.logoutTime) || null);
   const [liveMinutes, setLiveMinutes] = useState(0);
+  const skipInitialFetchRef = useRef(!shouldFetchAttendanceBootstrap(initialData));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -74,7 +78,14 @@ export default function MyAttendanceTab({ userId, userName }: Props) {
     }
   }, [month, historyPage]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
+
+    void fetchData();
+  }, [fetchData]);
 
   // Live timer for current session
   useEffect(() => {

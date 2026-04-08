@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/cached-session";
 import { OrdersClient } from "@/components/orders/OrdersClient";
 import { getOrdersList } from "@/lib/orders-list";
 import { ordersQuerySchema } from "@/lib/validations";
@@ -13,7 +13,7 @@ interface OrdersPageProps {
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
-  const session = await auth();
+  const session = await getCachedSession();
   if (!session?.user) redirect("/login");
 
   const userRole = session?.user?.role || "VIEWER";

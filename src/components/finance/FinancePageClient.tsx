@@ -12,13 +12,11 @@ const OverviewTab = dynamic(() => import("./OverviewTab"), {
   ),
 });
 const AnalysisTab = dynamic(() => import("./AnalysisTab"), {
-  ssr: false,
   loading: () => (
     <div className="flex h-96 items-center justify-center text-slate-400">Đang tải...</div>
   ),
 });
 const CashbookTab = dynamic(() => import("./CashbookTab"), {
-  ssr: false,
   loading: () => (
     <div className="flex h-96 items-center justify-center text-slate-400">Đang tải...</div>
   ),
@@ -34,12 +32,16 @@ interface Props {
   isAdmin: boolean;
   initialLandingData?: FinanceLandingData | null;
   initialCategories?: FinanceCategoryOption[];
+  initialAnalysisData?: any;
+  initialCashbookData?: any;
 }
 
 export default function FinancePageClient({
   isAdmin,
   initialLandingData,
   initialCategories,
+  initialAnalysisData,
+  initialCashbookData,
 }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -107,13 +109,13 @@ export default function FinancePageClient({
 
       {mountedTabs.has("analysis") && (
         <div style={{ display: activeTab === "analysis" ? "block" : "none" }}>
-          <AnalysisTab />
+          <AnalysisTab initialData={initialAnalysisData} />
         </div>
       )}
 
       {mountedTabs.has("cashbook") && (
         <div style={{ display: activeTab === "cashbook" ? "block" : "none" }}>
-          <CashbookTab />
+          <CashbookTab initialData={initialCashbookData} />
         </div>
       )}
     </div>

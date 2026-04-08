@@ -1,6 +1,7 @@
 "use client";
 
 import AttendancePageWrapper from "./AttendancePageWrapper";
+import type { AttendanceBootstrapData } from "@/lib/attendance-bootstrap-state";
 
 interface Props {
   userId: string;
@@ -8,6 +9,7 @@ interface Props {
   userName: string;
   canViewAll: boolean;
   canEdit: boolean;
+  initialMyTabData: AttendanceBootstrapData | null;
 }
 
 export default function AttendancePageClient(props: Props) {

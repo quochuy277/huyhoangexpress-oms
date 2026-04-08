@@ -14,6 +14,7 @@ import {
   type TodoScopeSelection,
 } from "@/lib/todo-scope";
 import type { TodoFilters as FiltersType, TodoItemData } from "@/types/todo";
+import type { TodoBootstrapData } from "@/lib/todo-bootstrap-state";
 
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { TodoDetailPanel } from "./TodoDetailPanel";
@@ -36,10 +37,12 @@ export default function TodosClient({
   userId,
   userName,
   userRole,
+  initialData,
 }: {
   userId: string;
   userName: string;
   userRole: string;
+  initialData: TodoBootstrapData;
 }) {
   const [view, setView] = useState<"list" | "kanban">(() => {
     if (typeof window !== "undefined") {
@@ -73,11 +76,12 @@ export default function TodosClient({
     quickAdd,
     reorderKanban,
     updateLocal,
-  } = useTodos();
-  const { stats, fetchStats } = useTodoStats();
+    skipInitialFetchRef,
+  } = useTodos({ todos: initialData.todos, pagination: initialData.pagination });
+  const { stats, fetchStats, skipInitialFetchRef: skipInitialStatsFetchRef } = useTodoStats(initialData.stats);
 
   const canViewAll = userRole === "ADMIN" || userRole === "MANAGER";
-  const { users } = useTodoUsers(canViewAll);
+  const { users } = useTodoUsers(canViewAll, initialData.users);
   const { scope, assigneeId } = parseTodoScopeSelection(scopeSelection);
   const scopeStats = getTodoStatsForSelection(stats, scopeSelection);
   const deleteTarget = deleteId ? todos.find((todo) => todo.id === deleteId) : null;
@@ -91,12 +95,22 @@ export default function TodosClient({
   }, [assigneeId, fetchTodos, filters, hideDone, page, scope]);
 
   useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
+
     void doFetch();
-  }, [doFetch]);
+  }, [doFetch, skipInitialFetchRef]);
 
   useEffect(() => {
+    if (skipInitialStatsFetchRef.current) {
+      skipInitialStatsFetchRef.current = false;
+      return;
+    }
+
     void fetchStats(assigneeId);
-  }, [assigneeId, fetchStats]);
+  }, [assigneeId, fetchStats, skipInitialStatsFetchRef]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -250,6 +264,7 @@ export default function TodosClient({
       </div>
 
       <TodoReminderBanner
+        initialReminder={initialData.reminders}
         onViewOverdue={() => {
           setFilters((current) => ({ ...current, dueFilter: "overdue" }));
           setPage(1);

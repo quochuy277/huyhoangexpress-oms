@@ -3,13 +3,22 @@ import type { TodoUser } from "@/types/todo";
 
 let cachedUsers: TodoUser[] | null = null;
 
-export function useTodoUsers(canAssign: boolean) {
-  const [users, setUsers] = useState<TodoUser[]>(cachedUsers || []);
-  const [loading, setLoading] = useState(!cachedUsers && canAssign);
+export function useTodoUsers(canAssign: boolean, initialUsers?: TodoUser[]) {
+  if (initialUsers && initialUsers.length > 0) {
+    cachedUsers = initialUsers;
+  }
+
+  const [users, setUsers] = useState<TodoUser[]>(initialUsers || cachedUsers || []);
+  const [loading, setLoading] = useState(!initialUsers && !cachedUsers && canAssign);
   const fetched = useRef(false);
 
   useEffect(() => {
     if (!canAssign || fetched.current) return;
+    if (initialUsers) {
+      fetched.current = true;
+      setLoading(false);
+      return;
+    }
     if (cachedUsers) {
       setUsers(cachedUsers);
       setLoading(false);
@@ -26,7 +35,7 @@ export function useTodoUsers(canAssign: boolean) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [canAssign]);
+  }, [canAssign, initialUsers]);
 
   const invalidate = () => {
     cachedUsers = null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -16,7 +16,7 @@ const VIEWS = [
 const LINE_COLORS = ["#2563eb", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
 
-export default function AnalysisTab() {
+export default function AnalysisTab({ initialData = null }: { initialData?: any }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const viewParam = searchParams.get("view") || "carrier";
@@ -25,16 +25,17 @@ export default function AnalysisTab() {
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [carriers, setCarriers] = useState<any[]>([]);
-  const [shops, setShops] = useState<any[]>([]);
-  const [trends, setTrends] = useState<any[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [chartShops, setChartShops] = useState<string[]>([]);
+  const [carriers, setCarriers] = useState<any[]>(() => initialData?.view === "carrier" ? initialData.carriers || [] : []);
+  const [shops, setShops] = useState<any[]>(() => initialData?.view === "shop" ? initialData.shops || [] : []);
+  const [trends, setTrends] = useState<any[]>(() => initialData?.view === "shop" ? initialData.trends || [] : []);
+  const [chartData, setChartData] = useState<any[]>(() => initialData?.view === "shop" ? initialData.chartData || [] : []);
+  const [chartShops, setChartShops] = useState<string[]>(() => initialData?.view === "shop" ? initialData.chartShops || [] : []);
   const [granularity, setGranularity] = useState("day");
-  const [negData, setNegData] = useState<any>(null);
+  const [negData, setNegData] = useState<any>(() => initialData?.view === "negative" ? initialData.negData || null : null);
   const [shopSearchInput, setShopSearchInput] = useState(shopParam);
   const [shopSearch, setShopSearch] = useState(shopParam);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
+  const skipInitialFetchRef = useRef(Boolean(initialData));
 
   useEffect(() => {
     setView(viewParam);
@@ -91,7 +92,16 @@ export default function AnalysisTab() {
     setNegData(await r.json());
   }, [period, customFrom, customTo]);
 
-  useEffect(() => { if (view === "carrier") fetchCarriers(); else if (view === "shop") fetchShops(); else fetchNeg(); }, [view, fetchCarriers, fetchShops, fetchNeg]);
+  useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
+
+    if (view === "carrier") fetchCarriers();
+    else if (view === "shop") fetchShops();
+    else fetchNeg();
+  }, [view, fetchCarriers, fetchShops, fetchNeg]);
 
   const updateChart = async (shops: string[], gran: string) => {
     if (shops.length === 0) { setChartData([]); return; }

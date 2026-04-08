@@ -4,6 +4,27 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { signOut } from "next-auth/react";
 import { X, Clock, Moon } from "lucide-react";
 
+const SETTINGS_REFRESH_MS = 5 * 60 * 1000;
+const INITIAL_SETTINGS_DELAY_MS = 1500;
+
+let cachedSettings = { idleTimeout: 60, autoLogout: "00:00" };
+let cachedSettingsUpdatedAt = 0;
+
+async function loadAttendanceSettings() {
+  if (cachedSettingsUpdatedAt && Date.now() - cachedSettingsUpdatedAt < SETTINGS_REFRESH_MS) {
+    return cachedSettings;
+  }
+
+  const res = await fetch("/api/settings/attendance");
+  const data = await res.json();
+  cachedSettings = {
+    idleTimeout: parseInt(data.idle_timeout) || 60,
+    autoLogout: data.auto_logout || "00:00",
+  };
+  cachedSettingsUpdatedAt = Date.now();
+  return cachedSettings;
+}
+
 const overlayStyle: React.CSSProperties = {
   position: "fixed", inset: 0, zIndex: 99998, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)",
 };
@@ -17,19 +38,24 @@ export default function IdleLogoutProvider({ children }: { children: React.React
   // Fetch settings periodically
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/settings/attendance");
-      const data = await res.json();
-      settingsRef.current = {
-        idleTimeout: parseInt(data.idle_timeout) || 60,
-        autoLogout: data.auto_logout || "00:00",
-      };
+      settingsRef.current = await loadAttendanceSettings();
     } catch {}
   }, []);
 
   useEffect(() => {
-    fetchSettings();
-    const settingsInterval = setInterval(fetchSettings, 5 * 60 * 1000); // Refresh every 5 min
-    return () => clearInterval(settingsInterval);
+    settingsRef.current = cachedSettings;
+
+    const initialTimeout = setTimeout(() => {
+      void fetchSettings();
+    }, INITIAL_SETTINGS_DELAY_MS);
+    const settingsInterval = setInterval(() => {
+      void fetchSettings();
+    }, SETTINGS_REFRESH_MS);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(settingsInterval);
+    };
   }, [fetchSettings]);
 
   // Activity tracking

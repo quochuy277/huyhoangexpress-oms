@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ClaimFilters } from "@/hooks/useClaimsFilters";
 
 type UseClaimsListOptions = {
   filters: ClaimFilters;
   onCountChange?: (count: number) => void;
+  initialClaimsData?: ClaimsListPayload | null;
+  initialFilterOptions?: ClaimsFilterOptionsPayload | null;
 };
 
 type ClaimsListPayload = {
@@ -67,14 +69,26 @@ export async function parseClaimsFilterOptionsResponse(
   };
 }
 
-export function useClaimsList({ filters, onCountChange }: UseClaimsListOptions) {
-  const [claims, setClaims] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
-  const [shopOptions, setShopOptions] = useState<string[]>([]);
-  const [orderStatusOptions, setOrderStatusOptions] = useState<string[]>([]);
+export function useClaimsList({
+  filters,
+  onCountChange,
+  initialClaimsData = null,
+  initialFilterOptions = null,
+}: UseClaimsListOptions) {
+  const [claims, setClaims] = useState<any[]>(() => initialClaimsData?.claims || []);
+  const [loading, setLoading] = useState(!initialClaimsData);
+  const [pagination, setPagination] = useState(() => ({
+    total: initialClaimsData?.pagination?.total ?? 0,
+    totalPages: initialClaimsData?.pagination?.totalPages ?? 0,
+  }));
+  const [shopOptions, setShopOptions] = useState<string[]>(() => initialFilterOptions?.shops || []);
+  const [orderStatusOptions, setOrderStatusOptions] = useState<string[]>(
+    () => initialFilterOptions?.statuses || [],
+  );
   const [listError, setListError] = useState<string | null>(null);
   const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null);
+  const skipInitialClaimsFetchRef = useRef(Boolean(initialClaimsData));
+  const skipInitialFiltersFetchRef = useRef(Boolean(initialFilterOptions));
 
   const fetchClaims = useCallback(async () => {
     setLoading(true);
@@ -116,10 +130,22 @@ export function useClaimsList({ filters, onCountChange }: UseClaimsListOptions) 
   }, [filters, onCountChange]);
 
   useEffect(() => {
+    if (skipInitialClaimsFetchRef.current) {
+      skipInitialClaimsFetchRef.current = false;
+      onCountChange?.(initialClaimsData?.pagination?.total ?? 0);
+      return;
+    }
+
     void fetchClaims();
-  }, [fetchClaims]);
+  }, [fetchClaims, initialClaimsData?.pagination?.total, onCountChange]);
 
   useEffect(() => {
+    if (skipInitialFiltersFetchRef.current) {
+      skipInitialFiltersFetchRef.current = false;
+      setFilterOptionsError(null);
+      return;
+    }
+
     fetch("/api/claims/filter-options")
       .then((response) => parseClaimsFilterOptionsResponse(response))
       .then((data) => {

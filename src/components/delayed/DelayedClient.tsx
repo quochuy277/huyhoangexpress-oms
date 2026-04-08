@@ -72,14 +72,24 @@ function buildQueryParams(
   return params;
 }
 
-export function DelayedClient({ userRole }: { userRole: string }) {
+export function DelayedClient({
+  userRole,
+  initialData,
+}: {
+  userRole: string;
+  initialData?: DelayedResponse | null;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const [filters, setFilters] = useState<DelayedFiltersState>(() => buildInitialFilters(searchParams));
   const [page, setPage] = useState<number>(() => Number(searchParams.get("page") || "1"));
-  const [sortKey, setSortKey] = useState<SortableDelayedKey>("delayCount");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortKey, setSortKey] = useState<SortableDelayedKey>(
+    () => (searchParams.get("sortKey") as SortableDelayedKey) || "delayCount",
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(
+    () => (searchParams.get("sortDir") === "asc" ? "asc" : "desc"),
+  );
   const [mobileChartTab, setMobileChartTab] = useState<"delay" | "reason">("delay");
   const [searchInput, setSearchInput] = useState(filters.searchTerm);
 
@@ -89,8 +99,11 @@ export function DelayedClient({ userRole }: { userRole: string }) {
 
   useEffect(() => {
     const params = buildQueryParams(filters, page, sortKey, sortDir);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [filters, page, pathname, router, sortDir, sortKey]);
+    const nextQuery = params.toString();
+    if (searchParams.toString() !== nextQuery) {
+      router.replace(`${pathname}?${nextQuery}`, { scroll: false });
+    }
+  }, [filters, page, pathname, router, searchParams, sortDir, sortKey]);
 
   const queryKey = useMemo(
     () => ["delayedOrders", filters, page, sortKey, sortDir],
@@ -110,6 +123,7 @@ export function DelayedClient({ userRole }: { userRole: string }) {
     refetchInterval: 300000,
     staleTime: 30000,
     placeholderData: (previousData) => previousData,
+    initialData: initialData ?? undefined,
   });
 
   const delayedData = data?.data;

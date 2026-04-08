@@ -16,6 +16,7 @@ interface ProspectPipelineTabProps {
   userRole: string;
   userId: string;
   userName: string;
+  initialData?: any;
 }
 
 const STAGES = [
@@ -54,7 +55,7 @@ interface Prospect {
   createdAt: string;
 }
 
-export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipelineTabProps) {
+export function ProspectPipelineTab({ userRole, userId, userName, initialData }: ProspectPipelineTabProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -72,6 +73,7 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
       return res.json();
     },
     refetchInterval: 300000,
+    initialData: initialData?.stats,
   });
 
   // Prospects list
@@ -86,6 +88,7 @@ export function ProspectPipelineTab({ userRole, userId, userName }: ProspectPipe
       return res.json();
     },
     refetchInterval: 300000,
+    initialData: appliedSearch ? undefined : initialData?.prospects,
   });
 
   const stats = statsData?.data;

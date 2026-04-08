@@ -6,7 +6,7 @@ import { formatVND } from "@/lib/utils";
 import { memo } from "react";
 import { CreditCard, TrendingDown, ArrowUpRight, TrendingUp } from "lucide-react";
 
-function FinanceCardsRowInner() {
+function FinanceCardsRowInner({ initialSummaryData }: { initialSummaryData?: any }) {
   const router = useRouter();
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -15,6 +15,7 @@ function FinanceCardsRowInner() {
       if (!res.ok) throw new Error("Lấy dữ liệu thất bại");
       return res.json();
     },
+    initialData: initialSummaryData,
   });
 
   if (isLoading) {

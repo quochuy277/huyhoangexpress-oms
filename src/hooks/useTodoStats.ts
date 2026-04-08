@@ -1,9 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { TodoStatsResponse } from "@/types/todo";
+import { shouldFetchTodoBootstrap } from "@/lib/todo-bootstrap-state";
 
-export function useTodoStats() {
-  const [stats, setStats] = useState<TodoStatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+export function useTodoStats(initialStats?: TodoStatsResponse | null) {
+  const [stats, setStats] = useState<TodoStatsResponse | null>(initialStats ?? null);
+  const [loading, setLoading] = useState(shouldFetchTodoBootstrap(initialStats ? { todos: [] } : null));
+  const skipInitialFetchRef = useRef(Boolean(initialStats));
 
   const fetchStats = useCallback(async (assigneeId?: string | null) => {
     try {
@@ -19,5 +21,5 @@ export function useTodoStats() {
     }
   }, []);
 
-  return { stats, loading, fetchStats };
+  return { stats, loading, fetchStats, skipInitialFetchRef };
 }

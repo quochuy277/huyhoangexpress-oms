@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 
-export function ActivityAndRatesRow() {
+export function ActivityAndRatesRow({ initialSummaryData }: { initialSummaryData?: any }) {
   const { data: summaryData, isLoading: isLoadingRates } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: async () => {
@@ -12,6 +12,7 @@ export function ActivityAndRatesRow() {
       if (!res.ok) throw new Error("Lỗi tải data rates");
       return res.json();
     },
+    initialData: initialSummaryData,
   });
 
   const { data: actData, isLoading: isLoadingAct } = useQuery({

@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
-import { processDelayedOrder, type ProcessedDelayedOrder } from "@/lib/delay-analyzer";
-import {
-  applyDelayedFilters,
-  buildDelayedFacets,
-  buildDelayedSummary,
-  paginateDelayedOrders,
-  sortDelayedOrders,
-} from "@/lib/delayed-data";
-import {
-  buildDelayedOrdersWhere,
-  DELAYED_ORDER_SELECT,
-  DELAYED_SCAN_LIMIT,
-  DELAYED_SCAN_WARNING,
-} from "@/lib/delayed-query";
-import { prisma } from "@/lib/prisma";
+import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
+import { getDelayedPageData } from "@/lib/delayed-page-data";
 import { requirePermission } from "@/lib/route-permissions";
 
 export async function GET(req: NextRequest) {
@@ -47,52 +34,22 @@ export async function GET(req: NextRequest) {
     const sortKey = (searchParams.get("sortKey") || "delayCount") as keyof ProcessedDelayedOrder;
     const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
 
-    const rawOrders = await prisma.order.findMany({
-      where: buildDelayedOrdersWhere({
-        search,
-        shopFilter,
-        carrierFilter,
-        statusFilter,
-      }),
-      select: DELAYED_ORDER_SELECT,
-      orderBy: { lastUpdated: "desc" },
-      take: DELAYED_SCAN_LIMIT + 1,
+    const data = await getDelayedPageData({
+      page,
+      pageSize,
+      search,
+      shopFilter,
+      carrierFilter,
+      riskFilter,
+      reasonFilter,
+      delayCountFilter,
+      statusFilter,
+      todayOnly,
+      sortKey,
+      sortDir,
     });
 
-    const isTruncated = rawOrders.length > DELAYED_SCAN_LIMIT;
-    const candidateOrders = isTruncated ? rawOrders.slice(0, DELAYED_SCAN_LIMIT) : rawOrders;
-
-    let processedOrders = candidateOrders.map((order) => processDelayedOrder(order));
-
-    processedOrders = applyDelayedFilters(processedOrders, {
-      search: "",
-      shop: "",
-      status: "",
-      delay: delayCountFilter,
-      reason: reasonFilter,
-      risk: riskFilter || "all",
-      today: todayOnly,
-    });
-    processedOrders = sortDelayedOrders(processedOrders, sortKey, sortDir);
-
-    const summary = buildDelayedSummary(processedOrders);
-    const facets = buildDelayedFacets(processedOrders);
-    const { rows, pagination } = paginateDelayedOrders(processedOrders, page, pageSize);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        rows,
-        summary,
-        facets,
-        pagination,
-        meta: {
-          isTruncated,
-          scanLimit: DELAYED_SCAN_LIMIT,
-          warning: isTruncated ? DELAYED_SCAN_WARNING : null,
-        },
-      },
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching delayed orders:", error);
     return NextResponse.json(

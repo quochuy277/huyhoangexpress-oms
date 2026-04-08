@@ -20,6 +20,7 @@ interface ShopManagementTabProps {
   userRole: string;
   userId: string;
   userName: string;
+  initialData?: any;
 }
 
 const CLASS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -53,7 +54,7 @@ function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 }
 
-export function ShopManagementTab({ userRole, userId, userName }: ShopManagementTabProps) {
+export function ShopManagementTab({ userRole, userId, userName, initialData }: ShopManagementTabProps) {
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -72,6 +73,7 @@ export function ShopManagementTab({ userRole, userId, userName }: ShopManagement
       return res.json();
     },
     refetchInterval: 300000,
+    initialData: initialData?.dashboard,
   });
 
   // Shops list
@@ -89,6 +91,7 @@ export function ShopManagementTab({ userRole, userId, userName }: ShopManagement
       return res.json();
     },
     refetchInterval: 300000,
+    initialData: !classFilter && !lastContactFilter && !search && page === 1 ? initialData?.shops : undefined,
   });
 
   const stats = dashData?.data?.stats;

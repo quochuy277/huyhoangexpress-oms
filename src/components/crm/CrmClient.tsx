@@ -6,12 +6,14 @@ import { cn } from "@/lib/utils";
 import { ShopManagementTab } from "./ShopManagementTab";
 import dynamic from "next/dynamic";
 
-const ProspectPipelineTab = dynamic(() => import("./ProspectPipelineTab").then(m => ({ default: m.ProspectPipelineTab })), { ssr: false, loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
+const ProspectPipelineTab = dynamic(() => import("./ProspectPipelineTab").then(m => ({ default: m.ProspectPipelineTab })), { loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
 
 interface CrmClientProps {
   userRole: string;
   userId: string;
   userName: string;
+  initialProspectsData?: any;
+  initialShopsData?: any;
 }
 
 const TABS = [
@@ -21,7 +23,7 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-export function CrmClient({ userRole, userId, userName }: CrmClientProps) {
+export function CrmClient({ userRole, userId, userName, initialProspectsData, initialShopsData }: CrmClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -50,7 +52,7 @@ export function CrmClient({ userRole, userId, userName }: CrmClientProps) {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.key;
@@ -78,6 +80,7 @@ export function CrmClient({ userRole, userId, userName }: CrmClientProps) {
           userRole={userRole}
           userId={userId}
           userName={userName}
+          initialData={initialShopsData}
         />
       )}
       {currentTab === "prospects" && (
@@ -85,6 +88,7 @@ export function CrmClient({ userRole, userId, userName }: CrmClientProps) {
           userRole={userRole}
           userId={userId}
           userName={userName}
+          initialData={initialProspectsData}
         />
       )}
     </div>

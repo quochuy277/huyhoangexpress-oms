@@ -1,13 +1,13 @@
 "use client";
 
+import ClaimsClient from "@/components/claims/ClaimsClient";
 import { useState } from "react";
 import { AlertTriangle, Wrench, DollarSign } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-const ClaimsClient = dynamic(() => import("@/components/claims/ClaimsClient"), { ssr: false });
-const ClaimsToolsTab = dynamic(() => import("@/components/claims/ClaimsToolsTab"), { ssr: false });
-const ClaimsCompensationTab = dynamic(() => import("@/components/claims/ClaimsCompensationTab"), { ssr: false });
+const ClaimsToolsTab = dynamic(() => import("@/components/claims/ClaimsToolsTab"));
+const ClaimsCompensationTab = dynamic(() => import("@/components/claims/ClaimsCompensationTab"));
 
 type TabKey = "claims" | "tools" | "compensation";
 
@@ -17,6 +17,17 @@ interface Props {
   canCreateClaim: boolean;
   canUpdateClaim: boolean;
   canDeleteClaim: boolean;
+  initialClaimsData?: {
+    claims?: any[];
+    pagination?: {
+      total?: number;
+      totalPages?: number;
+    };
+  } | null;
+  initialFilterOptions?: {
+    shops?: string[];
+    statuses?: string[];
+  } | null;
 }
 
 export default function ClaimsPageWrapper({
@@ -25,6 +36,8 @@ export default function ClaimsPageWrapper({
   canCreateClaim,
   canUpdateClaim,
   canDeleteClaim,
+  initialClaimsData,
+  initialFilterOptions,
 }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -106,6 +119,8 @@ export default function ClaimsPageWrapper({
               canCreateClaim={canCreateClaim}
               canUpdateClaim={canUpdateClaim}
               canDeleteClaim={canDeleteClaim}
+              initialClaimsData={initialClaimsData}
+              initialFilterOptions={initialFilterOptions}
             />
           </div>
         )}

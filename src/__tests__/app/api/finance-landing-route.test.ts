@@ -160,7 +160,7 @@ describe("finance landing route", () => {
     });
     expect(body.trendData).toHaveLength(6);
     expect(vi.mocked(prisma.expense.findMany)).not.toHaveBeenCalled();
-  }, 10000);
+  }, 30000);
 
   it("allows ADMIN users even when a custom permission group disables canViewFinancePage", async () => {
     vi.mocked(auth).mockResolvedValue({

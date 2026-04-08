@@ -4,9 +4,11 @@ import { useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
 
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced for Supabase free tier)
+const INITIAL_HEARTBEAT_DELAY = 15 * 1000;
 
 export default function HeartbeatProvider() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initialTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const sendHeartbeat = async () => {
@@ -24,8 +26,8 @@ export default function HeartbeatProvider() {
       }
     };
 
-    // Send initial heartbeat
-    sendHeartbeat();
+    // Delay the initial heartbeat so the first route render is not blocked by background work.
+    initialTimeoutRef.current = setTimeout(sendHeartbeat, INITIAL_HEARTBEAT_DELAY);
 
     // Set up periodic heartbeat
     intervalRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
@@ -41,6 +43,7 @@ export default function HeartbeatProvider() {
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
+      if (initialTimeoutRef.current) clearTimeout(initialTimeoutRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
@@ -48,4 +51,3 @@ export default function HeartbeatProvider() {
 
   return null; // This component renders nothing
 }
-

@@ -6,6 +6,11 @@ import { processOrderImport, getSystemUserId } from "@/lib/order-import-service"
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  const apiKey = req.headers.get("x-api-key");
+  if (!process.env.AUTO_IMPORT_API_KEY || apiKey !== process.env.AUTO_IMPORT_API_KEY) {
+    return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+  }
+
   // 1. Rate limit
   const rateLimited = autoImportLimiter.check("auto-import");
   if (rateLimited) return rateLimited;

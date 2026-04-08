@@ -3,9 +3,9 @@
 import { logoutAction } from "@/lib/actions/auth-actions";
 import type { Role } from "@prisma/client";
 import { Bell, LogOut, User, ChevronDown, ExternalLink, Pin, Paperclip, Menu } from "lucide-react";
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserProfileDialog } from "@/components/shared/UserProfileDialog";
 import { stripHtml } from "@/lib/sanitize";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,6 +16,14 @@ import {
   selectHeaderAnnouncementForPreview,
   type HeaderAnnouncementPreviewItem,
 } from "@/components/layout/headerAnnouncementPreview";
+import { getHeaderQueryPolicy } from "@/components/layout/headerQueryPolicy";
+
+const UserProfileDialog = dynamic(
+  () => import("@/components/shared/UserProfileDialog").then((module) => ({
+    default: module.UserProfileDialog,
+  })),
+  { loading: () => null },
+);
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Quản trị viên",
@@ -48,27 +56,29 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const [bellTab, setBellTab] = useState<"todos" | "announcements">("todos");
   const [profileOpen, setProfileOpen] = useState(false);
   const [previewAnnouncement, setPreviewAnnouncement] = useState<HeaderAnnouncementPreviewItem | null>(null);
+  const [isShellReady, setIsShellReady] = useState(false);
 
-  const { data: overdueData } = useQuery({
-    queryKey: ["header-overdue-count"],
-    queryFn: () => fetch("/api/todos/overdue-count").then(r => r.json()),
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsShellReady(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const queryPolicy = getHeaderQueryPolicy({ isShellReady, bellOpen });
+
+  const { data: shellBootstrapData } = useQuery({
+    queryKey: ["dashboard-shell-bootstrap"],
+    queryFn: () => fetch("/api/dashboard/shell-bootstrap").then(r => r.json()),
     refetchInterval: 180000,
     staleTime: 60000,
+    enabled: queryPolicy.shellBootstrapEnabled,
   });
-  const overdueCount = overdueData?.count || 0;
-
-  const { data: announcementData } = useQuery({
-    queryKey: ["header-announcement-count"],
-    queryFn: () => fetch("/api/announcements/unread-count").then(r => r.json()),
-    refetchInterval: 180000,
-    staleTime: 60000,
-  });
-  const announcementCount = announcementData?.count || 0;
+  const overdueCount = shellBootstrapData?.overdueCount || 0;
+  const announcementCount = shellBootstrapData?.announcementCount || 0;
 
   const { data: remindersData } = useQuery({
     queryKey: ["header-reminders"],
     queryFn: () => fetch("/api/todos/reminders").then(r => r.json()),
-    enabled: bellOpen,
+    enabled: queryPolicy.remindersEnabled,
     staleTime: 30000,
   });
   const overdueItems: { id: string; title: string; daysOverdue: number }[] = remindersData?.overdue?.items || [];
@@ -76,7 +86,7 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const { data: announcementsListData, refetch: refetchAnnouncements } = useQuery({
     queryKey: ["header-announcements-list"],
     queryFn: () => fetch("/api/announcements?pageSize=10").then(r => r.json()),
-    enabled: bellOpen,
+    enabled: queryPolicy.announcementsEnabled,
     staleTime: 30000,
   });
   const announcements: AnnouncementPreview[] = announcementsListData?.announcements || [];

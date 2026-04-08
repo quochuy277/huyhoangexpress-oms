@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 import type { TodoFilters, TodoItemData, TodoPagination } from "@/types/todo";
+import { shouldFetchTodoBootstrap } from "@/lib/todo-bootstrap-state";
 
 interface UseTodosOptions {
   scope: "mine" | "all";
@@ -19,15 +20,20 @@ async function readErrorMessage(response: Response) {
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
-export function useTodos() {
-  const [todos, setTodos] = useState<TodoItemData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState<TodoPagination>({
+export function useTodos(initialData?: { todos?: TodoItemData[]; pagination?: TodoPagination } | null) {
+  const [todos, setTodos] = useState<TodoItemData[]>(() => initialData?.todos || []);
+  const [loading, setLoading] = useState(() =>
+    shouldFetchTodoBootstrap(initialData ? { todos: initialData.todos || [] } : null),
+  );
+  const [pagination, setPagination] = useState<TodoPagination>(() => initialData?.pagination || {
     page: 1,
     pageSize: 20,
     total: 0,
     totalPages: 0,
   });
+  const skipInitialFetchRef = useRef(
+    !shouldFetchTodoBootstrap(initialData ? { todos: initialData.todos || [] } : null),
+  );
 
   const fetchTodos = useCallback(async (opts: UseTodosOptions) => {
     setLoading(true);
@@ -192,5 +198,6 @@ export function useTodos() {
     quickAdd,
     reorderKanban,
     updateLocal,
+    skipInitialFetchRef,
   };
 }

@@ -3,15 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, X, ChevronRight } from "lucide-react";
 import type { TodoReminder } from "@/types/todo";
+import { shouldFetchTodoBootstrap } from "@/lib/todo-bootstrap-state";
 
 interface TodoReminderBannerProps {
   onViewOverdue: () => void;
+  initialReminder?: TodoReminder | null;
 }
 
-export function TodoReminderBanner({ onViewOverdue }: TodoReminderBannerProps) {
-  const [reminder, setReminder] = useState<TodoReminder | null>(null);
+export function TodoReminderBanner({ onViewOverdue, initialReminder = null }: TodoReminderBannerProps) {
+  const [reminder, setReminder] = useState<TodoReminder | null>(initialReminder);
   const [dismissed, setDismissed] = useState(false);
-  const fetched = useRef(false);
+  const fetched = useRef(!shouldFetchTodoBootstrap(initialReminder ? { todos: [] } : null));
 
   useEffect(() => {
     if (fetched.current) return;

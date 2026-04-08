@@ -1,11 +1,12 @@
 import { Metadata } from "next";
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/cached-session";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AlertCardsRow } from "@/components/dashboard/AlertCardsRow";
 import { FinanceCardsRow } from "@/components/dashboard/FinanceCardsRow";
 import { ActivityAndRatesRow } from "@/components/dashboard/ActivityAndRatesRow";
 import dynamic from "next/dynamic";
+import { getDashboardSummaryData } from "@/lib/dashboard-overview-data";
 
 const TrendAndStatusRow = dynamic(() => import("@/components/dashboard/TrendAndStatusRow").then(m => ({ default: m.TrendAndStatusRow })), {
   loading: () => <div className="h-64 animate-pulse bg-muted rounded" />,
@@ -20,9 +21,10 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const session = await getCachedSession();
   const userName = session?.user?.name || "Bạn";
   const userRole = session?.user?.role || "VIEWER";
+  const initialSummaryData = await getDashboardSummaryData(userRole);
 
   const currentDate = new Date();
   const formattedDate = format(currentDate, "EEEE, dd/MM/yyyy", { locale: vi });
@@ -40,11 +42,11 @@ export default async function DashboardPage() {
       </div>
 
       {/* Row 1: Alert Cards (All Roles) */}
-      <AlertCardsRow />
+      <AlertCardsRow initialSummaryData={initialSummaryData} />
 
       {/* Row 2: Financial Cards (Manager/Admin Only) */}
-      {(userRole === "ADMIN" || userRole === "MANAGER") && (
-        <FinanceCardsRow />
+        {(userRole === "ADMIN" || userRole === "MANAGER") && (
+        <FinanceCardsRow initialSummaryData={initialSummaryData} />
       )}
 
       {/* Row 3: Charts - Trend & Status (All Roles) */}
@@ -54,7 +56,7 @@ export default async function DashboardPage() {
       <CarrierAndShopsRow />
 
       {/* Row 5: Activity Feed & Rates (All Roles) */}
-      <ActivityAndRatesRow />
+      <ActivityAndRatesRow initialSummaryData={initialSummaryData} />
     </div>
   );
 }

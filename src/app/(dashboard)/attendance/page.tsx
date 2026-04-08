@@ -1,15 +1,17 @@
-import { auth } from "@/lib/auth";
+import { getCachedSession } from "@/lib/cached-session";
 import { redirect } from "next/navigation";
 import AttendancePageClient from "@/components/attendance/AttendancePageClient";
+import { getAttendanceBootstrapData } from "@/lib/attendance-page-data";
 
 export default async function AttendancePage() {
-  const session = await auth();
+  const session = await getCachedSession();
   if (!session?.user) redirect("/login");
 
   const { id, role, permissions } = session.user;
 
   const canViewAll = role === "ADMIN" || role === "MANAGER" || permissions?.canViewAllAttendance;
   const canEdit = role === "ADMIN" || role === "MANAGER" || permissions?.canEditAttendance;
+  const initialMyTabData = await getAttendanceBootstrapData({ userId: id });
 
   return (
     <AttendancePageClient
@@ -18,6 +20,7 @@ export default async function AttendancePage() {
       userName={session.user.name || ""}
       canViewAll={!!canViewAll}
       canEdit={!!canEdit}
+      initialMyTabData={initialMyTabData}
     />
   );
 }

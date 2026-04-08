@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getReturnsSummaryData } from "@/lib/returns-page-data";
 import { requirePermission } from "@/lib/route-permissions";
-import { buildReturnsTabWhere } from "@/lib/returns-queries";
 
 export async function GET() {
   try {
@@ -19,15 +18,9 @@ export async function GET() {
     );
     if (denied) return denied;
 
-    const [partial, full, warehouse] = await Promise.all([
-      prisma.order.count({ where: buildReturnsTabWhere("partial") }),
-      prisma.order.count({ where: buildReturnsTabWhere("full") }),
-      prisma.order.count({ where: buildReturnsTabWhere("warehouse") }),
-    ]);
-
     return NextResponse.json({
       success: true,
-      data: { partial, full, warehouse },
+      data: await getReturnsSummaryData(),
     });
   } catch (error) {
     console.error("GET /api/orders/returns/summary error:", error);

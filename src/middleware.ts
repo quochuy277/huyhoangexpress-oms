@@ -34,28 +34,9 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
 
   // Public routes
   const isPublicPage = pathname === "/" || pathname.startsWith("/login");
-  const isPublicApi = pathname.startsWith("/api/auth") || pathname.startsWith("/api/landing");
-
-  if (isPublicPage || isPublicApi) {
+  if (isPublicPage) {
     if (isLoggedIn && pathname.startsWith("/login")) {
       return NextResponse.redirect(new URL("/orders", req.url));
-    }
-    return NextResponse.next();
-  }
-
-  // Auto-import API — API key auth (no session required)
-  if (pathname === "/api/orders/auto-import") {
-    const apiKey = req.headers.get("x-api-key");
-    if (!process.env.AUTO_IMPORT_API_KEY || apiKey !== process.env.AUTO_IMPORT_API_KEY) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
-    }
-    return NextResponse.next();
-  }
-
-  // API routes — check auth but let handlers validate permissions
-  if (pathname.startsWith("/api/")) {
-    if (!isLoggedIn) {
-      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
     return NextResponse.next();
   }
@@ -80,6 +61,6 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

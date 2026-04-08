@@ -642,6 +642,17 @@ interface ClaimsClientProps {
   canCreateClaim?: boolean;
   canUpdateClaim?: boolean;
   canDeleteClaim?: boolean;
+  initialClaimsData?: {
+    claims?: any[];
+    pagination?: {
+      total?: number;
+      totalPages?: number;
+    };
+  } | null;
+  initialFilterOptions?: {
+    shops?: string[];
+    statuses?: string[];
+  } | null;
 }
 
 function ClaimsClientInner({
@@ -651,6 +662,8 @@ function ClaimsClientInner({
   canCreateClaim = true,
   canUpdateClaim = true,
   canDeleteClaim = true,
+  initialClaimsData = null,
+  initialFilterOptions = null,
 }: ClaimsClientProps = {}) {
   const { filters, setFilters, searchInput, setSearchInput } = useClaimsFilters();
   const {
@@ -663,7 +676,12 @@ function ClaimsClientInner({
     listError,
     filterOptionsError,
     fetchClaims,
-  } = useClaimsList({ filters, onCountChange });
+  } = useClaimsList({
+    filters,
+    onCountChange,
+    initialClaimsData,
+    initialFilterOptions,
+  });
   const {
     detecting,
     exporting,

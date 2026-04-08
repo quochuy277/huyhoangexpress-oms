@@ -9,6 +9,8 @@ import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 
+const PERMISSIONS_REFRESH_INTERVAL = 30 * 60 * 1000;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 }, // 8 hours
@@ -23,10 +25,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.permissionsUpdatedAt = Date.now();
       }
 
-      // Refresh permissions from DB every 5 minutes (Node.js only — safe here)
-      const REFRESH_INTERVAL = 5 * 60 * 1000;
       const lastUpdate = (token.permissionsUpdatedAt as number) || 0;
-      if (token.id && Date.now() - lastUpdate > REFRESH_INTERVAL) {
+      if (token.id && Date.now() - lastUpdate > PERMISSIONS_REFRESH_INTERVAL) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
