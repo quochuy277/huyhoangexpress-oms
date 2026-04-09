@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getBulkDeleteDialogCopy,
   getClaimCompleteDialogCopy,
   getClaimDeleteDialogCopy,
   getClaimReopenDialogCopy,
@@ -67,6 +68,17 @@ describe("confirm-dialog helpers", () => {
       description:
         "Bạn có chắc chắn muốn xóa đơn YC123 khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.",
       confirmLabel: "Xóa đơn",
+      cancelLabel: "Hủy",
+      tone: "danger",
+    });
+  });
+
+  it("returns danger-tone copy for bulk deleting multiple claims", () => {
+    expect(getBulkDeleteDialogCopy(3)).toEqual({
+      title: "Xóa nhiều đơn có vấn đề",
+      description:
+        "Bạn có chắc chắn muốn xóa 3 đơn đã chọn khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.",
+      confirmLabel: "Xóa 3 đơn",
       cancelLabel: "Hủy",
       tone: "danger",
     });

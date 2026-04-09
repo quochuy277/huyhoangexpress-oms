@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { createAutoDetectedClaims } from "@/lib/claim-detector";
+import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 
 export async function POST() {
   try {
@@ -16,6 +17,10 @@ export async function POST() {
     }
 
     const result = await createAutoDetectedClaims(session.user.id);
+
+    if (result.newClaims > 0) {
+      clearClaimsFilterOptionsCache();
+    }
 
     const messages: string[] = [];
     if (result.newClaims > 0) messages.push(`Thêm ${result.newClaims} đơn có vấn đề mới`);

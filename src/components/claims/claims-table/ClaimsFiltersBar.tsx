@@ -51,7 +51,7 @@ export function ClaimsFiltersBar({
             placeholder="Tìm mã đơn, SĐT, shop..."
             value={searchInput}
             onChange={(event) => onSearchInputChange(event.target.value)}
-            aria-label="Tìm kiếm claim"
+            aria-label="Tìm kiếm đơn có vấn đề"
           />
         </div>
         <button
@@ -70,7 +70,7 @@ export function ClaimsFiltersBar({
             padding: "0 12px",
             fontWeight: 600,
           }}
-          aria-label="Tìm kiếm claim"
+          aria-label="Tìm kiếm đơn có vấn đề"
           title="Tìm kiếm"
         >
           <Search size={16} />

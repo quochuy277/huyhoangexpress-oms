@@ -26,7 +26,7 @@ export function ClaimsToolbar({
       <div>
         <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a1a", display: "flex", alignItems: "center", gap: "10px" }}>
           <ShieldAlert size={24} className="text-blue-600" />
-          Đơn Có Vấn Đề
+          Đơn có vấn đề
         </h1>
         <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
           Quản lý khiếu nại, bồi hoàn và các đơn hàng có vấn đề
@@ -42,7 +42,7 @@ export function ClaimsToolbar({
             fontSize: "13px", fontWeight: 500, cursor: canUpdateClaim ? "pointer" : "not-allowed", color: "#374151",
             opacity: canUpdateClaim ? 1 : 0.55,
           }}
-          aria-label="Quet tu dong don co van de"
+          aria-label="Quét tự động đơn có vấn đề"
         >
           {detecting ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
           Quét tự động
@@ -63,7 +63,7 @@ export function ClaimsToolbar({
           onClick={onOpenAddDialog}
           disabled={!canCreateClaim}
           style={{ ...primaryBtnStyle, padding: "8px 16px", fontSize: "13px", opacity: canCreateClaim ? 1 : 0.55, cursor: canCreateClaim ? "pointer" : "not-allowed" }}
-          aria-label="Them moi don co van de"
+          aria-label="Thêm mới đơn có vấn đề"
         >
           <Plus size={14} /> Thêm mới
         </button>

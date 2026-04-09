@@ -171,7 +171,7 @@ export default function ClaimsCompensationTab() {
               display: "flex", alignItems: "center", gap: "4px", padding: "6px 12px",
               borderRadius: "8px", border: "1px solid #BFDBFE", background: "#EFF6FF",
               fontSize: "12px", fontWeight: 600, color: "#2563EB", cursor: "pointer",
-            }} aria-label="Xuất CSV đối soát đền bù">
+            }} aria-label="Xuất Excel đối soát đền bù">
               <Download size={13} /> Xuất Excel
             </button>
           </div>
@@ -207,7 +207,7 @@ export default function ClaimsCompensationTab() {
                           borderRadius: "6px", border: "1px solid #d1d5db", background: "#fff",
                           fontSize: "11px", fontWeight: 600, color: "#2563EB", cursor: "pointer",
                         }}
-                        aria-label={`Xem shop ${s.shopName}`}
+                        aria-label={`Xem cửa hàng ${s.shopName}`}
                       >
                         {expandedShop === s.shopName ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         Xem
@@ -240,7 +240,7 @@ export default function ClaimsCompensationTab() {
               <button
                 onClick={() => setExpandedShop(expandedShop === s.shopName ? null : s.shopName)}
                 style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
-                aria-label={`Xem shop ${s.shopName}`}
+                aria-label={`Xem cửa hàng ${s.shopName}`}
               >
                 <div>
                   <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b" }}>{s.shopName}</div>
