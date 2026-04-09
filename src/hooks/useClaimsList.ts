@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ClaimFilters } from "@/hooks/useClaimsFilters";
 
 type UseClaimsListOptions = {
   filters: ClaimFilters;
   onCountChange?: (count: number) => void;
-  initialClaimsData?: ClaimsListPayload | null;
-  initialFilterOptions?: ClaimsFilterOptionsPayload | null;
 };
 
-type ClaimsListPayload = {
+export type ClaimsListPayload = {
   claims?: any[];
   pagination?: {
     total?: number;
@@ -19,10 +18,14 @@ type ClaimsListPayload = {
   };
 };
 
-type ClaimsFilterOptionsPayload = {
+export type ClaimsFilterOptionsPayload = {
   shops?: string[];
   statuses?: string[];
 };
+
+type ClaimsSetter = (
+  updater: any[] | ((currentClaims: any[]) => any[]),
+) => void;
 
 async function readJsonSafely(response: Response) {
   const contentType = response.headers.get("Content-Type") || "";
@@ -42,7 +45,7 @@ export async function parseClaimsListResponse(response: Response): Promise<Claim
 
   if (!response.ok) {
     throw new Error(
-      typeof data?.error === "string" ? data.error : "Không thể tải danh sách claims",
+      typeof data?.error === "string" ? data.error : "Không thể tải danh sách đơn có vấn đề",
     );
   }
 
@@ -59,7 +62,7 @@ export async function parseClaimsFilterOptionsResponse(
 
   if (!response.ok) {
     throw new Error(
-      typeof data?.error === "string" ? data.error : "Không thể tải bộ lọc claims",
+      typeof data?.error === "string" ? data.error : "Không thể tải bộ lọc đơn có vấn đề",
     );
   }
 
@@ -72,28 +75,16 @@ export async function parseClaimsFilterOptionsResponse(
 export function useClaimsList({
   filters,
   onCountChange,
-  initialClaimsData = null,
-  initialFilterOptions = null,
 }: UseClaimsListOptions) {
-  const [claims, setClaims] = useState<any[]>(() => initialClaimsData?.claims || []);
-  const [loading, setLoading] = useState(!initialClaimsData);
-  const [pagination, setPagination] = useState(() => ({
-    total: initialClaimsData?.pagination?.total ?? 0,
-    totalPages: initialClaimsData?.pagination?.totalPages ?? 0,
-  }));
-  const [shopOptions, setShopOptions] = useState<string[]>(() => initialFilterOptions?.shops || []);
-  const [orderStatusOptions, setOrderStatusOptions] = useState<string[]>(
-    () => initialFilterOptions?.statuses || [],
+  const queryClient = useQueryClient();
+  const claimsQueryKey = useMemo(
+    () => ["claims-list", filters] as const,
+    [filters],
   );
-  const [listError, setListError] = useState<string | null>(null);
-  const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null);
-  const skipInitialClaimsFetchRef = useRef(Boolean(initialClaimsData));
-  const skipInitialFiltersFetchRef = useRef(Boolean(initialFilterOptions));
 
-  const fetchClaims = useCallback(async () => {
-    setLoading(true);
-
-    try {
+  const claimsQuery = useQuery({
+    queryKey: claimsQueryKey,
+    queryFn: async () => {
       const params = new URLSearchParams({
         page: String(filters.page),
         pageSize: String(filters.pageSize),
@@ -109,66 +100,61 @@ export function useClaimsList({
       if (filters.orderStatus) params.set("orderStatus", filters.orderStatus);
 
       const response = await fetch(`/api/claims?${params}`);
-      const data = await parseClaimsListResponse(response);
-      const nextClaims = data.claims || [];
-      const nextPagination = data.pagination || {};
+      return parseClaimsListResponse(response);
+    },
+    placeholderData: (previousData) => previousData,
+  });
 
-      setClaims(nextClaims);
-      setPagination({
-        total: nextPagination.total ?? 0,
-        totalPages: nextPagination.totalPages ?? 0,
-      });
-      setListError(null);
-      onCountChange?.(nextPagination.total ?? 0);
-    } catch (error) {
-      setListError(
-        error instanceof Error ? error.message : "Không thể tải danh sách claims",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, onCountChange]);
+  const filterOptionsQuery = useQuery({
+    queryKey: ["claims-filter-options"],
+    queryFn: async () => {
+      const response = await fetch("/api/claims/filter-options");
+      return parseClaimsFilterOptionsResponse(response);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (skipInitialClaimsFetchRef.current) {
-      skipInitialClaimsFetchRef.current = false;
-      onCountChange?.(initialClaimsData?.pagination?.total ?? 0);
-      return;
-    }
-
-    void fetchClaims();
-  }, [fetchClaims, initialClaimsData?.pagination?.total, onCountChange]);
+  const claims = claimsQuery.data?.claims || [];
+  const pagination = {
+    total: claimsQuery.data?.pagination?.total ?? 0,
+    totalPages: claimsQuery.data?.pagination?.totalPages ?? 0,
+  };
 
   useEffect(() => {
-    if (skipInitialFiltersFetchRef.current) {
-      skipInitialFiltersFetchRef.current = false;
-      setFilterOptionsError(null);
-      return;
-    }
+    onCountChange?.(pagination.total);
+  }, [onCountChange, pagination.total]);
 
-    fetch("/api/claims/filter-options")
-      .then((response) => parseClaimsFilterOptionsResponse(response))
-      .then((data) => {
-        setShopOptions(data.shops || []);
-        setOrderStatusOptions(data.statuses || []);
-        setFilterOptionsError(null);
-      })
-      .catch((error) => {
-        setFilterOptionsError(
-          error instanceof Error ? error.message : "Không thể tải bộ lọc claims",
-        );
-      });
-  }, []);
+  const setClaims = useCallback<ClaimsSetter>((updater) => {
+    queryClient.setQueryData<ClaimsListPayload>(claimsQueryKey, (current) => {
+      const currentClaims = current?.claims || [];
+      const nextClaims = typeof updater === "function"
+        ? updater(currentClaims)
+        : updater;
+
+      return {
+        claims: nextClaims,
+        pagination: current?.pagination || {
+          total: nextClaims.length,
+          totalPages: nextClaims.length > 0 ? 1 : 0,
+        },
+      };
+    });
+  }, [claimsQueryKey, queryClient]);
+
+  const fetchClaims = useCallback(async () => {
+    await claimsQuery.refetch();
+  }, [claimsQuery]);
 
   return {
     claims,
     setClaims,
-    loading,
+    loading: claimsQuery.isPending && !claimsQuery.data,
+    refreshing: claimsQuery.isFetching && !!claimsQuery.data,
     pagination,
-    shopOptions,
-    orderStatusOptions,
-    listError,
-    filterOptionsError,
+    shopOptions: filterOptionsQuery.data?.shops || [],
+    orderStatusOptions: filterOptionsQuery.data?.statuses || [],
+    listError: claimsQuery.error instanceof Error ? claimsQuery.error.message : null,
+    filterOptionsError: filterOptionsQuery.error instanceof Error ? filterOptionsQuery.error.message : null,
     fetchClaims,
   };
 }

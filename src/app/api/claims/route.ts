@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
+import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 import { getClaimsListData } from "@/lib/claims-page-data";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
+function createServerTimingHeader(metricName: string, durationMs: number) {
+  return `${metricName};dur=${durationMs.toFixed(1)}`;
+}
+
 export async function GET(req: NextRequest) {
+  const startedAt = performance.now();
+
   try {
     const session = await auth();
     if (!session?.user) {
@@ -41,7 +48,11 @@ export async function GET(req: NextRequest) {
       sortDir,
     });
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: {
+        "Server-Timing": createServerTimingHeader("claims", performance.now() - startedAt),
+      },
+    });
   } catch (error) {
     console.error("GET /api/claims error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
@@ -137,6 +148,8 @@ export async function POST(req: NextRequest) {
         ? [prisma.order.update({ where: { id: orderId }, data: { claimLocked: true } })]
         : []),
     ]);
+
+    clearClaimsFilterOptionsCache();
 
     return NextResponse.json({ success: true, claim });
   } catch (error) {

@@ -1,24 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import {
-  Search, Plus, Download, X, ChevronLeft, ChevronRight,
+  Download, X, ChevronLeft, ChevronRight,
   AlertTriangle, Eye, CheckSquare, Check, Loader2,
   FileText, Clock, Ban, Zap, HelpCircle, Package, ShieldAlert,
   ChevronDown, Calendar, RotateCcw, MessageSquare, Trash2, Truck
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { ClaimDetailDrawer, type ClaimDetailData } from "@/components/claims/ClaimDetailDrawer";
 import { ClaimsBulkBar } from "@/components/claims/claims-table/ClaimsBulkBar";
 import { ClaimsDesktopTable } from "@/components/claims/claims-table/ClaimsDesktopTable";
 import { ClaimsFiltersBar } from "@/components/claims/claims-table/ClaimsFiltersBar";
 import { ClaimsMobileList } from "@/components/claims/claims-table/ClaimsMobileList";
 import { ClaimsToolbar } from "@/components/claims/claims-table/ClaimsToolbar";
+import { CLAIMS_MOBILE_BREAKPOINT, shouldUseClaimsMobileCards } from "@/components/claims/claims-table/claimsResponsive";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { TrackingPopup } from "@/components/tracking/TrackingPopup";
 import { useClaimMutations } from "@/hooks/useClaimMutations";
 import { useClaimsFilters } from "@/hooks/useClaimsFilters";
 import { useClaimsList } from "@/hooks/useClaimsList";
@@ -29,7 +28,38 @@ import {
   ISSUE_TYPE_CONFIG as SHARED_ISSUE_TYPE_CONFIG,
   formatClaimMoney,
 } from "@/lib/claims-config";
-import { getClaimCompleteDialogCopy, getClaimReopenDialogCopy } from "@/lib/confirm-dialog";
+import {
+  getBulkDeleteDialogCopy,
+  getClaimCompleteDialogCopy,
+  getClaimDeleteDialogCopy,
+  getClaimReopenDialogCopy,
+} from "@/lib/confirm-dialog";
+import type { ClaimDetailData } from "@/components/claims/ClaimDetailDrawer";
+
+const ClaimDetailDrawer = dynamic(
+  () => import("@/components/claims/ClaimDetailDrawer").then((module) => ({
+    default: module.ClaimDetailDrawer,
+  })),
+  { loading: () => null },
+);
+const AddTodoDialog = dynamic(
+  () => import("@/components/shared/AddTodoDialog").then((module) => ({
+    default: module.AddTodoDialog,
+  })),
+  { loading: () => null },
+);
+const TrackingPopup = dynamic(
+  () => import("@/components/tracking/TrackingPopup").then((module) => ({
+    default: module.TrackingPopup,
+  })),
+  { loading: () => null },
+);
+const AddClaimDialog = dynamic(
+  () => import("@/components/claims/AddClaimDialog").then((module) => ({
+    default: module.AddClaimDialog,
+  })),
+  { loading: () => null },
+);
 
 /* ============================================================
    CONSTANTS & HELPERS
@@ -37,6 +67,26 @@ import { getClaimCompleteDialogCopy, getClaimReopenDialogCopy } from "@/lib/conf
 const ISSUE_TYPE_CONFIG = SHARED_ISSUE_TYPE_CONFIG as Record<string, { label: string; bg: string; text: string; border: string }>;
 const CLAIM_STATUS_CONFIG = SHARED_CLAIM_STATUS_CONFIG as Record<string, { label: string; bg: string; text: string }>;
 const COMPLETION_STATUSES = SHARED_COMPLETION_STATUSES as string[];
+
+function useClaimsMobileViewport() {
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(`(max-width: ${CLAIMS_MOBILE_BREAKPOINT - 1}px)`);
+    const syncViewport = () => {
+      setIsMobileViewport(shouldUseClaimsMobileCards(window.innerWidth) || mediaQuery.matches);
+    };
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncViewport);
+    };
+  }, []);
+
+  return isMobileViewport;
+}
 
 function formatVND(n: number) {
   return formatClaimMoney(n);
@@ -96,9 +146,6 @@ const closeBtnBase: React.CSSProperties = {
   background: "none", border: "none", cursor: "pointer", padding: "4px",
   borderRadius: "6px", color: "#666", display: "flex", alignItems: "center",
 };
-const labelStyle: React.CSSProperties = {
-  display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px",
-};
 const inputStyle: React.CSSProperties = {
   width: "100%", background: "#FFFFFF", border: "1.5px solid #d1d5db",
   borderRadius: "8px", padding: "10px 12px", fontSize: "14px", color: "#1a1a1a",
@@ -119,263 +166,6 @@ const secondaryBtnStyle: React.CSSProperties = {
   background: "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer",
   color: "#374151",
 };
-
-/* ============================================================
-   ADD CLAIM DIALOG
-   ============================================================ */
-function AddClaimDialog({
-  open, onClose, onSuccess, prefillOrder,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  prefillOrder?: any;
-}) {
-  const [step, setStep] = useState<"search" | "form">(prefillOrder ? "form" : "search");
-  const [searchQ, setSearchQ] = useState("");
-  const [results, setResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<any | null>(prefillOrder || null);
-  const [issueType, setIssueType] = useState("");
-  const [claimStatus, setClaimStatus] = useState("PENDING");
-  const [issueDesc, setIssueDesc] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [duplicateClaimId, setDuplicateClaimId] = useState<string | null>(null);
-  const debounceRef = useRef<NodeJS.Timeout>(undefined);
-
-  useEffect(() => {
-    if (prefillOrder) {
-      setSelected(prefillOrder);
-      setStep("form");
-    }
-  }, [prefillOrder]);
-
-  useEffect(() => {
-    if (!open) {
-      setStep(prefillOrder ? "form" : "search");
-      setSearchQ("");
-      setResults([]);
-      setSelected(prefillOrder || null);
-      setIssueType("");
-      setClaimStatus("PENDING");
-      setIssueDesc("");
-      setDeadline("");
-      setError("");
-      setDuplicateClaimId(null);
-    }
-  }, [open, prefillOrder]);
-
-  const doSearch = useCallback((q: string) => {
-    if (q.length < 2) { setResults([]); return; }
-    setSearching(true);
-    fetch(`/api/claims/search-orders?q=${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(d => setResults(d.orders || []))
-      .finally(() => setSearching(false));
-  }, []);
-
-  const onSearchChange = (v: string) => {
-    setSearchQ(v);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(v), 300);
-  };
-
-  const handleSave = async () => {
-    if (!selected || !issueType) {
-      setError("Vui lòng chọn Loại Vấn Đề");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/claims", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: selected.id,
-          issueType,
-          claimStatus,
-          issueDescription: issueDesc || null,
-          deadline: deadline || null,
-          source: prefillOrder ? "FROM_ORDERS" : "MANUAL",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 409) {
-          setError(data.error || "Đơn đã có trong Đơn có vấn đề.");
-          const confirmed = window.confirm(
-            `Đơn ${selected.requestCode || "này"} đã có trong Đơn có vấn đề. Bạn có muốn mở chi tiết đơn hiện có để sửa lại không?`
-          );
-          if (confirmed && data?.claim?.id) {
-            setDuplicateClaimId(data.claim.id);
-          }
-          return;
-        }
-        setError(data.error || "Lỗi khi tạo");
-        return;
-      }
-      onSuccess();
-      onClose();
-    } catch {
-      setError("Lỗi kết nối");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!open) return null;
-
-  return createPortal(
-    <>
-      <div style={overlayStyle} onClick={onClose} />
-      <div style={{ ...dialogBase, width: "min(" + (step === "search" ? "560px" : "640px") + ", calc(100vw - 32px))" }}>
-        <div style={headerStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ padding: "8px", borderRadius: "8px", background: "#eff6ff" }}>
-              <Plus size={18} color="#2563EB" />
-            </div>
-            <span style={titleStyle}>
-              {step === "search" ? "Tìm đơn hàng" : "Thêm vào Đơn Có Vấn Đề"}
-            </span>
-          </div>
-          <button style={closeBtnBase} onClick={onClose}><X size={18} /></button>
-        </div>
-
-        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-          {step === "search" && (
-            <>
-              <div style={{ position: "relative", marginBottom: "16px" }}>
-                <Search size={16} style={{ position: "absolute", left: "12px", top: "12px", color: "#9ca3af" }} />
-                <input
-                  style={{ ...inputStyle, paddingLeft: "36px" }}
-                  placeholder="Tìm mã yêu cầu, mã đối tác, SĐT hoặc 4 số cuối SĐT..."
-                  value={searchQ}
-                  onChange={e => onSearchChange(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <p style={{ margin: "0 0 16px", fontSize: "12px", color: "#64748b", lineHeight: "1.5" }}>
-                Mặc định chỉ tìm trong 30 ngày gần nhất. Khi nhập đúng mã yêu cầu, mã đối tác
-                hoặc SĐT đầy đủ, hệ thống sẽ tìm toàn bộ lịch sử.
-              </p>
-              {searching && <div style={{ textAlign: "center", padding: "20px", color: "#6b7280" }}><Loader2 className="animate-spin inline" size={18} /> Đang tìm...</div>}
-              {results.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {results.map((o: any) => (
-                    <button
-                      key={o.id}
-                      onClick={() => { setSelected(o); setStep("form"); }}
-                      style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "10px 14px", border: "1px solid #e5e7eb", borderRadius: "8px",
-                        background: "#fff", cursor: "pointer", textAlign: "left", transition: "all 0.15s",
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#2563EB"; e.currentTarget.style.background = "#f8faff"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "13px", color: "#1a1a1a" }}>{o.requestCode}</div>
-                        <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>{o.shopName} - {o.carrierName}</div>
-                        {o.existingClaim && (
-                          <div style={{ fontSize: "11px", color: "#b45309", marginTop: "4px", fontWeight: 600 }}>
-                            Đã có trong Đơn có vấn đề {o.existingClaim.isCompleted ? "(đã hoàn tất)" : "(chưa hoàn tất)"}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#059669" }}>{formatVND(o.codAmount)}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {searchQ.length >= 2 && !searching && results.length === 0 && (
-                <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: "13px" }}>Không tìm thấy đơn hàng nào</div>
-              )}
-            </>
-          )}
-
-          {step === "form" && selected && (
-            <>
-              {/* Order info summary */}
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", marginBottom: "16px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "13px" }} className="resp-grid-1-2">
-                  <div><span style={{ color: "#6b7280" }}>Mã YC: </span><strong>{selected.requestCode}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>Đối tác: </span><strong>{selected.carrierName}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>Shop: </span><strong>{selected.shopName}</strong></div>
-                  <div><span style={{ color: "#6b7280" }}>COD: </span><strong style={{ color: "#059669" }}>{formatVND(selected.codAmount)}</strong></div>
-                </div>
-              </div>
-
-              {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "10px 14px", marginBottom: "12px", color: "#dc2626", fontSize: "13px" }}>{error}</div>}
-
-              {/* Required fields */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }} className="resp-grid-1-2">
-                <div>
-                  <label style={labelStyle}>Loại Vấn Đề *</label>
-                  <select
-                    style={inputStyle}
-                    value={issueType}
-                    onChange={e => setIssueType(e.target.value)}
-                  >
-                    <option value="">— Chọn —</option>
-                    {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Trạng Thái XL</label>
-                  <select style={inputStyle} value={claimStatus} onChange={e => setClaimStatus(e.target.value)}>
-                    {Object.entries(CLAIM_STATUS_CONFIG).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label style={labelStyle}>Nội Dung Vấn Đề</label>
-                <textarea
-                  style={{ ...inputStyle, minHeight: "60px", resize: "vertical" }}
-                  value={issueDesc}
-                  onChange={e => setIssueDesc(e.target.value)}
-                  placeholder="Mô tả vấn đề..."
-                />
-              </div>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label style={labelStyle}>Thời Hạn</label>
-                <input style={inputStyle} type="date" value={deadline} onChange={e => setDeadline(e.target.value)} />
-              </div>
-            </>
-          )}
-        </div>
-
-        {step === "form" && (
-          <div style={footerStyle}>
-            <button style={{ ...primaryBtnStyle, background: "transparent", color: "#374151", border: "1px solid #d1d5db" }} onClick={() => { if (!prefillOrder) { setStep("search"); setSelected(null); } else onClose(); }}>
-              {prefillOrder ? "Hủy" : "← Quay lại"}
-            </button>
-            <button style={primaryBtnStyle} onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-              Lưu
-            </button>
-          </div>
-        )}
-      </div>
-
-      <ClaimDetailDrawer
-        claimId={duplicateClaimId || ""}
-        open={!!duplicateClaimId}
-        onClose={() => setDuplicateClaimId(null)}
-        onUpdate={onSuccess}
-      />
-    </>,
-    document.body
-  );
-}
 
 /* ============================================================
    INLINE STATUS DROPDOWN
@@ -427,7 +217,7 @@ function StatusDropdown({
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold cursor-pointer border ${cfg.bg} ${cfg.text} hover:opacity-80 transition-opacity`}
         disabled={loading || disabled}
-        aria-label="Cap nhat trang thai khieu nai"
+        aria-label="Cập nhật trạng thái khiếu nại"
       >
         {loading ? <Loader2 className="animate-spin" size={12} /> : null}
         {cfg.label}
@@ -530,6 +320,18 @@ type ClaimActionDialogState = {
   requestCode: string;
   loading: boolean;
   success: string | null;
+};
+
+type BulkDeleteDialogState = {
+  ids: string[];
+  count: number;
+  loading: boolean;
+  success: string | null;
+};
+
+type InlineNoticeState = {
+  tone: "error";
+  message: string;
 };
 
 /* ============================================================
@@ -642,17 +444,6 @@ interface ClaimsClientProps {
   canCreateClaim?: boolean;
   canUpdateClaim?: boolean;
   canDeleteClaim?: boolean;
-  initialClaimsData?: {
-    claims?: any[];
-    pagination?: {
-      total?: number;
-      totalPages?: number;
-    };
-  } | null;
-  initialFilterOptions?: {
-    shops?: string[];
-    statuses?: string[];
-  } | null;
 }
 
 function ClaimsClientInner({
@@ -662,14 +453,13 @@ function ClaimsClientInner({
   canCreateClaim = true,
   canUpdateClaim = true,
   canDeleteClaim = true,
-  initialClaimsData = null,
-  initialFilterOptions = null,
 }: ClaimsClientProps = {}) {
   const { filters, setFilters, searchInput, setSearchInput } = useClaimsFilters();
   const {
     claims,
     setClaims,
     loading,
+    refreshing,
     pagination,
     shopOptions,
     orderStatusOptions,
@@ -679,8 +469,6 @@ function ClaimsClientInner({
   } = useClaimsList({
     filters,
     onCountChange,
-    initialClaimsData,
-    initialFilterOptions,
   });
   const {
     detecting,
@@ -705,7 +493,11 @@ function ClaimsClientInner({
   const [deleteConfirm, setDeleteConfirm] = useState<ClaimActionDialogState | null>(null);
   const [completeConfirm, setCompleteConfirm] = useState<ClaimActionDialogState | null>(null);
   const [reopenConfirm, setReopenConfirm] = useState<ClaimActionDialogState | null>(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<BulkDeleteDialogState | null>(null);
+  const [inlineNotice, setInlineNotice] = useState<InlineNoticeState | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const isMobileViewport = useClaimsMobileViewport();
+  const shouldRenderMobileCards = isMobileViewport === true;
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -798,6 +590,7 @@ function ClaimsClientInner({
 
   const handleDelete = (claimId: string, requestCode: string) => {
     if (!canDeleteClaim) return;
+    setInlineNotice(null);
     setDeleteConfirm({ id: claimId, requestCode, loading: false, success: null });
   };
 
@@ -855,21 +648,57 @@ function ClaimsClientInner({
 
   const handleBulkDelete = async () => {
     if (!canDeleteClaim || selectedIds.size === 0) return;
-    if (!confirm(`Xác nhận xóa ${selectedIds.size} đơn được chọn?`)) return;
-    const count = selectedIds.size;
+    setInlineNotice(null);
+    setBulkDeleteConfirm({
+      ids: [...selectedIds],
+      count: selectedIds.size,
+      loading: false,
+      success: null,
+    });
+  };
+
+  const executeBulkDelete = async () => {
+    if (!bulkDeleteConfirm) return;
+
+    setBulkDeleteConfirm((current) => current ? { ...current, loading: true } : null);
     setBulkProcessing(true);
     try {
       const res = await fetch("/api/claims/bulk", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [...selectedIds] }),
+        body: JSON.stringify({ ids: bulkDeleteConfirm.ids }),
       });
-      if (!res.ok) { const err = await res.json(); alert(`Lỗi: ${err.error || "Không thể xóa"}`); return; }
-      setSelectedIds(new Set());
+
+      if (!res.ok) {
+        const errorPayload = await res.json().catch(() => null);
+        setInlineNotice({
+          tone: "error",
+          message: `Lỗi: ${errorPayload?.error || "Không thể xóa các đơn đã chọn."}`,
+        });
+        setBulkDeleteConfirm((current) => current ? { ...current, loading: false } : null);
+        return;
+      }
+
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        for (const id of bulkDeleteConfirm.ids) {
+          next.delete(id);
+        }
+        return next;
+      });
       fetchClaims();
-      alert(`Đã xóa ${count} đơn thành công!`);
-    } catch (e) {
-      alert("Lỗi kết nối. Vui lòng thử lại.");
+      setBulkDeleteConfirm((current) => current ? {
+        ...current,
+        loading: false,
+        success: `Đã xóa ${current.count} đơn khỏi danh sách có vấn đề.`,
+      } : null);
+      setTimeout(() => setBulkDeleteConfirm(null), 1500);
+    } catch {
+      setInlineNotice({
+        tone: "error",
+        message: "Lỗi kết nối. Vui lòng thử lại.",
+      });
+      setBulkDeleteConfirm((current) => current ? { ...current, loading: false } : null);
     } finally {
       setBulkProcessing(false);
     }
@@ -893,15 +722,15 @@ function ClaimsClientInner({
   };
 
   const completeDialogCopy = getClaimCompleteDialogCopy(completeConfirm?.requestCode || "");
+  const deleteDialogCopy = getClaimDeleteDialogCopy(deleteConfirm?.requestCode || "");
   const reopenDialogCopy = getClaimReopenDialogCopy(reopenConfirm?.requestCode || "");
+  const bulkDeleteDialogCopy = getBulkDeleteDialogCopy(bulkDeleteConfirm?.count || 0);
   const canBulkSelect = canUpdateClaim || canDeleteClaim;
 
   return (
     <div style={{ padding: "0" }}>
       <style>{`
         @media (max-width: 768px) {
-          .claims-mobile-list { display: flex !important; }
-          .claims-desktop-table { display: none !important; }
           .claims-pagination { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
           .claims-pagination > div { justify-content: center !important; }
         }
@@ -957,6 +786,42 @@ function ClaimsClientInner({
         </div>
       ))}
 
+      {inlineNotice && (
+        <div
+          style={{
+            border: "1px solid #fecaca",
+            background: "#fef2f2",
+            color: "#b91c1c",
+            borderRadius: "10px",
+            padding: "10px 12px",
+            fontSize: "13px",
+            lineHeight: "1.5",
+          }}
+        >
+          {inlineNotice.message}
+        </div>
+      )}
+
+      {refreshing && (
+        <div
+          style={{
+            border: "1px solid #bfdbfe",
+            background: "#eff6ff",
+            color: "#1d4ed8",
+            borderRadius: "10px",
+            padding: "8px 12px",
+            fontSize: "12px",
+            lineHeight: "1.5",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <Loader2 className="animate-spin" size={14} />
+          Đang cập nhật danh sách đơn có vấn đề...
+        </div>
+      )}
+
       {/* Keyframe for InlineStaffNote save animation */}
       <style>{`@keyframes fadeInOut { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1)} 75%{opacity:1} 100%{opacity:0;transform:scale(0.8)} }`}</style>
 
@@ -975,11 +840,12 @@ function ClaimsClientInner({
 
       {/* Table */}
       <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", background: "#fff", overflow: "hidden" }}>
+        {shouldRenderMobileCards ? (
         <ClaimsMobileList>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Dang tai...</div>
+            <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Đang tải...</div>
           ) : claims.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}>Khong co don nao</div>
+            <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}>Không có đơn nào</div>
           ) : (
             claims.map((c: any, idx: number) => {
               const daysPending = daysBetween(c.detectedDate);
@@ -1008,9 +874,9 @@ function ClaimsClientInner({
                         onClick={() => setDetailClaimId(c.id)}
                         style={{ background: "none", border: "none", padding: 0, color: "#2563EB", fontSize: "14px", fontWeight: 700, cursor: "pointer", textAlign: "left" }}
                       >
-                        {c.order?.requestCode || "Khong ro ma"}
+                        {c.order?.requestCode || "Không rõ mã"}
                       </button>
-                      <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>{c.order?.shopName || "Khong ro shop"}</div>
+                      <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>{c.order?.shopName || "Không rõ shop"}</div>
                     </div>
                     {canBulkSelect && (
                       <input
@@ -1018,7 +884,7 @@ function ClaimsClientInner({
                         checked={selectedIds.has(c.id)}
                         onChange={() => toggleSelect(c.id)}
                         style={{ accentColor: "#2563EB", cursor: "pointer" }}
-                        aria-label={`Chon don ${c.order?.requestCode || idx + 1}`}
+                        aria-label={`Chọn đơn ${c.order?.requestCode || idx + 1}`}
                       />
                     )}
                   </div>
@@ -1037,7 +903,7 @@ function ClaimsClientInner({
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                     <div style={{ fontSize: "12px", color: "#475569" }}>
-                      <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Ma doi tac</div>
+                      <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Mã đối tác</div>
                       <strong>{c.order?.carrierOrderCode || "—"}</strong>
                     </div>
                     <div style={{ fontSize: "12px", color: "#475569" }}>
@@ -1045,44 +911,44 @@ function ClaimsClientInner({
                       <strong>{formatVND(c.order?.codAmount || 0)}</strong>
                     </div>
                     <div style={{ fontSize: "12px", color: "#475569" }}>
-                      <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Ngay phat hien</div>
+                      <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Ngày phát hiện</div>
                       <strong>{format(new Date(c.detectedDate), "dd/MM/yy")}</strong>
                     </div>
                     <div style={{ fontSize: "12px", color: "#475569" }}>
-                      <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Deadline</div>
+                      <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Thời hạn</div>
                       <strong style={{ color: c.deadline ? (daysLeft < 0 ? "#dc2626" : daysLeft <= 3 ? "#d97706" : "#334155") : "#94a3b8" }}>
-                        {c.deadline ? format(new Date(c.deadline), "dd/MM/yy") : "Chua dat"}
+                        {c.deadline ? format(new Date(c.deadline), "dd/MM/yy") : "Chưa đặt"}
                       </strong>
                     </div>
                   </div>
 
                   <div style={{ fontSize: "12px", color: "#475569", lineHeight: "1.5" }}>
-                    <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Noi dung van de</div>
-                    <div>{c.issueDescription || "Chua co noi dung"}</div>
+                    <div style={{ color: "#94a3b8", marginBottom: "2px" }}>Nội dung vấn đề</div>
+                    <div>{c.issueDescription || "Chưa có nội dung"}</div>
                   </div>
 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                     <button
                       onClick={() => setDetailClaimId(c.id)}
                       style={{ ...secondaryBtnStyle, padding: "6px 10px", color: "#2563EB", borderColor: "#bfdbfe", background: "#eff6ff" }}
-                      aria-label={`Xem chi tiet ${c.order?.requestCode || ""}`}
+                      aria-label={`Xem chi tiết ${c.order?.requestCode || ""}`}
                     >
-                      <Eye size={12} /> Chi tiet
+                      <Eye size={12} /> Chi tiết
                     </button>
                     <button
                       onClick={() => setTrackingCode(c.order?.requestCode || "")}
                       style={{ ...secondaryBtnStyle, padding: "6px 10px" }}
-                      aria-label={`Tra hanh trinh ${c.order?.requestCode || ""}`}
+                      aria-label={`Tra hành trình ${c.order?.requestCode || ""}`}
                     >
-                      <Truck size={12} /> Track
+                      <Truck size={12} /> Tra cứu
                     </button>
                     {canUpdateClaim && (
                       <button
                         onClick={() => setProcessingPopup({ id: c.id, content: c.processingContent || "" })}
                         style={{ ...secondaryBtnStyle, padding: "6px 10px" }}
-                        aria-label={`Cap nhat xu ly ${c.order?.requestCode || ""}`}
+                        aria-label={`Cập nhật xử lý ${c.order?.requestCode || ""}`}
                       >
-                        <FileText size={12} /> Xu ly
+                        <FileText size={12} /> Xử lý
                       </button>
                     )}
                     {canUpdateClaim && (
@@ -1092,16 +958,16 @@ function ClaimsClientInner({
                         style={{ ...secondaryBtnStyle, padding: "6px 10px", opacity: completeAction.canToggle ? 1 : 0.5, cursor: completeAction.canToggle ? "pointer" : "not-allowed" }}
                         aria-label={completeAction.title}
                       >
-                        {c.isCompleted ? <RotateCcw size={12} /> : <Check size={12} />} {c.isCompleted ? "Mo lai" : "Hoan tat"}
+                        {c.isCompleted ? <RotateCcw size={12} /> : <Check size={12} />} {c.isCompleted ? "Mở lại" : "Hoàn tất"}
                       </button>
                     )}
                     {canDeleteClaim && (
                       <button
                         onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
                         style={{ ...secondaryBtnStyle, padding: "6px 10px", color: "#dc2626", borderColor: "#fecaca", background: "#fef2f2" }}
-                        aria-label={`Xoa ${c.order?.requestCode || ""}`}
+                        aria-label={`Xóa ${c.order?.requestCode || ""}`}
                       >
-                        <Trash2 size={12} /> Xoa
+                        <Trash2 size={12} /> Xóa
                       </button>
                     )}
                   </div>
@@ -1110,6 +976,7 @@ function ClaimsClientInner({
             })
           )}
         </ClaimsMobileList>
+        ) : (
         <ClaimsDesktopTable>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", tableLayout: "fixed", minWidth: "1100px" }}>
             {/* Checkbox | STT | Mã YC | Mã ĐT | Tên CH | TT Đơn | COD | Loại VĐ | ND VĐ | Ngày PH | Ngày TĐ | TT Xử Lý | ND XL | Thời Hạn | Thao Tác */}
@@ -1123,7 +990,7 @@ function ClaimsClientInner({
                     onChange={toggleSelectAll}
                     disabled={!canBulkSelect}
                     style={{ accentColor: "#2563EB", cursor: "pointer" }}
-                    aria-label="Chon tat ca don khieu nai"
+                    aria-label="Chọn tất cả đơn khiếu nại"
                   />
                 </th>
                 {([
@@ -1200,7 +1067,7 @@ function ClaimsClientInner({
                           onChange={() => toggleSelect(c.id)}
                           disabled={!canBulkSelect}
                           style={{ accentColor: "#2563EB", cursor: "pointer" }}
-                          aria-label={`Chon don ${c.order?.requestCode || idx + 1}`}
+                          aria-label={`Chọn đơn ${c.order?.requestCode || idx + 1}`}
                         />
                       </td>
                       {/* 1. STT */}
@@ -1241,7 +1108,7 @@ function ClaimsClientInner({
                           className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${issCfg.bg} ${issCfg.text} ${issCfg.border}`}
                           style={{ outline: "none", appearance: "auto", maxWidth: "100%", opacity: canUpdateClaim ? 1 : 0.7, cursor: canUpdateClaim ? "pointer" : "not-allowed" }}
                           disabled={!canUpdateClaim}
-                          aria-label={`Cap nhat loai van de ${c.order?.requestCode || idx + 1}`}
+                          aria-label={`Cập nhật loại vấn đề ${c.order?.requestCode || idx + 1}`}
                         >
                           {Object.entries(ISSUE_TYPE_CONFIG).map(([k, v]) => (
                             <option key={k} value={k}>{v.label}</option>
@@ -1291,7 +1158,7 @@ function ClaimsClientInner({
                             e.currentTarget.style.background = c.issueDescription ? "#fffef5" : "transparent";
                           }}
                           role="textbox"
-                          aria-label={`Noi dung van de ${c.order?.requestCode || idx + 1}`}
+                          aria-label={`Nội dung vấn đề ${c.order?.requestCode || idx + 1}`}
                         >
                           {c.issueDescription || "Nhập nội dung..."}
                         </div>
@@ -1326,7 +1193,7 @@ function ClaimsClientInner({
                             display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap",
                             opacity: canUpdateClaim ? 1 : 0.6,
                           }}
-                          aria-label={`Cap nhat noi dung xu ly ${c.order?.requestCode || idx + 1}`}
+                          aria-label={`Cập nhật nội dung xử lý ${c.order?.requestCode || idx + 1}`}
                         >
                           <FileText size={11} /> {c.processingContent ? "Sửa" : "Thêm"}
                         </button>
@@ -1351,7 +1218,7 @@ function ClaimsClientInner({
                               : "#fff",
                             opacity: canUpdateClaim ? 1 : 0.7,
                           }}
-                          aria-label={`Cap nhat deadline ${c.order?.requestCode || idx + 1}`}
+                          aria-label={`Cập nhật thời hạn ${c.order?.requestCode || idx + 1}`}
                         />
                       </td>
                       {/* 14. Thao Tác + Ghi Chú */}
@@ -1369,7 +1236,7 @@ function ClaimsClientInner({
                             <button
                               onClick={(e) => { e.stopPropagation(); setTodoClaimOrder(c); }}
                               className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 rounded border border-transparent hover:border-blue-200 transition-colors"
-                              title="Thêm vào Công Việc"
+                              title="Thêm vào công việc"
                             >
                               <CheckSquare size={12} />
                             </button>
@@ -1408,6 +1275,7 @@ function ClaimsClientInner({
             </tbody>
           </table>
         </ClaimsDesktopTable>
+        )}
       </div>
 
       {/* Pagination */}
@@ -1495,13 +1363,28 @@ function ClaimsClientInner({
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={executeDelete}
-        title="Xóa đơn có vấn đề"
-        description={`Bạn có chắc chắn muốn xóa đơn ${deleteConfirm?.requestCode || ""} khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.`}
-        confirmLabel="Xóa đơn"
+        title={deleteDialogCopy.title}
+        description={deleteDialogCopy.description}
+        confirmLabel={deleteDialogCopy.confirmLabel}
+        cancelLabel={deleteDialogCopy.cancelLabel}
         confirmColor="red"
         icon={<Trash2 size={26} color="#dc2626" />}
         loading={deleteConfirm?.loading}
         successMsg={deleteConfirm?.success}
+      />
+
+      <ConfirmActionDialog
+        open={Boolean(bulkDeleteConfirm)}
+        onClose={() => setBulkDeleteConfirm(null)}
+        onConfirm={executeBulkDelete}
+        title={bulkDeleteDialogCopy.title}
+        description={bulkDeleteDialogCopy.description}
+        confirmLabel={bulkDeleteDialogCopy.confirmLabel}
+        cancelLabel={bulkDeleteDialogCopy.cancelLabel}
+        confirmColor="red"
+        icon={<Trash2 size={26} color="#dc2626" />}
+        loading={bulkDeleteConfirm?.loading}
+        successMsg={bulkDeleteConfirm?.success}
       />
 
       {/* Complete Confirmation Dialog */}

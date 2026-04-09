@@ -44,12 +44,39 @@ type ClaimsBootstrapQuery = {
   sortDir: "asc" | "desc";
 };
 
+type ClaimsFilterOptionRow = {
+  order: {
+    shopName: string | null;
+    status: string | null;
+  } | null;
+};
+
 function normalizeSearchInput(value: string) {
   return value.trim();
 }
 
 function normalizePhone(value: string) {
   return value.replace(/\D/g, "");
+}
+
+export function createClaimsFilterOptions(rows: ClaimsFilterOptionRow[]) {
+  const shops = new Set<string>();
+  const statuses = new Set<string>();
+
+  for (const row of rows) {
+    if (row.order?.shopName) {
+      shops.add(row.order.shopName);
+    }
+
+    if (row.order?.status) {
+      statuses.add(row.order.status);
+    }
+  }
+
+  return {
+    shops: [...shops].sort((left, right) => left.localeCompare(right, "vi")),
+    statuses: [...statuses].sort((left, right) => left.localeCompare(right, "vi")),
+  };
 }
 
 export async function getClaimsListData(query: ClaimsBootstrapQuery) {
@@ -111,19 +138,12 @@ export async function getClaimsListData(query: ClaimsBootstrapQuery) {
           select: {
             requestCode: true,
             carrierOrderCode: true,
-            carrierName: true,
             shopName: true,
             status: true,
-            deliveryStatus: true,
             codAmount: true,
-            totalFee: true,
             staffNotes: true,
-            receiverPhone: true,
-            receiverName: true,
-            receiverAddress: true,
           },
         },
-        createdBy: { select: { name: true } },
       },
       orderBy,
       skip: (query.page - 1) * query.pageSize,
@@ -144,45 +164,18 @@ export async function getClaimsListData(query: ClaimsBootstrapQuery) {
 }
 
 export async function getClaimsFilterOptionsData() {
-  const [shops, statuses] = await Promise.all([
-    prisma.claimOrder.findMany({
-      select: {
-        order: {
-          select: {
-            shopName: true,
-          },
+  const rows = await prisma.claimOrder.findMany({
+    select: {
+      order: {
+        select: {
+          shopName: true,
+          status: true,
         },
       },
-      distinct: ["orderId"],
-      orderBy: { orderId: "asc" },
-    }),
-    prisma.claimOrder.findMany({
-      select: {
-        order: {
-          select: {
-            status: true,
-          },
-        },
-      },
-      distinct: ["orderId"],
-      orderBy: { orderId: "asc" },
-    }),
-  ]);
+    },
+    distinct: ["orderId"],
+    orderBy: { orderId: "asc" },
+  });
 
-  return {
-    shops: [...new Set(shops.map((item) => item.order?.shopName).filter((value): value is string => Boolean(value)))],
-    statuses: [...new Set(statuses.map((item) => item.order?.status).filter((value): value is string => Boolean(value)))],
-  };
-}
-
-export async function getClaimsBootstrapData(query: ClaimsBootstrapQuery) {
-  const [list, filterOptions] = await Promise.all([
-    getClaimsListData(query),
-    getClaimsFilterOptionsData(),
-  ]);
-
-  return {
-    list,
-    filterOptions,
-  };
+  return createClaimsFilterOptions(rows);
 }

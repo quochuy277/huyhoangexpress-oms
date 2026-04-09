@@ -130,3 +130,13 @@ export function getClaimDeleteDialogCopy(requestCode: string): ConfirmDialogCopy
     tone: "danger",
   };
 }
+
+export function getBulkDeleteDialogCopy(count: number): ConfirmDialogCopy {
+  return {
+    title: "Xóa nhiều đơn có vấn đề",
+    description: `Bạn có chắc chắn muốn xóa ${count} đơn đã chọn khỏi danh sách có vấn đề? Hành động này không thể hoàn tác.`,
+    confirmLabel: `Xóa ${count} đơn`,
+    cancelLabel: "Hủy",
+    tone: "danger",
+  };
+}

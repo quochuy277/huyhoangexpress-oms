@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -300,6 +301,8 @@ export async function DELETE(
         data: { claimLocked: false },
       }),
     ]);
+
+    clearClaimsFilterOptionsCache();
 
     return NextResponse.json({ success: true });
   } catch (error) {

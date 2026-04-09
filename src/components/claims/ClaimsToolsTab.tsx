@@ -359,13 +359,13 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               placeholder="Mã đơn, Nhân viên..."
               value={historySearchInput}
               onChange={e => setHistorySearchInput(e.target.value)}
-              aria-label="Tìm kiếm lịch sử claims"
+              aria-label="Tìm kiếm lịch sử đơn có vấn đề"
             />
           </div>
             <button
               type="submit"
               style={{ ...btnPrimary, minWidth: "44px", minHeight: "40px", justifyContent: "center", padding: "0 12px" }}
-              aria-label="Tìm kiếm lịch sử claims"
+              aria-label="Tìm kiếm lịch sử đơn có vấn đề"
               title="Tìm kiếm"
             >
               <Search size={14} />
@@ -375,7 +375,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.action}
             onChange={e => { setHistoryFilters(f => ({ ...f, action: e.target.value })); setHistoryPage(1); }}
-            aria-label="Lọc hành động claims"
+            aria-label="Lọc hành động đơn có vấn đề"
           >
             {ACTION_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -383,7 +383,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
             value={historyFilters.staff}
             onChange={e => { setHistoryFilters(f => ({ ...f, staff: e.target.value })); setHistoryPage(1); }}
-            aria-label="Lọc nhân viên claims"
+            aria-label="Lọc nhân viên xử lý đơn có vấn đề"
           >
             <option value="">Tất cả NV</option>
             {staffNames.map((n: string) => <option key={n} value={n}>{n}</option>)}
@@ -397,7 +397,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               setHistoryPage(1);
             }}
             placeholder="Từ ngày"
-            aria-label="Từ ngày lịch sử claims"
+            aria-label="Từ ngày lịch sử đơn có vấn đề"
           />
           <input
             type="date"
@@ -408,7 +408,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
               setHistoryPage(1);
             }}
             placeholder="Đến ngày"
-            aria-label="Đến ngày lịch sử claims"
+            aria-label="Đến ngày lịch sử đơn có vấn đề"
           />
         </div>
 

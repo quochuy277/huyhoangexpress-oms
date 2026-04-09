@@ -1,7 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
-import { normalizeClaimForClient } from "@/lib/claims-page-data";
+import {
+  createClaimsFilterOptions,
+  normalizeClaimForClient,
+} from "@/lib/claims-page-data";
 
 describe("normalizeClaimForClient", () => {
   it("converts Decimal and Date fields into client-safe values", () => {
@@ -51,6 +54,21 @@ describe("normalizeClaimForClient", () => {
         codAmount: 250000,
         totalFee: 35000,
       },
+    });
+  });
+
+  it("builds unique sorted filter options from a single order projection list", () => {
+    const options = createClaimsFilterOptions([
+      { order: { shopName: "Shop B", status: "Đang giao" } },
+      { order: { shopName: "Shop A", status: "Đã giao hàng" } },
+      { order: { shopName: "Shop B", status: "Đang giao" } },
+      { order: { shopName: "Shop C", status: null } },
+      { order: null },
+    ]);
+
+    expect(options).toEqual({
+      shops: ["Shop A", "Shop B", "Shop C"],
+      statuses: ["Đã giao hàng", "Đang giao"],
     });
   });
 });

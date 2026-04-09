@@ -7,7 +7,7 @@ import type { ClaimFilters } from "@/hooks/useClaimsFilters";
 type UseClaimMutationsOptions = {
   filters: ClaimFilters;
   claims: any[];
-  setClaims: React.Dispatch<React.SetStateAction<any[]>>;
+  setClaims: (updater: any[] | ((currentClaims: any[]) => any[])) => void;
   fetchClaims: () => Promise<void>;
   canUpdateClaim: boolean;
 };
