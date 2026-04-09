@@ -1,9 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { memo, useState } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AlertTriangle, CheckSquare, Flag, Info, Truck } from "lucide-react";
+
+import { CopyOrderButton } from "@/components/delayed/CopyOrderButton";
+import { ClaimBadge } from "@/components/shared/ClaimBadge";
+import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
 import {
   Table,
   TableBody,
@@ -13,22 +18,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
-import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { ClaimBadge } from "@/components/shared/ClaimBadge";
-import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
-import { TrackingPopup } from "@/components/tracking/TrackingPopup";
-import { CopyOrderButton } from "@/components/delayed/CopyOrderButton";
+import { formatDelayedStatusLabel } from "@/lib/delayed-labels";
+import { normalizeVietnameseAscii } from "@/lib/text-encoding";
+import type { DelayedSortableKey } from "@/types/delayed";
 
-type SortableDelayedKey =
-  | "requestCode"
-  | "shopName"
-  | "status"
-  | "delayCount"
-  | "createdTime"
-  | "riskScore"
-  | "codAmount";
+const AddClaimFromPageDialog = dynamic(
+  () =>
+    import("@/components/shared/AddClaimFromPageDialog").then((module) => ({
+      default: module.AddClaimFromPageDialog,
+    })),
+  { loading: () => null },
+);
+
+const AddTodoDialog = dynamic(
+  () =>
+    import("@/components/shared/AddTodoDialog").then((module) => ({
+      default: module.AddTodoDialog,
+    })),
+  { loading: () => null },
+);
+
+const OrderDetailDialog = dynamic(
+  () =>
+    import("@/components/shared/OrderDetailDialog").then((module) => ({
+      default: module.OrderDetailDialog,
+    })),
+  { loading: () => null },
+);
+
+const TrackingPopup = dynamic(
+  () =>
+    import("@/components/tracking/TrackingPopup").then((module) => ({
+      default: module.TrackingPopup,
+    })),
+  { loading: () => null },
+);
 
 function DelayedOrderTableInner({
   data,
@@ -38,14 +62,16 @@ function DelayedOrderTableInner({
   onSortChange,
   page,
   pageSize,
+  isRefreshing = false,
 }: {
   data: ProcessedDelayedOrder[];
   userRole: string;
-  sortKey: SortableDelayedKey;
+  sortKey: DelayedSortableKey;
   sortDir: "asc" | "desc";
-  onSortChange: (key: SortableDelayedKey) => void;
+  onSortChange: (key: DelayedSortableKey) => void;
   page: number;
   pageSize: number;
+  isRefreshing?: boolean;
 }) {
   const [todoOrder, setTodoOrder] = useState<ProcessedDelayedOrder | null>(null);
   const [claimDelayedOrder, setClaimDelayedOrder] = useState<ProcessedDelayedOrder | null>(null);
@@ -70,7 +96,7 @@ function DelayedOrderTableInner({
     width,
   }: {
     label: string;
-    sortName: SortableDelayedKey;
+    sortName: DelayedSortableKey;
     width?: string;
   }) => (
     <TableHead
@@ -83,8 +109,14 @@ function DelayedOrderTableInner({
   );
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="hidden overflow-auto md:block">
+    <div className="relative rounded-xl border border-slate-200 bg-white shadow-sm">
+      {isRefreshing && (
+        <div className="pointer-events-none absolute right-3 top-3 z-20 rounded-full border border-blue-100 bg-white/95 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+          Đang cập nhật...
+        </div>
+      )}
+
+      <div className={`hidden overflow-auto md:block ${isRefreshing ? "opacity-80" : ""}`}>
         <Table className="table-fixed">
           <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-sm">
             <TableRow className="hover:bg-transparent">
@@ -133,6 +165,8 @@ function DelayedOrderTableInner({
               </TableRow>
             ) : (
               data.map((order, index) => {
+                const formattedStatus = formatDelayedStatusLabel(order.status);
+                const normalizedStatus = normalizeVietnameseAscii(order.status);
                 const isHigh = order.risk === "high";
                 const borderClass = isHigh
                   ? "border-l-[3px] border-l-red-500"
@@ -187,15 +221,15 @@ function DelayedOrderTableInner({
                     <TableCell className="px-2">
                       <span
                         className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                          order.status.toLowerCase().includes("hoan")
+                          normalizedStatus.includes("hoan")
                             ? "bg-orange-100 text-orange-700"
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
-                        {order.status.toLowerCase().includes("dang giao") && (
+                        {normalizedStatus.includes("dang giao") && (
                           <AlertTriangle className="h-2.5 w-2.5" />
                         )}
-                        {order.status}
+                        {formattedStatus}
                       </span>
                     </TableCell>
                     <TableCell className="px-1 text-center">
@@ -282,7 +316,7 @@ function DelayedOrderTableInner({
                             type="button"
                             onClick={() => setTodoOrder(order)}
                             className="flex h-7 w-7 items-center justify-center rounded border border-transparent text-blue-500 transition-colors hover:border-blue-200 hover:bg-blue-50"
-                            title="Thêm vào Công Việc"
+                            title="Thêm vào công việc"
                             aria-label={`Thêm đơn ${order.requestCode} vào công việc`}
                           >
                             <CheckSquare className="h-3.5 w-3.5" />
@@ -291,7 +325,7 @@ function DelayedOrderTableInner({
                             type="button"
                             onClick={() => setClaimDelayedOrder(order)}
                             className="flex h-7 w-7 items-center justify-center rounded border border-transparent text-orange-500 transition-colors hover:border-orange-200 hover:bg-orange-50"
-                            title="Chuyển vào Đơn có vấn đề"
+                            title="Chuyển vào đơn có vấn đề"
                             aria-label={`Chuyển đơn ${order.requestCode} vào đơn có vấn đề`}
                           >
                             <Flag className="h-3.5 w-3.5" />
@@ -317,7 +351,7 @@ function DelayedOrderTableInner({
         </Table>
       </div>
 
-      <div className="space-y-3 p-3 md:hidden">
+      <div className={`space-y-3 p-3 md:hidden ${isRefreshing ? "opacity-80" : ""}`}>
         {data.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
             Không tìm thấy đơn hàng delayed.

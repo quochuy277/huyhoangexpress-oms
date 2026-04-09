@@ -57,3 +57,12 @@ export type DelayedFiltersState = {
   riskFilter: string;
   todayOnly: boolean;
 };
+
+export type DelayedSortableKey =
+  | "requestCode"
+  | "shopName"
+  | "status"
+  | "delayCount"
+  | "createdTime"
+  | "riskScore"
+  | "codAmount";

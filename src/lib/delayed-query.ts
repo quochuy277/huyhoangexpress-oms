@@ -36,6 +36,10 @@ export const DELAYED_ORDER_SELECT = {
   claimOrder: { select: { issueType: true } },
 } as const;
 
+function encodeLegacyUtf8Mojibake(value: string) {
+  return Array.from(new TextEncoder().encode(value), (byte) => String.fromCharCode(byte)).join("");
+}
+
 export function buildDelayedOrdersWhere({
   search,
   shopFilter,
@@ -80,8 +84,10 @@ export function buildDelayedOrdersWhere({
             OR: [
               { publicNotes: { contains: "Hoan giao hang", mode: "insensitive" } },
               { publicNotes: { contains: "Hoãn giao hàng" } },
+              { publicNotes: { contains: encodeLegacyUtf8Mojibake("Hoãn giao hàng") } },
               { publicNotes: { contains: "Delay giao hang", mode: "insensitive" } },
-              { publicNotes: { contains: "Delay giao hàng" } },
+              { publicNotes: { contains: "Delay giao hàng", mode: "insensitive" } },
+              { publicNotes: { contains: encodeLegacyUtf8Mojibake("Delay giao hàng") } },
             ],
           },
         ],

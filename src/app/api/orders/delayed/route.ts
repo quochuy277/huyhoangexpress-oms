@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const denied = requirePermission(
       session.user,
       "canViewDelayed",
-      "Bạn không có quyền xem đơn hoàn",
+      "Bạn không có quyền xem đơn hoãn",
     );
     if (denied) return denied;
 
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Error fetching delayed orders:", error);
     return NextResponse.json(
-      { success: false, error: "Không thể tải danh sách đơn hoàn" },
+      { success: false, error: "Không thể tải danh sách đơn hoãn" },
       { status: 500 },
     );
   }

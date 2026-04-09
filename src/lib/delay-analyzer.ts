@@ -1,3 +1,5 @@
+import { normalizeVietnameseAscii, repairUtf8Mojibake } from "@/lib/text-encoding";
+
 export type RawOrder = {
   id?: string;
   requestCode: string;
@@ -47,26 +49,30 @@ export type ProcessedDelayedOrder = {
 
 const TIMESTAMP_RE = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(.*)$/i;
 
-function normalizeAsciiText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/gi, "d")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
+type ParsedDelayLine = {
+  time: string;
+  date: string;
+  eventText: string;
+};
+
+type DelayScanResult = {
+  delayCount: number;
+  delays: { time: string; date: string; reason: string }[];
+  reasons: string[];
+  lastDelayDate: Date | null;
+  mostRecentTimestamp: Date | null;
+};
 
 function isDeliveryDelayPrefix(value: string) {
-  return normalizeAsciiText(value).startsWith("hoan giao hang vi:");
+  return normalizeVietnameseAscii(value).startsWith("hoan giao hang vi:");
 }
 
 function isReturnDelayPrefix(value: string) {
-  return normalizeAsciiText(value).startsWith("xac nhan hoan vi:");
+  return normalizeVietnameseAscii(value).startsWith("xac nhan hoan vi:");
 }
 
 function isCarrierDelayText(value: string) {
-  return normalizeAsciiText(value).includes("delay giao hang vi");
+  return normalizeVietnameseAscii(value).includes("delay giao hang vi");
 }
 
 function parseTimestamp(token: string): Date | null {
@@ -88,12 +94,6 @@ function parseTimestamp(token: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-type ParsedDelayLine = {
-  time: string;
-  date: string;
-  eventText: string;
-};
-
 function parseDelayLine(line: string): ParsedDelayLine | null {
   const match = line.trim().match(TIMESTAMP_RE);
 
@@ -108,39 +108,84 @@ function parseDelayLine(line: string): ParsedDelayLine | null {
   };
 }
 
-export function parseDelays(note: string): { time: string; date: string; reason: string }[] {
-  const delays: { time: string; date: string; reason: string }[] = [];
+function extractReasonText(eventText: string) {
+  const repairedEventText = repairUtf8Mojibake(eventText).trim();
+  const separatorIndex = repairedEventText.indexOf(":");
 
-  for (const rawLine of note.split("\n")) {
+  if (separatorIndex === -1) {
+    return repairedEventText;
+  }
+
+  return repairedEventText.slice(separatorIndex + 1).trim();
+}
+
+function scanDelayNote(note: string): DelayScanResult {
+  const delaysWithTimestamp: Array<{
+    time: string;
+    date: string;
+    reason: string;
+    timestamp: number;
+  }> = [];
+  const reasons: string[] = [];
+  let delayCount = 0;
+  let lastDelayDate: Date | null = null;
+  let mostRecentTimestamp: Date | null = null;
+
+  for (const rawLine of note.split(/\r?\n/)) {
     const parsed = parseDelayLine(rawLine);
 
     if (!parsed) {
       continue;
     }
 
-    if (isDeliveryDelayPrefix(parsed.eventText) || isReturnDelayPrefix(parsed.eventText)) {
-      delays.push({
-        time: parsed.time,
-        date: parsed.date,
-        reason: parsed.eventText.replace(/^.+?:\s*/i, "").trim(),
-      });
+    const repairedEventText = repairUtf8Mojibake(parsed.eventText);
+    const timestamp = parseTimestamp(`${parsed.time} - ${parsed.date}`);
+
+    if (timestamp && (!mostRecentTimestamp || timestamp > mostRecentTimestamp)) {
+      mostRecentTimestamp = timestamp;
     }
+
+    const isDeliveryDelay = isDeliveryDelayPrefix(repairedEventText);
+    const isReturnDelay = isReturnDelayPrefix(repairedEventText);
+    const isCarrierDelay = isCarrierDelayText(repairedEventText);
+
+    if (!isDeliveryDelay && !isReturnDelay && !isCarrierDelay) {
+      continue;
+    }
+
+    if (timestamp && (!lastDelayDate || timestamp > lastDelayDate)) {
+      lastDelayDate = timestamp;
+    }
+
+    if (!isDeliveryDelay && !isReturnDelay) {
+      continue;
+    }
+
+    const reason = extractReasonText(repairedEventText);
+
+    delayCount += 1;
+    delaysWithTimestamp.push({
+      time: parsed.time,
+      date: parsed.date,
+      reason,
+      timestamp: timestamp?.getTime() ?? 0,
+    });
+    reasons.push(isReturnDelay ? "Xác nhận hoàn hàng" : normalizeReason(reason));
   }
 
-  return delays.sort((left, right) => {
-    const leftTimestamp = parseTimestamp(`${left.time} - ${left.date}`)?.getTime() ?? 0;
-    const rightTimestamp = parseTimestamp(`${right.time} - ${right.date}`)?.getTime() ?? 0;
+  delaysWithTimestamp.sort((left, right) => left.timestamp - right.timestamp);
 
-    return leftTimestamp - rightTimestamp;
-  });
+  return {
+    delayCount,
+    delays: delaysWithTimestamp.map(({ timestamp, ...delay }) => delay),
+    reasons: reasons.length > 0 ? reasons : ["Không rõ lý do"],
+    lastDelayDate,
+    mostRecentTimestamp,
+  };
 }
 
-function isDelayEvent(eventText: string): boolean {
-  return (
-    isDeliveryDelayPrefix(eventText) ||
-    isReturnDelayPrefix(eventText) ||
-    isCarrierDelayText(eventText)
-  );
+export function parseDelays(note: string): { time: string; date: string; reason: string }[] {
+  return scanDelayNote(note).delays;
 }
 
 export function getLastDelayDate(publicNotes: string | null): Date | null {
@@ -148,20 +193,7 @@ export function getLastDelayDate(publicNotes: string | null): Date | null {
     return null;
   }
 
-  for (const line of publicNotes.split("\n")) {
-    const parsed = parseDelayLine(line);
-
-    if (!parsed || !isDelayEvent(parsed.eventText)) {
-      continue;
-    }
-
-    const date = parseTimestamp(`${parsed.time} - ${parsed.date}`);
-    if (date) {
-      return date;
-    }
-  }
-
-  return null;
+  return scanDelayNote(publicNotes).lastDelayDate;
 }
 
 export function getMostRecentTimestampFromNotes(publicNotes: string | null): Date | null {
@@ -169,36 +201,19 @@ export function getMostRecentTimestampFromNotes(publicNotes: string | null): Dat
     return null;
   }
 
-  for (const line of publicNotes.split("\n")) {
-    const parsed = parseDelayLine(line);
-    if (!parsed) {
-      continue;
-    }
-
-    const date = parseTimestamp(`${parsed.time} - ${parsed.date}`);
-    if (date) {
-      return date;
-    }
-  }
-
-  return null;
+  return scanDelayNote(publicNotes).mostRecentTimestamp;
 }
 
 export function countDelaysInNote(note: string): number {
-  return note
-    .split("\n")
-    .map((line) => parseDelayLine(line))
-    .filter((line): line is ParsedDelayLine => Boolean(line))
-    .filter((line) => isDeliveryDelayPrefix(line.eventText) || isReturnDelayPrefix(line.eventText))
-    .length;
+  return scanDelayNote(note).delayCount;
 }
 
 export function normalizeReason(reason: string): string {
-  const cleaned = reason
+  const cleaned = repairUtf8Mojibake(reason)
     .replace(/\.\s*thoi gian hen:.*$/i, "")
     .replace(/thoi gian hen:.*$/i, "")
     .trim();
-  const normalized = normalizeAsciiText(cleaned);
+  const normalized = normalizeVietnameseAscii(cleaned);
 
   if (
     /khong goi duoc|khong lien lac duoc|khong the lien he|chan so|khoa may|khong nghe may/.test(
@@ -256,26 +271,7 @@ export function normalizeReason(reason: string): string {
 }
 
 export function extractReasons(note: string): string[] {
-  const reasons: string[] = [];
-
-  for (const rawLine of note.split("\n")) {
-    const parsed = parseDelayLine(rawLine);
-
-    if (!parsed) {
-      continue;
-    }
-
-    if (isDeliveryDelayPrefix(parsed.eventText)) {
-      reasons.push(normalizeReason(parsed.eventText.replace(/^.+?:\s*/i, "").trim()));
-      continue;
-    }
-
-    if (isReturnDelayPrefix(parsed.eventText)) {
-      reasons.push("Xác nhận hoàn hàng");
-    }
-  }
-
-  return reasons.length > 0 ? reasons : ["Không rõ lý do"];
+  return scanDelayNote(note).reasons;
 }
 
 export function assessRisk(
@@ -311,7 +307,7 @@ export function assessRisk(
   else if (daysAge >= 5) score += 2;
   else if (daysAge >= 3) score += 1;
 
-  if (normalizeAsciiText(status).includes("hoan")) {
+  if (normalizeVietnameseAscii(status).includes("hoan")) {
     score += 1;
   }
 
@@ -323,13 +319,11 @@ export function assessRisk(
 export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
   const note = order.publicNotes || "";
   const status = order.status || "";
-  const delays = parseDelays(note);
-  const reasons = extractReasons(note);
-  const uniqueReasons = [...new Set(reasons)];
-  const delayCount = Math.max(delays.length, countDelaysInNote(note));
+  const analysis = scanDelayNote(note);
+  const uniqueReasons = [...new Set(analysis.reasons)];
   const createdDate = order.createdTime ? new Date(order.createdTime) : null;
   const daysAge = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / 86400000) : 0;
-  const risk = assessRisk(delayCount, uniqueReasons, daysAge, status);
+  const risk = assessRisk(analysis.delayCount, uniqueReasons, daysAge, status);
   const addressParts = [
     order.receiverAddress,
     order.receiverWard,
@@ -354,8 +348,8 @@ export function processDelayedOrder(order: RawOrder): ProcessedDelayedOrder {
         : Number(order.codAmount ?? 0),
     createdTime: order.createdTime || null,
     carrierName: order.carrierName || "",
-    delayCount,
-    delays,
+    delayCount: analysis.delayCount,
+    delays: analysis.delays,
     uniqueReasons,
     daysAge,
     risk,

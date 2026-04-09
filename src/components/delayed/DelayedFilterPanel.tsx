@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FileDown, Filter, RefreshCw, Search, X } from "lucide-react";
+
 import { getDelayedFilterSheetClassNames } from "@/components/delayed/delayedResponsive";
+import { formatDelayedStatusLabel } from "@/lib/delayed-labels";
+import { DEFAULT_DELAYED_FILTERS } from "@/lib/delayed-url-state";
 import type { DelayedFiltersState } from "@/types/delayed";
 
 type DelayedFilterOptions = {
@@ -26,25 +29,17 @@ type Props = {
   onExport: () => void;
 };
 
-const DEFAULT_FILTERS: DelayedFiltersState = {
-  searchTerm: "",
-  shopFilter: "",
-  statusFilter: "",
-  delayCountFilter: "",
-  reasonFilter: "",
-  riskFilter: "all",
-  todayOnly: false,
-};
-
 const sheetClassNames = getDelayedFilterSheetClassNames();
 
 export function buildDelayedActiveChips(filters: DelayedFiltersState) {
   const chips: string[] = [];
+
   if (filters.shopFilter) chips.push(filters.shopFilter);
-  if (filters.statusFilter) chips.push(filters.statusFilter);
+  if (filters.statusFilter) chips.push(formatDelayedStatusLabel(filters.statusFilter));
   if (filters.reasonFilter) chips.push(filters.reasonFilter);
   if (filters.delayCountFilter) chips.push(`Hoãn ${filters.delayCountFilter}`);
   if (filters.todayOnly) chips.push("Đơn hoãn hôm nay");
+
   return chips;
 }
 
@@ -96,6 +91,7 @@ function FilterFields({
         <button
           type="submit"
           className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-blue-600 bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700"
+          aria-label="Tìm kiếm đơn delayed"
         >
           <Search className="h-4 w-4" />
         </button>
@@ -124,7 +120,7 @@ function FilterFields({
         <option value="">Tất cả trạng thái</option>
         {options.statuses.map((status) => (
           <option key={status} value={status}>
-            {status}
+            {formatDelayedStatusLabel(status)}
           </option>
         ))}
       </select>
@@ -182,15 +178,7 @@ export function DelayedFilterPanel({
     }
   }, [filters, mobileOpen]);
 
-  const activeChips = useMemo(() => {
-    const chips: string[] = [];
-    if (filters.shopFilter) chips.push(filters.shopFilter);
-    if (filters.statusFilter) chips.push(filters.statusFilter);
-    if (filters.reasonFilter) chips.push(filters.reasonFilter);
-    if (filters.delayCountFilter) chips.push(`Hoãn ${filters.delayCountFilter}`);
-    if (filters.todayOnly) chips.push("Đơn hoãn hôm nay");
-    return chips;
-  }, [filters]);
+  const activeChips = useMemo(() => buildDelayedActiveChips(filters), [filters]);
 
   const applyMobileFilters = () => {
     onReplaceFilters(mobileDraft);
@@ -203,11 +191,13 @@ export function DelayedFilterPanel({
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              Tìm kiếm và lọc delayed
+              Tìm kiếm và lọc đơn hoãn
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              {currentPageCount} / {resultCount} đơn trên trang hiện tại
-              {isFetching ? " - Đang cập nhật..." : ""}
+              {currentPageCount} / {resultCount} đơn trong bộ lọc hiện tại
+            </p>
+            <p aria-live="polite" className="mt-1 min-h-4 text-xs font-medium text-blue-600">
+              {isFetching ? "Đang áp dụng bộ lọc..." : ""}
             </p>
           </div>
 
@@ -311,7 +301,7 @@ export function DelayedFilterPanel({
           <div className={sheetClassNames.panel}>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h4 className="text-base font-bold text-slate-800">Bộ lọc delayed</h4>
+                <h4 className="text-base font-bold text-slate-800">Bộ lọc đơn hoãn</h4>
                 <p className="text-xs text-slate-500">Chọn điều kiện lọc trên mobile.</p>
               </div>
               <button
@@ -381,7 +371,7 @@ export function DelayedFilterPanel({
               <button
                 type="button"
                 onClick={() => {
-                  setMobileDraft(DEFAULT_FILTERS);
+                  setMobileDraft(DEFAULT_DELAYED_FILTERS);
                   onReset();
                   setMobileOpen(false);
                 }}

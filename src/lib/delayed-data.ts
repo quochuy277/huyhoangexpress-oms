@@ -1,4 +1,5 @@
 import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
+import { formatDelayedStatusLabel } from "@/lib/delayed-labels";
 
 export type DelayedFilters = {
   search: string;
@@ -267,7 +268,7 @@ export function buildDelayedExportRows(
     "Người Nhận": order.receiverName || "",
     SDT: order.receiverPhone || "",
     "Địa Chỉ": order.fullAddress || "",
-    "Trạng Thái": order.status,
+    "Trạng Thái": formatDelayedStatusLabel(order.status),
     "Số Lần Hoãn": order.delayCount,
     "Mức Độ Rủi Ro":
       order.risk === "high" ? "CAO" : order.risk === "medium" ? "TRUNG BÌNH" : "THẤP",
