@@ -33,6 +33,7 @@ import {
   DEFAULT_ISSUE_TYPE,
   ISSUE_TYPE_CONFIG,
 } from "@/lib/claims-config";
+import { formatDelayedStatusLabel } from "@/lib/delayed-labels";
 
 function fmtVND(n: number | null | undefined) {
   if (n == null) return "—";
@@ -330,7 +331,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         },
         { label: "Mã Đơn KH", value: order.customerOrderCode },
         { label: "Shop", value: order.shopName },
-        { label: "Trạng Thái Gốc", value: order.status },
+        { label: "Trạng Thái Gốc", value: formatDelayedStatusLabel(order.status) },
         { label: "Ngày Tạo", value: fmtDate(order.createdTime) },
         { label: "Ngày Lấy Hàng", value: fmtDate(order.pickupTime) },
         { label: "Ngày Giao Hàng", value: fmtDate(order.deliveredDate) },

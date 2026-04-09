@@ -139,7 +139,7 @@ export function InlineStaffNote({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        title="Click để sửa ghi chú"
+        title="Nhấn để sửa ghi chú"
         aria-label="Sửa ghi chú nhân viên"
         className={`relative w-full rounded-md border px-2 py-1.5 text-left text-[11px] transition-all ${
           value

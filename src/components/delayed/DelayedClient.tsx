@@ -1,15 +1,23 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ChevronLeft, ChevronRight, PackageX } from "lucide-react";
 
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
 import { DelayedStatsCards } from "@/components/delayed/DelayedStatsCards";
-import type { DelayedFiltersState, DelayedResponse } from "@/types/delayed";
+import {
+  buildDelayedApiSearchParams,
+  buildDelayedRouteSearchParams,
+  createDelayedViewStateFromSearchParams,
+  DEFAULT_DELAYED_FILTERS,
+  DEFAULT_DELAYED_PAGE,
+  DelayedViewState,
+} from "@/lib/delayed-url-state";
+import type { DelayedResponse, DelayedSortableKey } from "@/types/delayed";
 
 const DelayDistributionChart = dynamic(
   () =>
@@ -18,6 +26,7 @@ const DelayDistributionChart = dynamic(
     })),
   { ssr: false },
 );
+
 const DelayReasonChart = dynamic(
   () =>
     import("@/components/delayed/DelayReasonChart").then((module) => ({
@@ -25,52 +34,6 @@ const DelayReasonChart = dynamic(
     })),
   { ssr: false },
 );
-
-const PAGE_SIZE = 50;
-
-type SortableDelayedKey =
-  | "requestCode"
-  | "shopName"
-  | "status"
-  | "delayCount"
-  | "createdTime"
-  | "riskScore"
-  | "codAmount";
-
-function buildInitialFilters(searchParams: URLSearchParams): DelayedFiltersState {
-  return {
-    searchTerm: searchParams.get("search") || "",
-    shopFilter: searchParams.get("shop") || "",
-    statusFilter: searchParams.get("status") || "",
-    delayCountFilter: searchParams.get("delay") || "",
-    reasonFilter: searchParams.get("reason") || "",
-    riskFilter: searchParams.get("risk") || "all",
-    todayOnly: searchParams.get("today") === "1",
-  };
-}
-
-function buildQueryParams(
-  filters: DelayedFiltersState,
-  page: number,
-  sortKey: SortableDelayedKey,
-  sortDir: "asc" | "desc",
-) {
-  const params = new URLSearchParams();
-  params.set("page", page.toString());
-  params.set("pageSize", PAGE_SIZE.toString());
-  params.set("sortKey", sortKey);
-  params.set("sortDir", sortDir);
-
-  if (filters.searchTerm) params.set("search", filters.searchTerm);
-  if (filters.shopFilter) params.set("shop", filters.shopFilter);
-  if (filters.statusFilter) params.set("status", filters.statusFilter);
-  if (filters.delayCountFilter) params.set("delay", filters.delayCountFilter);
-  if (filters.reasonFilter) params.set("reason", filters.reasonFilter);
-  if (filters.riskFilter && filters.riskFilter !== "all") params.set("risk", filters.riskFilter);
-  if (filters.todayOnly) params.set("today", "1");
-
-  return params;
-}
 
 export function DelayedClient({
   userRole,
@@ -80,78 +43,116 @@ export function DelayedClient({
   initialData?: DelayedResponse | null;
 }) {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [filters, setFilters] = useState<DelayedFiltersState>(() => buildInitialFilters(searchParams));
-  const [page, setPage] = useState<number>(() => Number(searchParams.get("page") || "1"));
-  const [sortKey, setSortKey] = useState<SortableDelayedKey>(
-    () => (searchParams.get("sortKey") as SortableDelayedKey) || "delayCount",
+  const initialViewState = useMemo(
+    () => createDelayedViewStateFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
   );
-  const [sortDir, setSortDir] = useState<"asc" | "desc">(
-    () => (searchParams.get("sortDir") === "asc" ? "asc" : "desc"),
-  );
+
+  const [filters, setFilters] = useState(initialViewState.filters);
+  const [page, setPage] = useState<number>(initialViewState.page);
+  const [pageSize] = useState<number>(initialViewState.pageSize);
+  const [sortKey, setSortKey] = useState<DelayedSortableKey>(initialViewState.sortKey);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(initialViewState.sortDir);
   const [mobileChartTab, setMobileChartTab] = useState<"delay" | "reason">("delay");
-  const [searchInput, setSearchInput] = useState(filters.searchTerm);
+  const [searchInput, setSearchInput] = useState(initialViewState.filters.searchTerm);
+  const didMountRef = useRef(false);
+  const skipNextHistorySyncRef = useRef(false);
 
   useEffect(() => {
     setSearchInput(filters.searchTerm);
   }, [filters.searchTerm]);
 
   useEffect(() => {
-    const params = buildQueryParams(filters, page, sortKey, sortDir);
-    const nextQuery = params.toString();
-    if (searchParams.toString() !== nextQuery) {
-      router.replace(`${pathname}?${nextQuery}`, { scroll: false });
-    }
-  }, [filters, page, pathname, router, searchParams, sortDir, sortKey]);
+    const handlePopState = () => {
+      const nextState = createDelayedViewStateFromSearchParams(
+        new URLSearchParams(window.location.search),
+      );
+      skipNextHistorySyncRef.current = true;
+      setFilters(nextState.filters);
+      setPage(nextState.page);
+      setSortKey(nextState.sortKey);
+      setSortDir(nextState.sortDir);
+      setSearchInput(nextState.filters.searchTerm);
+    };
 
-  const queryKey = useMemo(
-    () => ["delayedOrders", filters, page, sortKey, sortDir],
-    [filters, page, sortKey, sortDir],
+    window.addEventListener("popstate", handlePopState);
+
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const viewState = useMemo<DelayedViewState>(
+    () => ({
+      page,
+      pageSize,
+      sortKey,
+      sortDir,
+      filters,
+    }),
+    [filters, page, pageSize, sortDir, sortKey],
   );
 
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+
+    if (skipNextHistorySyncRef.current) {
+      skipNextHistorySyncRef.current = false;
+      return;
+    }
+
+    const nextQuery = buildDelayedRouteSearchParams(viewState).toString();
+    const currentQuery = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search;
+
+    if (nextQuery === currentQuery) {
+      return;
+    }
+
+    const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname;
+    window.history.pushState({}, "", nextUrl);
+  }, [viewState]);
+
+  const apiQueryString = useMemo(() => buildDelayedApiSearchParams(viewState).toString(), [viewState]);
+
   const { data, isLoading, isFetching, error } = useQuery<DelayedResponse>({
-    queryKey,
-    queryFn: async () => {
-      const params = buildQueryParams(filters, page, sortKey, sortDir);
-      const response = await fetch(`/api/orders/delayed?${params.toString()}`);
+    queryKey: ["delayedOrders", apiQueryString],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/orders/delayed?${apiQueryString}`, { signal });
+
       if (!response.ok) {
         throw new Error("Failed to fetch delayed orders");
       }
+
       return response.json();
     },
     refetchInterval: 300000,
     staleTime: 30000,
     placeholderData: (previousData) => previousData,
     initialData: initialData ?? undefined,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
   });
 
   const delayedData = data?.data;
 
-  const updateFilters = useCallback((partial: Partial<DelayedFiltersState>) => {
+  const updateFilters = useCallback((partial: Partial<typeof filters>) => {
     setFilters((previous) => ({ ...previous, ...partial }));
-    setPage(1);
+    setPage(DEFAULT_DELAYED_PAGE);
   }, []);
 
-  const replaceFilters = useCallback((next: DelayedFiltersState) => {
+  const replaceFilters = useCallback((next: typeof filters) => {
     setFilters(next);
-    setPage(1);
+    setPage(DEFAULT_DELAYED_PAGE);
   }, []);
 
   const resetFilters = useCallback(() => {
-    replaceFilters({
-      searchTerm: "",
-      shopFilter: "",
-      statusFilter: "",
-      delayCountFilter: "",
-      reasonFilter: "",
-      riskFilter: "all",
-      todayOnly: false,
-    });
+    replaceFilters(DEFAULT_DELAYED_FILTERS);
   }, [replaceFilters]);
 
-  const handleSortChange = useCallback((nextKey: SortableDelayedKey) => {
-    setPage(1);
+  const handleSortChange = useCallback((nextKey: DelayedSortableKey) => {
+    setPage(DEFAULT_DELAYED_PAGE);
     setSortKey((previousKey) => {
       if (previousKey === nextKey) {
         setSortDir((previousDir) => (previousDir === "asc" ? "desc" : "asc"));
@@ -164,9 +165,13 @@ export function DelayedClient({
   }, []);
 
   const handleExport = useCallback(() => {
-    const params = buildQueryParams(filters, 1, sortKey, sortDir);
+    const params = buildDelayedApiSearchParams({
+      ...viewState,
+      page: DEFAULT_DELAYED_PAGE,
+    });
+
     window.location.href = `/api/orders/delayed/export?${params.toString()}`;
-  }, [filters, sortDir, sortKey]);
+  }, [viewState]);
 
   if (error) {
     return (
@@ -182,11 +187,11 @@ export function DelayedClient({
         <div>
           <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-800 sm:text-2xl lg:text-3xl">
             <PackageX className="h-6 w-6 text-amber-500 sm:h-8 sm:w-8" />
-            Chăm Sóc Đơn Hoàn
+            Chăm Sóc Đơn Hoãn
           </h2>
           <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-            Theo dõi đơn hoàn theo mức độ rủi ro, lý do hoãn và thao tác xử lý trên cả
-            desktop lẫn mobile.
+            Theo dõi đơn hoãn theo mức độ rủi ro, lý do hoãn và thao tác xử lý trên cả desktop
+            lẫn mobile.
           </p>
         </div>
       </div>
@@ -197,8 +202,9 @@ export function DelayedClient({
           <div className="space-y-1">
             <p className="font-semibold">{delayedData.meta.warning}</p>
             <p className="text-amber-800">
-              Hệ thống đang phân tích tối đa {delayedData.meta.scanLimit.toLocaleString("vi-VN")} đơn
-              gần nhất để tránh timeout. Hãy thêm bộ lọc để xem kết quả đầy đủ và chính xác hơn.
+              Hệ thống đang phân tích tối đa {delayedData.meta.scanLimit.toLocaleString("vi-VN")}{" "}
+              đơn gần nhất để tránh timeout. Hãy thêm bộ lọc để xem kết quả đầy đủ và chính xác
+              hơn.
             </p>
           </div>
         </div>
@@ -265,7 +271,7 @@ export function DelayedClient({
       {isLoading && !delayedData ? (
         <div className="flex h-64 flex-col items-center justify-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-amber-500" />
-          <p className="text-sm font-medium text-slate-500">Đang tải delayed orders...</p>
+          <p className="text-sm font-medium text-slate-500">Đang tải danh sách đơn hoãn...</p>
         </div>
       ) : (
         <>
@@ -276,13 +282,15 @@ export function DelayedClient({
             sortDir={sortDir}
             onSortChange={handleSortChange}
             page={delayedData?.pagination.page || page}
-            pageSize={delayedData?.pagination.pageSize || PAGE_SIZE}
+            pageSize={delayedData?.pagination.pageSize || pageSize}
+            isRefreshing={isFetching && Boolean(delayedData)}
           />
 
           {delayedData?.pagination && delayedData.pagination.totalPages > 1 && (
             <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">
-                Đang hiển thị {(delayedData.pagination.page - 1) * delayedData.pagination.pageSize + 1}-
+                Đang hiển thị {(delayedData.pagination.page - 1) * delayedData.pagination.pageSize + 1}
+                -
                 {Math.min(
                   delayedData.pagination.page * delayedData.pagination.pageSize,
                   delayedData.pagination.total,
@@ -292,8 +300,8 @@ export function DelayedClient({
               <div className="flex items-center gap-2 self-end sm:self-auto">
                 <button
                   type="button"
-                  onClick={() => setPage((previous) => Math.max(1, previous - 1))}
-                  disabled={page <= 1}
+                  onClick={() => setPage((previous) => Math.max(DEFAULT_DELAYED_PAGE, previous - 1))}
+                  disabled={page <= DEFAULT_DELAYED_PAGE}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft className="h-4 w-4" />

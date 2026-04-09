@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(
     session.user,
     "canViewDelayed",
-    "Bạn không có quyền xuất danh sách đơn hoàn",
+    "Bạn không có quyền xuất danh sách đơn hoãn",
   );
   if (denied) return denied;
 

@@ -3,8 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const MOJIBAKE_PATTERN =
-  /ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢|ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡|ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬|ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº|ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â»|ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°|ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡/;
+const MOJIBAKE_PATTERN = /(?:Ã.|Ä.|á»|áº|â€|Â.)/;
 
 function decodeUnicodeEscapes(input: string) {
   return input.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
@@ -15,15 +14,21 @@ function decodeUnicodeEscapes(input: string) {
 const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
   {
     path: "src/components/delayed/DelayedClient.tsx",
-    phrases: ["Chăm Sóc Đơn Hoàn", "Theo dõi đơn hoàn", "Đang tải delayed orders..."],
+    phrases: ["Chăm Sóc Đơn Hoãn", "Theo dõi đơn hoãn", "Đang tải danh sách đơn hoãn..."],
   },
   {
     path: "src/components/delayed/DelayedFilterPanel.tsx",
-    phrases: ["Tìm kiếm và lọc delayed", "Tất cả cửa hàng", "Bộ lọc delayed", "Áp dụng"],
+    phrases: [
+      "Tìm kiếm và lọc đơn hoãn",
+      "Tất cả cửa hàng",
+      "Bộ lọc đơn hoãn",
+      "Áp dụng",
+      "Đang áp dụng bộ lọc...",
+    ],
   },
   {
     path: "src/components/delayed/DelayedOrderTable.tsx",
-    phrases: ["Mã Yêu Cầu", "Không tìm thấy đơn hàng delayed", "Chi tiết", "Người nhận"],
+    phrases: ["Mã Yêu Cầu", "Không tìm thấy đơn hàng delayed", "Chi tiết", "Người nhận", "Đang cập nhật..."],
   },
   {
     path: "src/components/delayed/DelayedStatsCards.tsx",
@@ -39,15 +44,11 @@ const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
   },
   {
     path: "src/components/shared/InlineStaffNote.tsx",
-    phrases: ["Không thể lưu ghi chú", "Đang lưu...", "Click để sửa ghi chú", "Ghi chú..."],
+    phrases: ["Không thể lưu ghi chú", "Đang lưu...", "Nhấn để sửa ghi chú", "Ghi chú..."],
   },
   {
     path: "src/components/shared/AddTodoDialog.tsx",
-    phrases: [
-      "Th\u00eam v\u00e0o C\u00f4ng Vi\u1ec7c",
-      "Ti\u00eau \u0111\u1ec1 c\u00f4ng vi\u1ec7c",
-      "\u0110\u00e3 t\u1ea1o c\u00f4ng vi\u1ec7c th\u00e0nh c\u00f4ng",
-    ],
+    phrases: ["Thêm vào Công Việc", "Tiêu đề công việc", "Đã tạo công việc thành công"],
   },
   {
     path: "src/components/shared/AddClaimFromPageDialog.tsx",
@@ -58,8 +59,8 @@ const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
     phrases: ["Hành trình đơn hàng", "Làm mới", "Đóng"],
   },
   {
-    path: "src/components/todos/TodoDetailPanel.tsx",
-    phrases: ["Chi tiết công việc", "Mô tả", "Hoàn thành"],
+    path: "src/components/shared/OrderDetailDialog.tsx",
+    phrases: ["Chi Tiết Đơn Hàng", "Trạng Thái Gốc", "Ghi Chú", "Xử lý đơn"],
   },
 ];
 

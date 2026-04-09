@@ -7,26 +7,26 @@ import { CheckSquare, Loader2, X } from "lucide-react";
 import { useTodoUsers } from "@/hooks/useTodoUsers";
 
 const TEXT = {
-  success: "\u0110\u00e3 t\u1ea1o c\u00f4ng vi\u1ec7c th\u00e0nh c\u00f4ng",
-  genericError: "C\u00f3 l\u1ed7i x\u1ea3y ra",
-  networkError: "L\u1ed7i k\u1ebft n\u1ed1i, vui l\u00f2ng th\u1eed l\u1ea1i",
-  title: "Th\u00eam v\u00e0o C\u00f4ng Vi\u1ec7c",
-  closeLabel: "\u0110\u00f3ng h\u1ed9p tho\u1ea1i th\u00eam c\u00f4ng vi\u1ec7c",
-  todoTitle: "Ti\u00eau \u0111\u1ec1 c\u00f4ng vi\u1ec7c",
-  todoPlaceholder: "Nh\u1eadp ti\u00eau \u0111\u1ec1...",
-  description: "M\u00f4 t\u1ea3",
-  descriptionPlaceholder: "M\u00f4 t\u1ea3 chi ti\u1ebft...",
-  priority: "M\u1ee9c \u01b0u ti\u00ean",
-  low: "Th\u1ea5p",
-  medium: "Trung b\u00ecnh",
+  success: "Đã tạo công việc thành công",
+  genericError: "Có lỗi xảy ra",
+  networkError: "Lỗi kết nối, vui lòng thử lại",
+  title: "Thêm vào Công Việc",
+  closeLabel: "Đóng hộp thoại thêm công việc",
+  todoTitle: "Tiêu đề công việc",
+  todoPlaceholder: "Nhập tiêu đề...",
+  description: "Mô tả",
+  descriptionPlaceholder: "Mô tả chi tiết...",
+  priority: "Mức ưu tiên",
+  low: "Thấp",
+  medium: "Trung bình",
   high: "Cao",
-  urgent: "Kh\u1ea9n c\u1ea5p",
-  dueDate: "Th\u1eddi h\u1ea1n",
-  assignTo: "G\u00e1n cho nh\u00e2n vi\u00ean",
-  assignSelf: "T\u00f4i (m\u1eb7c \u0111\u1ecbnh)",
-  cancel: "H\u1ee7y",
-  submitting: "\u0110ang t\u1ea1o...",
-  submit: "T\u1ea1o c\u00f4ng vi\u1ec7c",
+  urgent: "Khẩn cấp",
+  dueDate: "Thời hạn",
+  assignTo: "Gán cho nhân viên",
+  assignSelf: "Tôi (mặc định)",
+  cancel: "Hủy",
+  submitting: "Đang tạo...",
+  submit: "Tạo công việc",
 } as const;
 
 interface AddTodoDialogProps {
@@ -145,8 +145,8 @@ export function AddTodoDialog({
     <>
       <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClose} />
 
-      <div className="fixed inset-0 z-[9999] flex items-end justify-center p-0 pointer-events-none sm:items-center sm:p-4">
-        <div className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col rounded-none border-0 bg-white shadow-xl animate-[dialogIn_0.2s_ease-out] sm:h-auto sm:max-h-[calc(100vh-32px)] sm:w-[480px] sm:rounded-xl sm:border-[1.5px] sm:border-blue-600">
+      <div className="pointer-events-none fixed inset-0 z-[9999] flex items-end justify-center p-0 sm:items-center sm:p-4">
+        <div className="pointer-events-auto flex h-[100dvh] w-full max-w-full animate-[dialogIn_0.2s_ease-out] flex-col rounded-none border-0 bg-white shadow-xl sm:h-auto sm:max-h-[calc(100vh-32px)] sm:w-[480px] sm:rounded-xl sm:border-[1.5px] sm:border-blue-600">
           <div className="shrink-0 border-b border-gray-200 p-5 pb-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -242,7 +242,6 @@ export function AddTodoDialog({
                     : "border-red-200 bg-red-50 text-red-600"
                 }`}
               >
-                {toast.type === "success" ? "✅ " : "❌ "}
                 {toast.msg}
               </div>
             )}
