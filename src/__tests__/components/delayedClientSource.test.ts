@@ -14,6 +14,8 @@ describe("Delayed client source", () => {
     expect(source).not.toContain("router.replace(");
     expect(source).toContain("window.history.pushState");
     expect(source).toContain("window.addEventListener(\"popstate\"");
+    expect(source).toContain("getDelayedQueryBootstrap");
+    expect(source).toContain("initialQueryStringRef");
   });
 
   it("adds inline loading feedback while delayed filters are being applied", () => {

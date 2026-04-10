@@ -9,6 +9,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, PackageX } from "lucide-react
 import { DelayedFilterPanel } from "@/components/delayed/DelayedFilterPanel";
 import { DelayedOrderTable } from "@/components/delayed/DelayedOrderTable";
 import { DelayedStatsCards } from "@/components/delayed/DelayedStatsCards";
+import { getDelayedQueryBootstrap } from "@/lib/delayed-query-bootstrap";
 import {
   buildDelayedApiSearchParams,
   buildDelayedRouteSearchParams,
@@ -57,6 +58,8 @@ export function DelayedClient({
   const [searchInput, setSearchInput] = useState(initialViewState.filters.searchTerm);
   const didMountRef = useRef(false);
   const skipNextHistorySyncRef = useRef(false);
+  const initialQueryStringRef = useRef(buildDelayedApiSearchParams(initialViewState).toString());
+  const initialDataUpdatedAtRef = useRef(initialData ? Date.now() : undefined);
 
   useEffect(() => {
     setSearchInput(filters.searchTerm);
@@ -116,6 +119,16 @@ export function DelayedClient({
   }, [viewState]);
 
   const apiQueryString = useMemo(() => buildDelayedApiSearchParams(viewState).toString(), [viewState]);
+  const queryBootstrap = useMemo(
+    () =>
+      getDelayedQueryBootstrap({
+        currentQueryString: apiQueryString,
+        initialQueryString: initialQueryStringRef.current,
+        initialData,
+        initialDataUpdatedAt: initialDataUpdatedAtRef.current,
+      }),
+    [apiQueryString, initialData],
+  );
 
   const { data, isLoading, isFetching, error } = useQuery<DelayedResponse>({
     queryKey: ["delayedOrders", apiQueryString],
@@ -131,8 +144,8 @@ export function DelayedClient({
     refetchInterval: 300000,
     staleTime: 30000,
     placeholderData: (previousData) => previousData,
-    initialData: initialData ?? undefined,
-    initialDataUpdatedAt: initialData ? Date.now() : undefined,
+    initialData: queryBootstrap.initialData,
+    initialDataUpdatedAt: queryBootstrap.initialDataUpdatedAt,
   });
 
   const delayedData = data?.data;
