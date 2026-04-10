@@ -1,6 +1,6 @@
 export default function OrdersLoading() {
   return (
-    <div className="space-y-3 sm:space-y-4 p-4 animate-pulse">
+    <div className="space-y-3 p-4 pb-6 animate-pulse sm:space-y-4">
       {/* Header skeleton */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -23,7 +23,7 @@ export default function OrdersLoading() {
         </div>
       </div>
       {/* Table skeleton */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden flex-1">
+      <div className="min-h-[520px] overflow-hidden rounded-xl border border-slate-200 bg-white">
         {/* Table header */}
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4">
           <div className="h-4 w-8 bg-slate-200 rounded" />

@@ -33,7 +33,7 @@ describe("claims hooks helpers", () => {
       headers: { "Content-Type": "text/plain" },
     });
 
-    await expect(parseClaimsFilterOptionsResponse(response)).rejects.toThrow("Không thể tải bộ lọc claims");
+    await expect(parseClaimsFilterOptionsResponse(response)).rejects.toThrow("Không thể tải bộ lọc đơn có vấn đề");
   });
 
   it("returns a warning message when the export was truncated", () => {

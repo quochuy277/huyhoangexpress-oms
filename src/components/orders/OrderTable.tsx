@@ -121,14 +121,14 @@ function OrderTableInner({
   ];
 
   return (
-    <div className="relative bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {isFetching && !loading && (
         <div className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
           Đang cập nhật...
         </div>
       )}
       {/* Mobile card view */}
-      <div className="block sm:hidden flex-1 overflow-y-auto divide-y divide-slate-100">
+      <div className="block divide-y divide-slate-100 sm:hidden">
         {loading ? (
           Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="p-4 animate-pulse">
@@ -221,7 +221,7 @@ function OrderTableInner({
         )}
       </div>
 
-      <div className="overflow-x-auto flex-1 hidden sm:block">
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-sm min-w-[1000px]">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
@@ -419,7 +419,7 @@ function OrderTableInner({
       </div>
 
       {data && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-t border-slate-200 bg-slate-50 mt-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4 sm:py-3">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span>Hiển thị</span>

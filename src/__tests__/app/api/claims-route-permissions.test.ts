@@ -26,6 +26,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { auth } from "@/lib/auth";
+import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 import { prisma } from "@/lib/prisma";
 
 function makeSession(overrides: Record<string, boolean>) {
@@ -49,6 +50,7 @@ function makeSession(overrides: Record<string, boolean>) {
 describe("claims api permissions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearClaimsFilterOptionsCache();
   });
 
   it("rejects POST /api/claims when canCreateClaim is false", async () => {
@@ -99,15 +101,10 @@ describe("claims api permissions", () => {
 
   it("returns distinct filter options from claim rows only", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession({}) as never);
-    vi.mocked(prisma.claimOrder.findMany)
-      .mockResolvedValueOnce([
-        { order: { shopName: "Shop A" } },
-        { order: { shopName: "Shop B" } },
-      ] as never)
-      .mockResolvedValueOnce([
-        { order: { status: "DELIVERED" } },
-        { order: { status: "RETURNING" } },
-      ] as never);
+    vi.mocked(prisma.claimOrder.findMany).mockResolvedValueOnce([
+      { order: { shopName: "Shop A", status: "DELIVERED" } },
+      { order: { shopName: "Shop B", status: "RETURNING" } },
+    ] as never);
 
     const { GET } = await import("@/app/api/claims/filter-options/route");
     const response = await GET();
@@ -116,6 +113,7 @@ describe("claims api permissions", () => {
     expect(response.status).toBe(200);
     expect(body.shops).toEqual(expect.arrayContaining(["Shop A", "Shop B"]));
     expect(body.statuses).toEqual(expect.arrayContaining(["DELIVERED", "RETURNING"]));
+    expect(prisma.claimOrder.findMany).toHaveBeenCalledTimes(1);
   });
 
   it("caps export volume and marks truncated exports", async () => {

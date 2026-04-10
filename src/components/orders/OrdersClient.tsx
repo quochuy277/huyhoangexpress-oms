@@ -133,7 +133,7 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
   };
 
   return (
-    <div className="flex h-[calc(100vh-6.5rem)] flex-col space-y-3 sm:h-[calc(100vh-8rem)] sm:space-y-4">
+    <div className="space-y-3 pb-6 sm:space-y-4 sm:pb-8">
       <div className="flex shrink-0 flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-xl font-bold text-slate-800 sm:text-2xl">
@@ -238,44 +238,42 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
             </Suspense>
           </div>
 
-          <div className="relative min-h-0 flex-1">
-            <Suspense
-              fallback={
-                <div className="absolute inset-0 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center gap-4 border-b border-slate-100 px-4 py-3">
-                    <div className="h-4 w-8 rounded bg-slate-200" />
-                    <div className="h-4 w-28 rounded bg-slate-200" />
-                    <div className="h-4 w-24 rounded bg-slate-200" />
-                    <div className="h-4 w-32 flex-1 rounded bg-slate-200" />
-                    <div className="h-4 w-20 rounded bg-slate-200" />
-                    <div className="h-4 w-16 rounded bg-slate-200" />
-                  </div>
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
-                      <div className="h-3 w-8 rounded bg-slate-100" />
-                      <div className="h-3 w-28 rounded bg-slate-100" />
-                      <div className="h-3 w-24 rounded bg-slate-100" />
-                      <div className="h-3 w-32 flex-1 rounded bg-slate-100" />
-                      <div className="h-5 w-20 rounded-full bg-slate-100" />
-                      <div className="h-3 w-16 rounded bg-slate-100" />
-                    </div>
-                  ))}
+          <Suspense
+            fallback={
+              <div className="min-h-[520px] animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-4 border-b border-slate-100 px-4 py-3">
+                  <div className="h-4 w-8 rounded bg-slate-200" />
+                  <div className="h-4 w-28 rounded bg-slate-200" />
+                  <div className="h-4 w-24 rounded bg-slate-200" />
+                  <div className="h-4 w-32 flex-1 rounded bg-slate-200" />
+                  <div className="h-4 w-20 rounded bg-slate-200" />
+                  <div className="h-4 w-16 rounded bg-slate-200" />
                 </div>
-              }
-            >
-              <OrderTable
-                userRole={userRole}
-                selectedRows={selectedRows}
-                setSelectedRows={setSelectedRows}
-                initialOrdersData={initialOrdersData}
-              />
-            </Suspense>
-          </div>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
+                    <div className="h-3 w-8 rounded bg-slate-100" />
+                    <div className="h-3 w-28 rounded bg-slate-100" />
+                    <div className="h-3 w-24 rounded bg-slate-100" />
+                    <div className="h-3 w-32 flex-1 rounded bg-slate-100" />
+                    <div className="h-5 w-20 rounded-full bg-slate-100" />
+                    <div className="h-3 w-16 rounded bg-slate-100" />
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <OrderTable
+              userRole={userRole}
+              selectedRows={selectedRows}
+              setSelectedRows={setSelectedRows}
+              initialOrdersData={initialOrdersData}
+            />
+          </Suspense>
         </>
       ) : (
         <Suspense
           fallback={
-            <div className="flex-1 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="min-h-[420px] animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div className="h-5 w-40 rounded bg-slate-200" />
                 <div className="flex gap-2">

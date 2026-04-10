@@ -250,7 +250,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
   }
 
   return (
-    <div className="space-y-3 flex flex-col flex-1 min-h-0">
+    <div className="space-y-3">
       {/* Header — batch selector */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 shrink-0">
         <div className="flex flex-wrap items-center gap-3">
@@ -482,9 +482,9 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {/* Mobile card view */}
-        <div className="block sm:hidden divide-y divide-slate-100 flex-1 overflow-y-auto">
+        <div className="block divide-y divide-slate-100 sm:hidden">
           {loadingChanges ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="p-4 animate-pulse">
@@ -563,7 +563,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
         </div>
 
         {/* Desktop table view */}
-        <div className="hidden sm:block overflow-x-auto flex-1">
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
@@ -709,7 +709,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
 
         {/* Pagination */}
         {changesData && (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 border-t border-slate-200 bg-slate-50 mt-auto">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2.5">
             <p className="text-xs text-slate-500">
               {changesData.total > 0
                 ? `${(changesData.page - 1) * changesData.pageSize + 1}–${Math.min(
