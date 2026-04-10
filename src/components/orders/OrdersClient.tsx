@@ -1,28 +1,30 @@
 "use client";
 
-import { useState, Suspense, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Activity,
+  History,
+  Loader2,
+  Package,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+
+import { DeleteOrdersDialog } from "@/components/orders/DeleteOrdersDialog";
 import { ExcelUpload } from "@/components/orders/ExcelUpload";
 import { OrderFilters } from "@/components/orders/OrderFilters";
 import { OrderTable } from "@/components/orders/OrderTable";
 import { UploadHistoryDialog } from "@/components/orders/UploadHistoryDialog";
-import { DeleteOrdersDialog } from "@/components/orders/DeleteOrdersDialog";
-import {
-  Upload,
-  X,
-  Trash2,
-  Loader2,
-  History,
-  Package,
-  Activity,
-} from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOrdersToastClassNames } from "@/components/orders/ordersResponsive";
 import type { OrdersApiResponse } from "@/types/orders";
 
 interface OrdersClientProps {
   userRole: string;
+  canEditStaffNotes: boolean;
   initialOrdersData: OrdersApiResponse | null;
 }
 
@@ -42,7 +44,11 @@ const OrderChangesTab = dynamic(
   },
 );
 
-export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps) {
+export function OrdersClient({
+  userRole,
+  canEditStaffNotes,
+  initialOrdersData,
+}: OrdersClientProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -52,16 +58,19 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
     tabFromUrl === "changes" ? "changes" : "orders",
   );
 
-  const setActiveTab = useCallback((tab: TabType) => {
-    setActiveTabState(tab);
-    const params = new URLSearchParams(searchParams.toString());
-    if (tab === "changes") {
-      params.set("tab", "changes");
-    } else {
-      params.delete("tab");
-    }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [searchParams, pathname, router]);
+  const setActiveTab = useCallback(
+    (tab: TabType) => {
+      setActiveTabState(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "changes") {
+        params.set("tab", "changes");
+      } else {
+        params.delete("tab");
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, pathname, router],
+  );
 
   const [showUpload, setShowUpload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -113,7 +122,7 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setTimeout(() => setDeleteResult(null), 4000);
     } catch {
-      setDeleteResult("✗ Lỗi khi xóa đơn hàng. Vui lòng thử lại.");
+      setDeleteResult("✕ Lỗi khi xóa đơn hàng. Vui lòng thử lại.");
       setTimeout(() => setDeleteResult(null), 4000);
     } finally {
       setIsDeleting(false);
@@ -250,7 +259,10 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
                   <div className="h-4 w-16 rounded bg-slate-200" />
                 </div>
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
+                  <div
+                    key={i}
+                    className="flex items-center gap-4 border-b border-slate-50 px-4 py-3"
+                  >
                     <div className="h-3 w-8 rounded bg-slate-100" />
                     <div className="h-3 w-28 rounded bg-slate-100" />
                     <div className="h-3 w-24 rounded bg-slate-100" />
@@ -264,6 +276,7 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
           >
             <OrderTable
               userRole={userRole}
+              canEditStaffNotes={canEditStaffNotes}
               selectedRows={selectedRows}
               setSelectedRows={setSelectedRows}
               initialOrdersData={initialOrdersData}
@@ -282,7 +295,10 @@ export function OrdersClient({ userRole, initialOrdersData }: OrdersClientProps)
                 </div>
               </div>
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-4 py-3">
+                <div
+                  key={i}
+                  className="flex items-center gap-4 border-b border-slate-50 px-4 py-3"
+                >
                   <div className="h-3 w-24 rounded bg-slate-100" />
                   <div className="h-3 w-32 flex-1 rounded bg-slate-100" />
                   <div className="h-5 w-20 rounded-full bg-slate-100" />

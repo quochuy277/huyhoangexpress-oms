@@ -7,8 +7,26 @@ const MOJIBAKE_PATTERN = /ÃƒÂ¡|ÃƒÂ¢|ÃƒÂ£|ÃƒÂ¨|ÃƒÂ©|ÃƒÂª|
 
 const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
   {
+    path: "src/app/(dashboard)/orders/page.tsx",
+    phrases: ["Quản Lý Đơn Hàng"],
+  },
+  {
     path: "src/components/orders/OrdersClient.tsx",
     phrases: ["Quản Lý Đơn Hàng", "Tìm kiếm, lọc và quản lý toàn bộ đơn hàng", "Đang tải tab..."],
+  },
+  {
+    path: "src/components/orders/OrderTable.tsx",
+    phrases: [
+      "Mã yêu cầu",
+      "Mã đơn đối tác",
+      "Thông tin người nhận",
+      "Không tìm thấy đơn hàng nào",
+      "Đang cập nhật...",
+    ],
+  },
+  {
+    path: "src/components/orders/OrderStaffNoteDialog.tsx",
+    phrases: ["Ghi chú nội bộ", "Lưu ghi chú", "Đóng"],
   },
   {
     path: "src/components/orders/OrderFilters.tsx",
@@ -19,10 +37,6 @@ const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
       "Tất cả đối tác",
       "Nâng cao",
     ],
-  },
-  {
-    path: "src/components/orders/OrderTable.tsx",
-    phrases: ["Mã Yêu Cầu", "Mã Đơn Đối Tác", "Không tìm thấy đơn hàng nào", "Đang cập nhật..."],
   },
   {
     path: "src/app/api/orders/route.ts",

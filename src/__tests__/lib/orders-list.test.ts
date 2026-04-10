@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildOrdersListQuery, getOrdersList } from "@/lib/orders-list";
+import { buildOrdersListQuery, getOrdersList, ORDER_SELECT } from "@/lib/orders-list";
 
 describe("buildOrdersListQuery", () => {
+  it("keeps receiverProvince in the list select for the recipient summary cell", () => {
+    expect(ORDER_SELECT.receiverProvince).toBe(true);
+  });
+
   it("uses exact requestCode lookup", () => {
     const query = buildOrdersListQuery({
       page: 1,

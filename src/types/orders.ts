@@ -16,6 +16,7 @@ export interface OrderRow {
   revenue: number;
   receiverPhone: string | null;
   receiverName: string | null;
+  receiverProvince: string | null;
   claimOrder?: { issueType: string } | null;
 }
 
