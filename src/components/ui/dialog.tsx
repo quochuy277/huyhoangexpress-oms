@@ -37,20 +37,15 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         className
       )}
-      style={{
-        background: "var(--color-background-primary)",
-        border: "0.5px solid var(--color-border-tertiary)",
-        borderRadius: "var(--border-radius-lg)",
-        maxHeight: "85vh",
-      }}
+      style={{ maxHeight: "85vh" }}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 opacity-60 transition-all hover:opacity-100 hover:bg-[var(--color-background-secondary)] focus:outline-none disabled:pointer-events-none">
-        <X className="h-4 w-4" style={{ color: "var(--color-text-secondary)" }} />
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-slate-400 transition-all hover:text-slate-600 hover:bg-slate-100 focus:outline-none disabled:pointer-events-none">
+        <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -64,14 +59,9 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 sm:text-left",
+      "flex flex-col space-y-1.5 border-b border-slate-200 pb-4 mb-1 sm:text-left",
       className
     )}
-    style={{
-      borderBottom: "0.5px solid var(--color-border-tertiary)",
-      paddingBottom: "16px",
-      marginBottom: "4px",
-    }}
     {...props}
   />
 )
@@ -83,14 +73,9 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex items-center justify-end gap-2",
+      "flex items-center justify-end gap-2 border-t border-slate-200 pt-4 mt-1",
       className
     )}
-    style={{
-      borderTop: "0.5px solid var(--color-border-tertiary)",
-      paddingTop: "16px",
-      marginTop: "4px",
-    }}
     {...props}
   />
 )
@@ -103,14 +88,9 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "leading-none tracking-tight",
+      "text-lg font-medium leading-none tracking-tight text-slate-900",
       className
     )}
-    style={{
-      fontSize: "18px",
-      fontWeight: 500,
-      color: "var(--color-text-primary)",
-    }}
     {...props}
   />
 ))
@@ -122,8 +102,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm", className)}
-    style={{ color: "var(--color-text-secondary)" }}
+    className={cn("text-sm text-slate-500", className)}
     {...props}
   />
 ))
