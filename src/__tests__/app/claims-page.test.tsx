@@ -4,23 +4,18 @@ vi.mock("@/lib/cached-session", () => ({
   getCachedSession: vi.fn(),
 }));
 
-vi.mock("@/lib/claims-page-data", () => ({
-  getClaimsBootstrapData: vi.fn(),
-}));
-
 vi.mock("@/components/claims/ClaimsPageWrapper", () => ({
   default: () => null,
 }));
 
 import { getCachedSession } from "@/lib/cached-session";
-import { getClaimsBootstrapData } from "@/lib/claims-page-data";
 
 describe("ClaimsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("prefetches claims bootstrap data for the default claims tab", async () => {
+  it("passes effective claim permissions to the wrapper for staff users", async () => {
     vi.mocked(getCachedSession).mockResolvedValue({
       user: {
         role: "STAFF",
@@ -32,51 +27,43 @@ describe("ClaimsPage", () => {
         },
       },
     } as never);
-    vi.mocked(getClaimsBootstrapData).mockResolvedValue({
-      list: {
-        claims: [],
-        pagination: { total: 0, totalPages: 0 },
-      },
-      filterOptions: {
-        shops: [],
-        statuses: [],
-      },
-    } as never);
 
     const { default: ClaimsPage } = await import("@/app/(dashboard)/claims/page");
+    const element = await ClaimsPage();
 
-    const element = await ClaimsPage({ searchParams: Promise.resolve({}) } as never);
-
-    expect(vi.mocked(getClaimsBootstrapData)).toHaveBeenCalledTimes(1);
-    expect((element as any).props.initialClaimsData).toEqual({
-      claims: [],
-      pagination: { total: 0, totalPages: 0 },
-    });
-    expect((element as any).props.initialFilterOptions).toEqual({
-      shops: [],
-      statuses: [],
+    expect((element as any).props).toMatchObject({
+      userRole: "STAFF",
+      canViewCompensation: false,
+      canCreateClaim: true,
+      canUpdateClaim: true,
+      canDeleteClaim: false,
     });
   });
 
-  it("skips claims bootstrap when the initial tab is not the claims tab", async () => {
+  it("grants admin capabilities even without explicit claim permissions", async () => {
     vi.mocked(getCachedSession).mockResolvedValue({
       user: {
-        role: "STAFF",
+        role: "ADMIN",
         permissions: {
-          canViewClaims: true,
-          canCreateClaim: true,
-          canUpdateClaim: true,
+          canViewClaims: false,
+          canViewCompensation: false,
+          canViewFinancePage: false,
+          canCreateClaim: false,
+          canUpdateClaim: false,
           canDeleteClaim: false,
         },
       },
     } as never);
 
     const { default: ClaimsPage } = await import("@/app/(dashboard)/claims/page");
+    const element = await ClaimsPage();
 
-    const element = await ClaimsPage({ searchParams: Promise.resolve({ claimTab: "tools" }) } as never);
-
-    expect(vi.mocked(getClaimsBootstrapData)).not.toHaveBeenCalled();
-    expect((element as any).props.initialClaimsData).toBeNull();
-    expect((element as any).props.initialFilterOptions).toBeNull();
+    expect((element as any).props).toMatchObject({
+      userRole: "ADMIN",
+      canViewCompensation: true,
+      canCreateClaim: true,
+      canUpdateClaim: true,
+      canDeleteClaim: true,
+    });
   });
 });
