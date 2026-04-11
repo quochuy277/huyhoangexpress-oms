@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 
-// PUT — Update link (admin only)
+// PUT — Update link
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
-  }
+  const denied = requirePermission(session.user, "canManageLinks", "Bạn không có quyền quản lý liên kết");
+  if (denied) return denied;
 
   const { id } = await params;
   const { title, url, description } = await req.json();
@@ -21,13 +21,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ link });
 }
 
-// DELETE — Delete link (admin only)
+// DELETE — Delete link
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
-  }
+  const denied2 = requirePermission(session.user, "canManageLinks", "Bạn không có quyền quản lý liên kết");
+  if (denied2) return denied2;
 
   const { id } = await params;
   await prisma.importantLink.delete({ where: { id } });

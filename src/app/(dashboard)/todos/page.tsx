@@ -16,11 +16,14 @@ export default async function TodosPage() {
     permissions: user.permissions,
   });
 
+  const canViewAllTodos = user.role === "ADMIN" || !!user.permissions?.canViewAllTodos;
+
   return (
     <TodosClient
       userId={user.id}
       userName={user.name || "User"}
       userRole={user.role || "STAFF"}
+      canViewAllTodos={canViewAllTodos}
       initialData={initialData}
     />
   );

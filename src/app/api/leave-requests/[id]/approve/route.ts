@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 
 // PATCH — approve leave request
 export async function PATCH(
@@ -10,6 +11,9 @@ export async function PATCH(
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+    const denied = requirePermission(session.user, "canApproveLeave", "Bạn không có quyền duyệt nghỉ phép");
+    if (denied) return denied;
 
     const { id } = await params;
     const request = await prisma.leaveRequest.findUnique({ where: { id } });

@@ -262,6 +262,10 @@ export async function PUT(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  if (!permissions.canEditShopInfo && session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Bạn không có quyền sửa thông tin khách hàng" }, { status: 403 });
+  }
+
   const { shopName } = await params;
   const decodedName = decodeURIComponent(shopName);
   const body = await request.json();

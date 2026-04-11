@@ -7,6 +7,7 @@ import { FinanceCardsRow } from "@/components/dashboard/FinanceCardsRow";
 import { ActivityAndRatesRow } from "@/components/dashboard/ActivityAndRatesRow";
 import dynamic from "next/dynamic";
 import { getDashboardSummaryData } from "@/lib/dashboard-overview-data";
+import { redirect } from "next/navigation";
 
 const TrendAndStatusRow = dynamic(() => import("@/components/dashboard/TrendAndStatusRow").then(m => ({ default: m.TrendAndStatusRow })), {
   loading: () => <div className="h-64 animate-pulse bg-muted rounded" />,
@@ -22,8 +23,15 @@ export const metadata: Metadata = {
 
 export default async function DashboardPage() {
   const session = await getCachedSession();
-  const userName = session?.user?.name || "Bạn";
-  const userRole = session?.user?.role || "VIEWER";
+  if (!session?.user) redirect("/login");
+
+  const userName = session.user.name || "Bạn";
+  const userRole = session.user.role || "VIEWER";
+  const permissions = session.user.permissions;
+
+  if (!permissions?.canViewDashboard && userRole !== "ADMIN") {
+    redirect("/orders");
+  }
   const initialSummaryData = await getDashboardSummaryData(userRole);
 
   const currentDate = new Date();

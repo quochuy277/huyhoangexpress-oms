@@ -37,11 +37,13 @@ export default function TodosClient({
   userId,
   userName,
   userRole,
+  canViewAllTodos,
   initialData,
 }: {
   userId: string;
   userName: string;
   userRole: string;
+  canViewAllTodos?: boolean;
   initialData: TodoBootstrapData;
 }) {
   const [view, setView] = useState<"list" | "kanban">(() => {
@@ -80,7 +82,7 @@ export default function TodosClient({
   } = useTodos({ todos: initialData.todos, pagination: initialData.pagination });
   const { stats, fetchStats, skipInitialFetchRef: skipInitialStatsFetchRef } = useTodoStats(initialData.stats);
 
-  const canViewAll = userRole === "ADMIN" || userRole === "MANAGER";
+  const canViewAll = canViewAllTodos ?? (userRole === "ADMIN" || userRole === "MANAGER");
   const { users } = useTodoUsers(canViewAll, initialData.users);
   const { scope, assigneeId } = parseTodoScopeSelection(scopeSelection);
   const scopeStats = getTodoStatsForSelection(stats, scopeSelection);

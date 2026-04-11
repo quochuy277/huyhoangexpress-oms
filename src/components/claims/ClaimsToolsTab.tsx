@@ -74,7 +74,9 @@ function Dialog({ open, onClose, title, children }: {
 /* ============================================================
    MAIN COMPONENT
    ============================================================ */
-export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: boolean; onOpenClaim?: (claimId: string) => void }) {
+export default function ClaimsToolsTab({ isAdmin, canManageDocuments, canManageLinks, onOpenClaim }: { isAdmin: boolean; canManageDocuments?: boolean; canManageLinks?: boolean; onOpenClaim?: (claimId: string) => void }) {
+  const canEditDocs = canManageDocuments ?? isAdmin;
+  const canEditLinks = canManageLinks ?? isAdmin;
   const queryClient = useQueryClient();
 
   // Dialog/form state
@@ -231,7 +233,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>
               <FileText size={18} color="#2563EB" /> Tài liệu
             </div>
-            {isAdmin && (
+            {canEditDocs && (
               <button onClick={() => setUploadDialog(true)} style={btnPrimary} className="claims-tools-header-btn">
                 <Upload size={14} /> <span className="btn-label">Tải lên tài liệu</span>
               </button>
@@ -263,7 +265,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
                     >
                       <Download size={12} /> Tải về
                     </a>
-                    {isAdmin && (
+                    {canEditDocs && (
                       <>
                         <button onClick={() => setRenameDialog({ id: doc.id, name: doc.name })} style={{ ...btnSecondary, padding: "5px 8px" }} title="Đổi tên">
                           <Pencil size={12} />
@@ -286,7 +288,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>
               <Link2 size={18} color="#2563EB" /> Đường dẫn quan trọng
             </div>
-            {isAdmin && (
+            {canEditLinks && (
               <button onClick={() => setLinkDialog({ title: "", url: "", description: "" })} style={btnPrimary} className="claims-tools-header-btn">
                 <Plus size={14} /> <span className="btn-label">Thêm đường dẫn</span>
               </button>
@@ -317,7 +319,7 @@ export default function ClaimsToolsTab({ isAdmin, onOpenClaim }: { isAdmin: bool
                       <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>{link.description}</div>
                     )}
                   </div>
-                  {isAdmin && (
+                  {canEditLinks && (
                     <div className="claims-tools-link-admin" style={{ display: "flex", gap: "4px", alignItems: "center" }}>
                       <button onClick={() => setLinkDialog({ id: link.id, title: link.title, url: link.url, description: link.description || "" })} style={{ ...btnSecondary, padding: "5px 8px" }} title="Sửa">
                         <Pencil size={12} />

@@ -133,10 +133,10 @@ describe("getDefaultPermissions", () => {
       expect(getDefaultPermissions("VIEWER").canViewRevenue).toBe(false);
     });
 
-    it("has exactly 5 true permissions", () => {
+    it("has exactly 6 true permissions", () => {
       const perms = getDefaultPermissions("VIEWER");
       const trueCount = PERMISSION_KEYS.filter((k) => perms[k]).length;
-      expect(trueCount).toBe(5);
+      expect(trueCount).toBe(6);
     });
   });
 });
@@ -164,7 +164,6 @@ describe("extractPermissions", () => {
       canViewAllTodos: false,
       canViewAllAttendance: false,
       canEditAttendance: false,
-      canScoreEmployees: false,
       canManageUsers: false,
       canManagePermissions: false,
     };

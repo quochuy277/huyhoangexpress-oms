@@ -101,9 +101,10 @@ const DRAFT_DEFAULTS: DraftFilters = {
 
 interface OrderFiltersProps {
   hideExport?: boolean;
+  hideAdvanced?: boolean;
 }
 
-function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
+function OrderFiltersInner({ hideExport, hideAdvanced }: OrderFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -355,18 +356,20 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-              showAdvanced || advancedCount > 0
-                ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <Settings2 className="h-4 w-4" />
-            Nâng cao{advancedCount > 0 ? ` (${advancedCount})` : ""}
-          </button>
+          {!hideAdvanced && (
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                showAdvanced || advancedCount > 0
+                  ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Settings2 className="h-4 w-4" />
+              Nâng cao{advancedCount > 0 ? ` (${advancedCount})` : ""}
+            </button>
+          )}
 
           {!hideExport && (
             <div className="relative" ref={exportMenuRef}>
@@ -415,7 +418,7 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
       </div>
 
       {/* Row 4: Advanced Filters */}
-      {showAdvanced && (
+      {showAdvanced && !hideAdvanced && (
         <div className="animate-in fade-in slide-in-from-top-2 space-y-3 border-t border-slate-100 pt-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {/* Loại đơn */}

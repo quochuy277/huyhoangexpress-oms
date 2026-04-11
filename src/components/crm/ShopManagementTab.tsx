@@ -20,6 +20,8 @@ interface ShopManagementTabProps {
   userRole: string;
   userId: string;
   userName: string;
+  canManageCRM: boolean;
+  canEditShopInfo: boolean;
   initialData?: any;
 }
 
@@ -54,7 +56,7 @@ function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 }
 
-export function ShopManagementTab({ userRole, userId, userName, initialData }: ShopManagementTabProps) {
+export function ShopManagementTab({ userRole, userId, userName, canManageCRM, canEditShopInfo, initialData }: ShopManagementTabProps) {
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -399,6 +401,8 @@ export function ShopManagementTab({ userRole, userId, userName, initialData }: S
           userRole={userRole}
           userId={userId}
           userName={userName}
+          canManageCRM={canManageCRM}
+          canEditShopInfo={canEditShopInfo}
           onClose={() => setSelectedShop(null)}
           onOpenCareLog={(name) => setCareLogShop(name)}
         />

@@ -77,6 +77,9 @@ interface Props {
   canCreateClaim: boolean;
   canUpdateClaim: boolean;
   canDeleteClaim: boolean;
+  canViewClaimsTools: boolean;
+  canManageDocuments: boolean;
+  canManageLinks: boolean;
 }
 
 export default function ClaimsPageWrapper({
@@ -85,6 +88,9 @@ export default function ClaimsPageWrapper({
   canCreateClaim,
   canUpdateClaim,
   canDeleteClaim,
+  canViewClaimsTools,
+  canManageDocuments,
+  canManageLinks,
 }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -117,7 +123,9 @@ export default function ClaimsPageWrapper({
 
   const tabs = [
     { key: "claims" as TabKey, label: `Đơn có vấn đề (${claimCount})`, icon: <AlertTriangle size={15} />, color: "#dc2626" },
-    { key: "tools" as TabKey, label: "Công cụ", icon: <Wrench size={15} />, color: "#2563EB" },
+    ...(canViewClaimsTools
+      ? [{ key: "tools" as TabKey, label: "Công cụ", icon: <Wrench size={15} />, color: "#2563EB" }]
+      : []),
     ...(canViewCompensation
       ? [{ key: "compensation" as TabKey, label: "Tổng hợp đền bù", icon: <DollarSign size={15} />, color: "#16a34a" }]
       : []),
@@ -166,10 +174,12 @@ export default function ClaimsPageWrapper({
             />
           </div>
         )}
-        {mountedTabs.has("tools") && (
+        {canViewClaimsTools && mountedTabs.has("tools") && (
           <div style={{ display: activeTab === "tools" ? "block" : "none", height: "100%" }}>
             <ClaimsToolsTab
               isAdmin={isAdmin}
+              canManageDocuments={canManageDocuments}
+              canManageLinks={canManageLinks}
               onOpenClaim={(claimId) => {
                 setExternalDetailClaimId(claimId);
               }}

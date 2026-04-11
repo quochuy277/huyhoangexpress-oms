@@ -23,6 +23,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   const canEditStaffNotes = userRole === "ADMIN" || permissions?.canEditStaffNotes === true;
+  const canUseAdvancedFilters = userRole === "ADMIN" || permissions?.canUseAdvancedFilters === true;
   const resolvedSearchParams = await searchParams;
   const rawParams = Object.entries(resolvedSearchParams).reduce<Record<string, string>>(
     (accumulator, [key, value]) => {
@@ -50,6 +51,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     <OrdersClient
       userRole={userRole}
       canEditStaffNotes={canEditStaffNotes}
+      canUseAdvancedFilters={canUseAdvancedFilters}
       initialOrdersData={initialOrdersData}
     />
   );

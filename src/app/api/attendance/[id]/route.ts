@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 
 // PUT — edit attendance (manager/admin only)
 export async function PUT(
@@ -10,6 +11,9 @@ export async function PUT(
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+    const denied = requirePermission(session.user, "canEditAttendance", "Bạn không có quyền chỉnh sửa chấm công");
+    if (denied) return denied;
 
     const { id } = await params;
     const body = await req.json();

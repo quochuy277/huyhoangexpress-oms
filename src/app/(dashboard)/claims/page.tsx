@@ -12,6 +12,9 @@ export default async function ClaimsPage() {
   const canCreateClaim = !!user.permissions?.canCreateClaim || user.role === "ADMIN";
   const canUpdateClaim = !!user.permissions?.canUpdateClaim || user.role === "ADMIN";
   const canDeleteClaim = !!user.permissions?.canDeleteClaim || user.role === "ADMIN";
+  const canViewClaimsTools = !!user.permissions?.canViewClaimsTools || user.role === "ADMIN";
+  const canManageDocuments = !!user.permissions?.canManageDocuments || user.role === "ADMIN";
+  const canManageLinks = !!user.permissions?.canManageLinks || user.role === "ADMIN";
 
   return (
     <ClaimsPageWrapper
@@ -20,6 +23,9 @@ export default async function ClaimsPage() {
       canCreateClaim={canCreateClaim}
       canUpdateClaim={canUpdateClaim}
       canDeleteClaim={canDeleteClaim}
+      canViewClaimsTools={canViewClaimsTools}
+      canManageDocuments={canManageDocuments}
+      canManageLinks={canManageLinks}
     />
   );
 }

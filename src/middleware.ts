@@ -14,6 +14,9 @@ const ROUTE_PERMISSIONS: Record<string, keyof PermissionSet> = {
   "/delayed": "canViewDelayed",
   "/returns": "canViewReturns",
   "/claims": "canViewClaims",
+  "/orders": "canViewOrders",
+  "/crm": "canViewCRM",
+  "/overview": "canViewDashboard",
 };
 
 export default auth((req: NextRequest & { auth: { user?: { role?: string; permissions?: PermissionSet } } | null }) => {

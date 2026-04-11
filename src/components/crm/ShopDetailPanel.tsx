@@ -17,6 +17,8 @@ interface ShopDetailPanelProps {
   userRole: string;
   userId: string;
   userName: string;
+  canManageCRM?: boolean;
+  canEditShopInfo?: boolean;
   onClose: () => void;
   onOpenCareLog: (shopName: string) => void;
 }
@@ -93,7 +95,7 @@ interface EditableProfileState {
   internalShopNote: string;
 }
 
-export function ShopDetailPanel({ shopName, userRole, userId, userName, onClose, onOpenCareLog }: ShopDetailPanelProps) {
+export function ShopDetailPanel({ shopName, userRole, userId, userName, canManageCRM, canEditShopInfo, onClose, onOpenCareLog }: ShopDetailPanelProps) {
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery({
@@ -114,8 +116,9 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, onClose,
     contactPerson: "", phone: "", email: "", zalo: "", address: "", internalShopNote: ""
   });
 
-  // Admin assignee editing
-  const isAdmin = userRole === "ADMIN";
+  // Permission-based editing
+  const canAssign = canManageCRM ?? (userRole === "ADMIN");
+  const canEditInfo = canEditShopInfo ?? (userRole === "ADMIN");
   const [showAssigneeEditor, setShowAssigneeEditor] = useState(false);
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedAssignee, setSelectedAssignee] = useState("");
@@ -229,7 +232,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, onClose,
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-slate-700">Thông tin cơ bản</h3>
                   {!isEditing ? (
-                    <button onClick={() => setIsEditing(true)}
+                    canEditInfo && <button onClick={() => setIsEditing(true)}
                       className="text-xs px-2.5 py-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 font-medium">
                       <Edit className="w-3 h-3" /> Sửa
                     </button>
@@ -300,7 +303,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, onClose,
                   <span className="text-slate-700 flex-1">
                     {detail.assignees?.map((a: { name: string }) => a.name).join(", ") || "—"}
                   </span>
-                  {isAdmin && (
+                  {canAssign && (
                     <button
                       onClick={() => { setShowAssigneeEditor(!showAssigneeEditor); handleLoadUsers(); }}
                       className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg flex items-center gap-1 shrink-0"
@@ -309,7 +312,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, onClose,
                     </button>
                   )}
                 </div>
-                {showAssigneeEditor && isAdmin && (
+                {showAssigneeEditor && canAssign && (
                   <div className="mt-2 flex gap-2">
                     <select value={selectedAssignee} onChange={(e) => setSelectedAssignee(e.target.value)}
                       className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">

@@ -2,12 +2,15 @@ import type { Role } from "@prisma/client";
 
 /** Flat permission set — matches PermissionGroup boolean fields */
 export interface PermissionSet {
+  // Dashboard
+  canViewDashboard: boolean;
   // Orders
   canViewOrders: boolean;
   canUploadExcel: boolean;
   canDeleteOrders: boolean;
   canEditStaffNotes: boolean;
   canExportOrders: boolean;
+  canUseAdvancedFilters: boolean;
   // Finance
   canViewRevenue: boolean;
   canViewCarrierFee: boolean;
@@ -26,13 +29,13 @@ export interface PermissionSet {
   canCreateClaim: boolean;
   canUpdateClaim: boolean;
   canDeleteClaim: boolean;
+  canViewClaimsTools: boolean;
   canViewCompensation: boolean;
   // Todos
   canViewAllTodos: boolean;
   // Attendance
   canViewAllAttendance: boolean;
   canEditAttendance: boolean;
-  canScoreEmployees: boolean;
   // Leave
   canApproveLeave: boolean;
   // Documents
@@ -46,24 +49,26 @@ export interface PermissionSet {
   // CRM
   canViewCRM: boolean;
   canManageCRM: boolean;
+  canEditShopInfo: boolean;
   canViewAllShops: boolean;
 }
 
 /** All permission keys */
 export const PERMISSION_KEYS: (keyof PermissionSet)[] = [
-  "canViewOrders", "canUploadExcel", "canDeleteOrders", "canEditStaffNotes", "canExportOrders",
+  "canViewDashboard",
+  "canViewOrders", "canUploadExcel", "canDeleteOrders", "canEditStaffNotes", "canExportOrders", "canUseAdvancedFilters",
   "canViewRevenue", "canViewCarrierFee", "canViewFinancePage", "canViewDashboardFinance",
   "canManageExpenses", "canUploadCashbook", "canManageBudgets",
   "canViewDelayed",
   "canViewReturns", "canConfirmReturn",
-  "canViewClaims", "canCreateClaim", "canUpdateClaim", "canDeleteClaim", "canViewCompensation",
+  "canViewClaims", "canCreateClaim", "canUpdateClaim", "canDeleteClaim", "canViewClaimsTools", "canViewCompensation",
   "canViewAllTodos",
-  "canViewAllAttendance", "canEditAttendance", "canScoreEmployees",
+  "canViewAllAttendance", "canEditAttendance",
   "canApproveLeave",
   "canManageDocuments", "canManageLinks",
   "canCreateAnnouncement",
   "canManageUsers", "canManagePermissions",
-  "canViewCRM", "canManageCRM", "canViewAllShops",
+  "canViewCRM", "canManageCRM", "canEditShopInfo", "canViewAllShops",
 ];
 
 /** Fallback permissions based on legacy Role enum (for users without permissionGroup) */
@@ -81,19 +86,23 @@ export function getDefaultPermissions(role: Role): PermissionSet {
     case "STAFF":
       return {
         ...allFalse,
+        canViewDashboard: true,
         canViewOrders: true,
         canUploadExcel: true,
         canEditStaffNotes: true,
+        canUseAdvancedFilters: true,
         canViewDelayed: true,
         canViewReturns: true,
         canViewClaims: true,
         canCreateClaim: true,
         canViewCRM: true,
+        canEditShopInfo: true,
       };
 
     case "VIEWER":
       return {
         ...allFalse,
+        canViewDashboard: true,
         canViewOrders: true,
         canViewDelayed: true,
         canViewReturns: true,
@@ -118,6 +127,12 @@ export function extractPermissions(group: Record<string, unknown>): PermissionSe
 /** Vietnamese labels for permission categories */
 export const PERMISSION_CATEGORIES = [
   {
+    title: "Tổng Quan",
+    keys: [
+      { key: "canViewDashboard" as const, label: "Xem trang Tổng Quan" },
+    ],
+  },
+  {
     title: "Quản lý đơn hàng",
     keys: [
       { key: "canViewOrders" as const, label: "Xem đơn hàng" },
@@ -125,6 +140,7 @@ export const PERMISSION_CATEGORIES = [
       { key: "canDeleteOrders" as const, label: "Xóa đơn hàng" },
       { key: "canEditStaffNotes" as const, label: "Sửa ghi chú" },
       { key: "canExportOrders" as const, label: "Xuất file Excel" },
+      { key: "canUseAdvancedFilters" as const, label: "Sử dụng bộ lọc nâng cao" },
     ],
   },
   {
@@ -160,6 +176,7 @@ export const PERMISSION_CATEGORIES = [
       { key: "canCreateClaim" as const, label: "Tạo khiếu nại mới" },
       { key: "canUpdateClaim" as const, label: "Cập nhật trạng thái khiếu nại" },
       { key: "canDeleteClaim" as const, label: "Xóa khiếu nại" },
+      { key: "canViewClaimsTools" as const, label: "Xem tab Công cụ (tài liệu, liên kết)" },
       { key: "canViewCompensation" as const, label: "Xem trang bồi hoàn" },
     ],
   },
@@ -174,7 +191,6 @@ export const PERMISSION_CATEGORIES = [
     keys: [
       { key: "canViewAllAttendance" as const, label: "Xem chấm công tất cả nhân viên" },
       { key: "canEditAttendance" as const, label: "Chỉnh sửa chấm công" },
-      { key: "canScoreEmployees" as const, label: "Chấm điểm nhân viên" },
       { key: "canApproveLeave" as const, label: "Duyệt đơn xin nghỉ phép" },
     ],
   },
@@ -202,7 +218,8 @@ export const PERMISSION_CATEGORIES = [
     title: "CRM",
     keys: [
       { key: "canViewCRM" as const, label: "Xem trang CRM / Quản lý khách hàng" },
-      { key: "canManageCRM" as const, label: "Gán NV, override phân loại, sửa thông tin shop" },
+      { key: "canManageCRM" as const, label: "Gán nhân viên cho shop" },
+      { key: "canEditShopInfo" as const, label: "Sửa thông tin khách hàng" },
       { key: "canViewAllShops" as const, label: "Xem tất cả shop (không chỉ shop được gán)" },
     ],
   },

@@ -25,6 +25,7 @@ import type { OrdersApiResponse } from "@/types/orders";
 interface OrdersClientProps {
   userRole: string;
   canEditStaffNotes: boolean;
+  canUseAdvancedFilters: boolean;
   initialOrdersData: OrdersApiResponse | null;
 }
 
@@ -47,6 +48,7 @@ const OrderChangesTab = dynamic(
 export function OrdersClient({
   userRole,
   canEditStaffNotes,
+  canUseAdvancedFilters,
   initialOrdersData,
 }: OrdersClientProps) {
   const queryClient = useQueryClient();
@@ -243,7 +245,7 @@ export function OrdersClient({
         <>
           <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <Suspense fallback={null}>
-              <OrderFilters hideExport={isViewer} />
+              <OrderFilters hideExport={isViewer} hideAdvanced={!canUseAdvancedFilters} />
             </Suspense>
           </div>
 

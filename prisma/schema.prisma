@@ -64,12 +64,16 @@ model PermissionGroup {
   name        String    @unique
   description String?
 
+  // === Tổng Quan ===
+  canViewDashboard        Boolean @default(true)
+
   // === Quản lý đơn hàng ===
   canViewOrders           Boolean @default(true)
   canUploadExcel          Boolean @default(true)
   canDeleteOrders         Boolean @default(false)
   canEditStaffNotes       Boolean @default(true)
   canExportOrders         Boolean @default(false)
+  canUseAdvancedFilters   Boolean @default(true)
 
   // === Tài chính ===
   canViewRevenue          Boolean @default(false)
@@ -92,6 +96,7 @@ model PermissionGroup {
   canCreateClaim          Boolean @default(true)
   canUpdateClaim          Boolean @default(false)
   canDeleteClaim          Boolean @default(false)
+  canViewClaimsTools      Boolean @default(false)
   canViewCompensation     Boolean @default(false)
 
   // === Công việc ===
@@ -100,7 +105,6 @@ model PermissionGroup {
   // === Chấm công ===
   canViewAllAttendance    Boolean @default(false)
   canEditAttendance       Boolean @default(false)
-  canScoreEmployees       Boolean @default(false)
 
   // === Nghỉ phép ===
   canApproveLeave         Boolean @default(false)
@@ -119,6 +123,7 @@ model PermissionGroup {
   // === CRM ===
   canViewCRM              Boolean @default(true)
   canManageCRM            Boolean @default(false)
+  canEditShopInfo         Boolean @default(true)
   canViewAllShops         Boolean @default(false)
 
   // System flag

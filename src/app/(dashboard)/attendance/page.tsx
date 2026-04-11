@@ -9,8 +9,8 @@ export default async function AttendancePage() {
 
   const { id, role, permissions } = session.user;
 
-  const canViewAll = role === "ADMIN" || role === "MANAGER" || permissions?.canViewAllAttendance;
-  const canEdit = role === "ADMIN" || role === "MANAGER" || permissions?.canEditAttendance;
+  const canViewAll = role === "ADMIN" || !!permissions?.canViewAllAttendance;
+  const canEdit = role === "ADMIN" || !!permissions?.canEditAttendance;
   const initialMyTabData = await getAttendanceBootstrapData({ userId: id });
 
   return (

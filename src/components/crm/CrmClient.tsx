@@ -12,6 +12,8 @@ interface CrmClientProps {
   userRole: string;
   userId: string;
   userName: string;
+  canManageCRM: boolean;
+  canEditShopInfo: boolean;
   initialProspectsData?: any;
   initialShopsData?: any;
 }
@@ -23,7 +25,7 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-export function CrmClient({ userRole, userId, userName, initialProspectsData, initialShopsData }: CrmClientProps) {
+export function CrmClient({ userRole, userId, userName, canManageCRM, canEditShopInfo, initialProspectsData, initialShopsData }: CrmClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -80,6 +82,8 @@ export function CrmClient({ userRole, userId, userName, initialProspectsData, in
           userRole={userRole}
           userId={userId}
           userName={userName}
+          canManageCRM={canManageCRM}
+          canEditShopInfo={canEditShopInfo}
           initialData={initialShopsData}
         />
       )}
