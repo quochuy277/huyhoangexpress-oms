@@ -25,7 +25,6 @@ export const sortSchema = z.object({
 export const ordersQuerySchema = paginationSchema.merge(sortSchema).extend({
   search: z.string().trim().optional(),
   status: z.string().optional(),
-  carrier: z.string().optional(),
   fromDate: z.string().optional(),
   toDate: z.string().optional(),
   hasNotes: z.enum(["true", "false", ""]).optional(),
@@ -33,6 +32,17 @@ export const ordersQuerySchema = paginationSchema.merge(sortSchema).extend({
   salesStaff: z.string().optional(),
   partialOrderType: z.enum(["Đơn toàn bộ", "Đơn một phần", ""]).optional(),
   regionGroup: z.string().optional(),
+  dateField: z.enum([
+    "createdTime",
+    "pickupTime",
+    "lastUpdated",
+    "paymentConfirmDate",
+    "reconciliationDate",
+    "deliveredDate",
+  ]).default("createdTime").optional(),
+  valueField: z.enum(["codAmount", "totalFee", "carrierFee", "revenue"]).optional(),
+  valueCondition: z.enum(["gt", "eq", "lt"]).optional(),
+  valueAmount: z.coerce.number().min(0).optional(),
 });
 
 // Finance period params

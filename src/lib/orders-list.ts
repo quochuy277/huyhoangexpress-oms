@@ -21,19 +21,33 @@ export const ALLOWED_ORDER_SORT_COLUMNS = [
 
 export type OrderSortColumn = (typeof ALLOWED_ORDER_SORT_COLUMNS)[number];
 
+export const ALLOWED_DATE_FIELDS = [
+  "createdTime",
+  "pickupTime",
+  "lastUpdated",
+  "paymentConfirmDate",
+  "reconciliationDate",
+  "deliveredDate",
+] as const;
+
+export type OrderDateField = (typeof ALLOWED_DATE_FIELDS)[number];
+
 export type OrdersListParams = {
   page: number;
   pageSize: number;
   search?: string;
   status?: string;
-  carrier?: string;
   fromDate?: string;
   toDate?: string;
+  dateField?: string;
   hasNotes?: string;
   shopName?: string;
   salesStaff?: string;
   partialOrderType?: string;
   regionGroup?: string;
+  valueField?: string;
+  valueCondition?: string;
+  valueAmount?: number;
   sortBy: string;
   sortOrder: "asc" | "desc";
 };
@@ -67,11 +81,18 @@ export type OrdersListResponse = {
   totalPages: number;
 };
 
+const VALUE_CONDITION_MAP: Record<string, string> = {
+  gt: "gt",
+  eq: "equals",
+  lt: "lt",
+};
+
 export function buildOrdersListQuery(params: OrdersListParams) {
   const { searchMeta, filters: searchFilters } = buildOrderSearchFilters({
     search: params.search,
     fromDate: params.fromDate,
     toDate: params.toDate,
+    dateField: params.dateField,
   });
   const andFilters: Prisma.OrderWhereInput[] = [...searchFilters];
 
@@ -83,18 +104,19 @@ export function buildOrdersListQuery(params: OrdersListParams) {
     });
   }
 
-  if (params.carrier) {
-    andFilters.push({ carrierName: params.carrier });
-  }
+  // Dynamic date field filter
+  const dateColumn = ALLOWED_DATE_FIELDS.includes(params.dateField as OrderDateField)
+    ? (params.dateField as OrderDateField)
+    : "createdTime";
 
   if (params.fromDate) {
-    andFilters.push({ createdTime: { gte: new Date(params.fromDate) } });
+    andFilters.push({ [dateColumn]: { gte: new Date(params.fromDate) } });
   }
 
   if (params.toDate) {
     const endDate = new Date(params.toDate);
     endDate.setHours(23, 59, 59, 999);
-    andFilters.push({ createdTime: { lte: endDate } });
+    andFilters.push({ [dateColumn]: { lte: endDate } });
   }
 
   if (params.hasNotes === "true") {
@@ -125,13 +147,21 @@ export function buildOrdersListQuery(params: OrdersListParams) {
     andFilters.push({ regionGroup: params.regionGroup });
   }
 
+  // Value filter (e.g. COD > 1000000)
+  if (params.valueField && params.valueCondition && params.valueAmount !== undefined) {
+    const prismaOp = VALUE_CONDITION_MAP[params.valueCondition];
+    if (prismaOp) {
+      andFilters.push({ [params.valueField]: { [prismaOp]: params.valueAmount } });
+    }
+  }
+
   const where: Prisma.OrderWhereInput = andFilters.length > 0 ? { AND: andFilters } : {};
 
   return {
     where,
     skip: (params.page - 1) * params.pageSize,
     take: params.pageSize,
-    skipCount: searchMeta.kind === "requestCode",
+    skipCount: searchMeta.kind === "requestCode" && !searchMeta.isMulti,
     safeSortBy: ALLOWED_ORDER_SORT_COLUMNS.includes(params.sortBy as OrderSortColumn)
       ? (params.sortBy as OrderSortColumn)
       : "createdTime",

@@ -24,9 +24,11 @@ export async function GET(req: NextRequest) {
   }
 
   const {
-    page, pageSize, search, status: statusFilter, carrier,
-    fromDate, toDate, hasNotes, shopName: shopNameFilter,
+    page, pageSize, search, status: statusFilter,
+    fromDate, toDate, dateField,
+    hasNotes, shopName: shopNameFilter,
     salesStaff: salesStaffFilter, partialOrderType, regionGroup,
+    valueField, valueCondition, valueAmount,
     sortBy, sortOrder,
   } = parsed.data;
 
@@ -35,14 +37,17 @@ export async function GET(req: NextRequest) {
     pageSize,
     search,
     status: statusFilter,
-    carrier,
     fromDate,
     toDate,
+    dateField,
     hasNotes,
     shopName: shopNameFilter,
     salesStaff: salesStaffFilter,
     partialOrderType,
     regionGroup,
+    valueField,
+    valueCondition,
+    valueAmount,
     sortBy,
     sortOrder,
   });

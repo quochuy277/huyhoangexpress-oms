@@ -257,6 +257,12 @@ model Order {
   @@index([deliveredDate])
   @@index([revenue])
   @@index([creatorShopName, createdTime])
+  @@index([pickupTime])
+  @@index([paymentConfirmDate])
+  @@index([reconciliationDate])
+  @@index([codAmount])
+  @@index([totalFee])
+  @@index([carrierFee])
 }
 
 enum DeliveryStatus {

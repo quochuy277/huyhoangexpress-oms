@@ -61,7 +61,7 @@ describe("ordersQuerySchema", () => {
             pageSize: 20,
             search: "REQ001",
             status: "DELIVERING",
-            carrier: "SVExpress",
+            dateField: "createdTime",
             sortBy: "createdTime",
             sortOrder: "desc",
         });

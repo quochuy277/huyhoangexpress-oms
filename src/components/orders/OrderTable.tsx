@@ -274,7 +274,7 @@ function OrderTableInner({
                           className={`rounded border p-2 transition-colors ${
                             noteExists
                               ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
-                              : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                              : "border-transparent text-slate-400 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-600"
                           }`}
                           title={noteExists ? "Ghi chú nội bộ" : "Thêm ghi chú nội bộ"}
                           aria-label={noteExists ? "Ghi chú nội bộ" : "Thêm ghi chú nội bộ"}
@@ -510,7 +510,7 @@ function OrderTableInner({
                           className={`rounded border p-2 transition-colors ${
                             noteExists
                               ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
-                              : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                              : "border-transparent text-slate-400 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-600"
                           }`}
                           title={noteExists ? "Ghi chú nội bộ" : "Thêm ghi chú nội bộ"}
                           aria-label={noteExists ? "Ghi chú nội bộ" : "Thêm ghi chú nội bộ"}
