@@ -1,8 +1,8 @@
 "use client";
 
-import { Search, X, Download, Loader2, Settings2, Filter } from "lucide-react";
+import { Search, X, Download, Loader2, Settings2, Filter, ChevronDown, FileSpreadsheet, Users } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition, useEffect, memo } from "react";
+import { useCallback, useMemo, useState, useTransition, useEffect, useRef, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DeliveryStatus } from "@prisma/client";
 
@@ -178,20 +178,39 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
   const searchRows = Math.min(Math.max(searchLineCount, 1), 6);
   const mobileSearchRows = Math.min(searchRows, 4);
 
+  // Export dropdown
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close export dropdown on click outside
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showExportMenu]);
+
   // Export handler
-  const handleExport = async () => {
+  const handleExport = async (type: "internal" | "customer") => {
+    setShowExportMenu(false);
     setIsExporting(true);
     try {
       const params = new URLSearchParams(searchParams.toString());
       params.delete("page");
       params.delete("pageSize");
+      params.set("type", type);
       const res = await fetch(`/api/orders/export?${params.toString()}`);
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `don-hang-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const prefix = type === "internal" ? "noi-bo" : "khach-hang";
+      a.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -350,16 +369,47 @@ function OrderFiltersInner({ hideExport }: OrderFiltersProps) {
           </button>
 
           {!hideExport && (
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={isExporting}
-              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              <span className="hidden sm:inline">Xuất Excel</span>
-              <span className="sm:hidden">Excel</span>
-            </button>
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={isExporting}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                <span className="hidden sm:inline">Xuất Excel</span>
+                <span className="sm:hidden">Excel</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExportMenu ? "rotate-180" : ""}`} />
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
+                  <button
+                    type="button"
+                    onClick={() => handleExport("internal")}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:bg-emerald-50"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                    <div>
+                      <div className="font-medium">Xuất nội bộ</div>
+                      <div className="text-[11px] text-slate-400">Đầy đủ cột + Doanh thu</div>
+                    </div>
+                  </button>
+                  <div className="border-t border-slate-100" />
+                  <button
+                    type="button"
+                    onClick={() => handleExport("customer")}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
+                  >
+                    <Users className="h-4 w-4 text-blue-600" />
+                    <div>
+                      <div className="font-medium">Xuất cho khách hàng</div>
+                      <div className="text-[11px] text-slate-400">Chỉ các cột hiển thị</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

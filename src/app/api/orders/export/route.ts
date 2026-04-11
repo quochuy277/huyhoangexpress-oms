@@ -2,10 +2,155 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import type { Prisma, DeliveryStatus } from "@prisma/client";
+import type { DeliveryStatus } from "@prisma/client";
 import { mapStatusToVietnamese } from "@/lib/status-mapper";
 import { exportLimiter } from "@/lib/rate-limiter";
 import { requirePermission } from "@/lib/route-permissions";
+import { buildOrdersListQuery } from "@/lib/orders-list";
+
+type ExportType = "internal" | "customer";
+
+const MAX_EXPORT_ROWS = 10_000;
+
+function formatDateTimeVN(date: Date | null | undefined): string {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(date));
+}
+
+function formatDateVN(date: Date | null | undefined): string {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(date));
+}
+
+function dec(val: unknown): number {
+  if (val === null || val === undefined) return 0;
+  return Number(val) || 0;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildInternalRow(o: any, index: number) {
+  const totalFee = dec(o.totalFee);
+  const carrierFee = dec(o.carrierFee);
+  const showRevenue = ["RECONCILED", "RETURNED_FULL", "RETURNED_PARTIAL"].includes(o.deliveryStatus);
+
+  return {
+    "STT": index + 1,
+    "Mã Đối Soát": o.reconciliationCode || "",
+    "Ngày Đối Soát": formatDateVN(o.reconciliationDate),
+    "Tên Cửa Hàng": o.shopName || "",
+    "Mã Đơn Khách Hàng": o.customerOrderCode || "",
+    "Mã Yêu Cầu": o.requestCode,
+    "Trạng Thái": o.status || "",
+    "Thời Gian Tạo": formatDateTimeVN(o.createdTime),
+    "Thời Gian Lấy Hàng": formatDateTimeVN(o.pickupTime),
+    "Thu Hộ": dec(o.codAmount),
+    "Thu Hộ Ban Đầu": dec(o.codOriginal),
+    "Trị Giá": dec(o.declaredValue),
+    "Phí Vận Chuyển": dec(o.shippingFee),
+    "Phụ Phí": dec(o.surcharge),
+    "Phí Vượt Khối Lượng": dec(o.overweightFee),
+    "Phí Bảo Hiểm": dec(o.insuranceFee),
+    "Phí Thu Hộ Tiền Hàng": dec(o.codServiceFee),
+    "Phí Hoàn Hàng": dec(o.returnFee),
+    "Tổng Phí": totalFee,
+    "Phí Đối Tác Thu": carrierFee,
+    "Phí Bảo Hiểm GHSV": dec(o.ghsvInsuranceFee),
+    "Doanh Thu": showRevenue ? (totalFee - carrierFee) : 0,
+    "Tên Cửa Hàng Tạo": o.creatorShopName || "",
+    "SĐT Người Tạo": o.creatorPhone || "",
+    "Nhân Viên Tạo": o.creatorStaff || "",
+    "Địa Chỉ Người Tạo": o.creatorAddress || "",
+    "Phường / Xã Tạo": o.creatorWard || "",
+    "Quận / Huyện Tạo": o.creatorDistrict || "",
+    "Tỉnh / Thành Phố Tạo": o.creatorProvince || "",
+    "Tên Cửa Hàng Gửi Hàng": o.senderShopName || "",
+    "SĐT Người Gửi Hàng": o.senderPhone || "",
+    "Địa Chỉ Người Gửi Hàng": o.senderAddress || "",
+    "Phường / Xã Gửi Hàng": o.senderWard || "",
+    "Quận / Huyện Gửi Hàng": o.senderDistrict || "",
+    "Tỉnh / Thành Phố Gửi Hàng": o.senderProvince || "",
+    "Người Nhận": o.receiverName || "",
+    "Số Điện Thoại": o.receiverPhone || "",
+    "Địa Chỉ": o.receiverAddress || "",
+    "Phường / Xã": o.receiverWard || "",
+    "Quận / Huyện": o.receiverDistrict || "",
+    "Tỉnh / Thành Phố": o.receiverProvince || "",
+    "Ghi Chú Giao Hàng": o.deliveryNotes || "",
+    "Sản Phẩm": o.productDescription || "",
+    "Ngày Xác Nhận Thu Tiền": formatDateVN(o.paymentConfirmDate),
+    "Ghi Chú Nội Bộ": o.internalNotes || "",
+    "Ghi Chú Công Khai": o.publicNotes || "",
+    "Cập Nhật Lần Cuối": formatDateTimeVN(o.lastUpdated),
+    "Đơn Vị Vận Chuyển": o.carrierName || "",
+    "Tài Khoản Đối Tác": o.carrierAccount || "",
+    "Mã Đơn Đối Tác": o.carrierOrderCode || "",
+    "Nhóm Vùng Miền": o.regionGroup || "",
+    "Khối Lượng Khách Hàng": o.customerWeight ?? "",
+    "Khối Lượng NVC": o.carrierWeight ?? "",
+    "Ngày Giao Thành Công": formatDateVN(o.deliveredDate),
+    "Shipper Lấy Hàng (NB)": o.pickupShipper || "",
+    "Shipper Giao (NB)": o.deliveryShipper || "",
+    "Nguồn Lên Đơn": o.orderSource || "",
+    "Đơn Hàng Một Phần": o.partialOrderType || "",
+    "Mã Đơn Hàng Một Phần": o.partialOrderCode || "",
+    "NV Kinh Doanh": o.salesStaff || "",
+  };
+}
+
+function buildCustomerRow(o: {
+  requestCode: string;
+  carrierOrderCode: string | null;
+  shopName: string | null;
+  receiverName: string | null;
+  receiverPhone: string | null;
+  receiverProvince: string | null;
+  deliveryStatus: DeliveryStatus;
+  createdTime: Date | null;
+  codAmount: unknown;
+  totalFee: unknown;
+  customerWeight: number | null;
+}) {
+  return {
+    "Mã Yêu Cầu": o.requestCode,
+    "Mã Đơn Đối Tác": o.carrierOrderCode || "",
+    "Tên Cửa Hàng": o.shopName || "",
+    "Người Nhận": o.receiverName || "",
+    "Số Điện Thoại": o.receiverPhone || "",
+    "Tỉnh / Thành Phố": o.receiverProvince || "",
+    "Trạng Thái": mapStatusToVietnamese(o.deliveryStatus),
+    "Thời Gian Tạo": formatDateTimeVN(o.createdTime),
+    "Thu Hộ (đ)": dec(o.codAmount),
+    "Tổng Phí (đ)": dec(o.totalFee),
+    "Khối Lượng (g)": o.customerWeight ?? "",
+  };
+}
+
+const CUSTOMER_SELECT = {
+  requestCode: true,
+  carrierOrderCode: true,
+  shopName: true,
+  receiverName: true,
+  receiverPhone: true,
+  receiverProvince: true,
+  deliveryStatus: true,
+  createdTime: true,
+  codAmount: true,
+  totalFee: true,
+  customerWeight: true,
+} as const;
 
 export async function GET(req: NextRequest) {
   // Auth check
@@ -21,121 +166,68 @@ export async function GET(req: NextRequest) {
   if (rateLimited) return rateLimited;
 
   const { searchParams } = new URL(req.url);
+  const exportType: ExportType = searchParams.get("type") === "customer" ? "customer" : "internal";
 
-  // Use same filter logic as orders API
-  const search = searchParams.get("search")?.trim();
-  const statusFilter = searchParams.get("status");
-  const carrier = searchParams.get("carrier");
-  const fromDate = searchParams.get("fromDate");
-  const toDate = searchParams.get("toDate");
-
-  const where: Prisma.OrderWhereInput = {};
-  const AND: Prisma.OrderWhereInput[] = [];
-
-  if (search) {
-    AND.push({
-      OR: [
-        { requestCode: { contains: search, mode: "insensitive" } },
-        { receiverName: { contains: search, mode: "insensitive" } },
-        { receiverPhone: { contains: search } },
-        { shopName: { contains: search, mode: "insensitive" } },
-      ],
-    });
-  }
-
-  if (statusFilter) {
-    const statuses = statusFilter.split(",").filter(Boolean) as DeliveryStatus[];
-    if (statuses.length > 0) {
-      AND.push({ deliveryStatus: { in: statuses } });
-    }
-  }
-
-  if (carrier) AND.push({ carrierName: carrier });
-  if (fromDate) AND.push({ createdTime: { gte: new Date(fromDate) } });
-  if (toDate) {
-    const endDate = new Date(toDate);
-    endDate.setHours(23, 59, 59, 999);
-    AND.push({ createdTime: { lte: endDate } });
-  }
-
-  if (AND.length > 0) where.AND = AND;
-
-  // Fetch orders (max 10000 for export)
-  const orders = await prisma.order.findMany({
-    where,
-    select: {
-      requestCode: true,
-      customerOrderCode: true,
-      shopName: true,
-      receiverName: true,
-      receiverPhone: true,
-      receiverProvince: true,
-      receiverDistrict: true,
-      status: true,
-      deliveryStatus: true,
-      codAmount: true,
-      shippingFee: true,
-      totalFee: true,
-      carrierFee: true,
-      revenue: true,
-      carrierName: true,
-      carrierOrderCode: true,
-      regionGroup: true,
-      createdTime: true,
-      lastUpdated: true,
-      salesStaff: true,
-    },
-    orderBy: { createdTime: "desc" },
-    take: 10000,
+  // Reuse the same filter logic as the orders list API (supports all filters)
+  const query = buildOrdersListQuery({
+    page: 1,
+    pageSize: MAX_EXPORT_ROWS,
+    search: searchParams.get("search") || undefined,
+    status: searchParams.get("status") || undefined,
+    fromDate: searchParams.get("fromDate") || undefined,
+    toDate: searchParams.get("toDate") || undefined,
+    dateField: searchParams.get("dateField") || undefined,
+    hasNotes: searchParams.get("hasNotes") || undefined,
+    shopName: searchParams.get("shopName") || undefined,
+    salesStaff: searchParams.get("salesStaff") || undefined,
+    partialOrderType: searchParams.get("partialOrderType") || undefined,
+    regionGroup: searchParams.get("regionGroup") || undefined,
+    valueField: searchParams.get("valueField") || undefined,
+    valueCondition: searchParams.get("valueCondition") || undefined,
+    valueAmount: searchParams.get("valueAmount") ? Number(searchParams.get("valueAmount")) : undefined,
+    sortBy: "createdTime",
+    sortOrder: "desc",
   });
 
-  // Build Excel
-  const rows = orders.map((o) => ({
-    "Mã Yêu Cầu": o.requestCode,
-    "Mã Đơn KH": o.customerOrderCode || "",
-    "Shop": o.shopName || "",
-    "Người Nhận": o.receiverName || "",
-    "SĐT": o.receiverPhone || "",
-    "Tỉnh/TP": o.receiverProvince || "",
-    "Quận/Huyện": o.receiverDistrict || "",
-    "Trạng Thái": mapStatusToVietnamese(o.deliveryStatus),
-    "COD (đ)": o.codAmount,
-    "Phí Ship (đ)": o.shippingFee,
-    "Tổng Phí (đ)": o.totalFee,
-    "Phí Đối Tác (đ)": o.carrierFee,
-    "Doanh Thu (đ)": ['RECONCILED', 'RETURNED_FULL', 'RETURNED_PARTIAL'].includes(o.deliveryStatus) ? (o as any).revenue : "—",
-    "Đối Tác": o.carrierName || "",
-    "Mã Đối Tác": o.carrierOrderCode || "",
-    "Nhóm Vùng": o.regionGroup || "",
-    "Ngày Tạo": o.createdTime
-      ? new Date(o.createdTime).toLocaleDateString("vi-VN")
-      : "",
-    "Cập Nhật Cuối": o.lastUpdated
-      ? new Date(o.lastUpdated).toLocaleDateString("vi-VN")
-      : "",
-    "NV Kinh Doanh": o.salesStaff || "",
-  }));
+  // Fetch orders with appropriate select based on export type
+  const orders = await prisma.order.findMany({
+    where: query.where,
+    ...(exportType === "customer" ? { select: CUSTOMER_SELECT } : {}),
+    orderBy: { createdTime: "desc" },
+    take: MAX_EXPORT_ROWS,
+  });
+
+  // Build Excel rows
+  const rows = exportType === "internal"
+    ? orders.map((o, i) => buildInternalRow(o, i))
+    : orders.map((o) => buildCustomerRow(o as Parameters<typeof buildCustomerRow>[0]));
+
+  if (rows.length === 0) {
+    return NextResponse.json({ error: "Không có đơn hàng nào để xuất" }, { status: 404 });
+  }
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
 
   // Auto-size columns
-  const colWidths = Object.keys(rows[0] || {}).map((key) => ({
-    wch: Math.max(key.length, 12),
+  const colWidths = Object.keys(rows[0]).map((key) => ({
+    wch: Math.max(key.length + 2, 14),
   }));
   worksheet["!cols"] = colWidths;
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn Hàng");
+  const sheetName = exportType === "internal" ? "Đơn Hàng (Nội Bộ)" : "Đơn Hàng";
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
   const buf = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
   const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const prefix = exportType === "internal" ? "noi-bo" : "khach-hang";
 
   return new NextResponse(buf, {
     status: 200,
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="don-hang-${timestamp}.xlsx"`,
+      "Content-Disposition": `attachment; filename="${prefix}-${timestamp}.xlsx"`,
     },
   });
 }
