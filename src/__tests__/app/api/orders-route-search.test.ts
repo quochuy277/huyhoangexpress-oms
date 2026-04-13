@@ -38,7 +38,7 @@ describe("GET /api/orders search routing", () => {
     expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          AND: expect.arrayContaining([{ requestCode: "B65ACHM0007569" }]),
+          AND: expect.arrayContaining([{ requestCode: { in: ["B65ACHM0007569"] } }]),
         }),
       }),
     );
@@ -52,7 +52,7 @@ describe("GET /api/orders search routing", () => {
     expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          AND: expect.arrayContaining([{ carrierOrderCode: "GYKBGEVY" }]),
+          AND: expect.arrayContaining([{ carrierOrderCode: { in: ["GYKBGEVY"] } }]),
         }),
       }),
     );
@@ -65,7 +65,7 @@ describe("GET /api/orders search routing", () => {
     expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          AND: expect.arrayContaining([{ receiverPhone: "0904873551" }]),
+          AND: expect.arrayContaining([{ receiverPhone: { in: ["0904873551"] } }]),
         }),
       }),
     );

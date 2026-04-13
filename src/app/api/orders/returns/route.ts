@@ -5,10 +5,13 @@ import { auth } from "@/lib/auth";
 import { getReturnsTabData } from "@/lib/returns-page-data";
 import { requirePermission } from "@/lib/route-permissions";
 import { type ReturnsTab } from "@/lib/returns-queries";
+import { createServerTiming } from "@/lib/server-timing";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const timing = createServerTiming();
+
+    const session = await timing.measure("auth", () => auth());
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
@@ -27,13 +30,21 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
     const search = searchParams.get("search") || "";
+    const shopFilter = searchParams.get("shop") || "";
+    const daysRange = searchParams.get("days") || "";
+    const hasNotes = searchParams.get("notes") || "";
+    const confirmAsked = searchParams.get("confirm") || "";
 
-    const orders = await getReturnsTabData({ tab, page, pageSize, search });
+    const orders = await timing.measure("data", () =>
+      getReturnsTabData({ tab, page, pageSize, search, shopFilter, daysRange, hasNotes, confirmAsked }),
+    );
 
-    return NextResponse.json({
-      success: true,
-      data: orders,
-    });
+    timing.log("returns");
+
+    return NextResponse.json(
+      { success: true, data: orders },
+      { headers: { "Server-Timing": timing.headerValue() } },
+    );
   } catch (error) {
     console.error("GET /api/orders/returns error:", error);
     return NextResponse.json(

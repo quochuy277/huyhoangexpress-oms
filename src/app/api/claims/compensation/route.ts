@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { hasClaimsPermission } from "@/lib/claims-permissions";
+import { hasPermission } from "@/lib/route-permissions";
 import { prisma } from "@/lib/prisma";
 import { ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
 
@@ -14,9 +15,7 @@ export async function GET(req: NextRequest) {
   const user = session.user;
   if (
     !hasClaimsPermission(user, "canViewCompensation")
-    && !user.permissions?.canViewFinancePage
-    && user.role !== "ADMIN"
-    && user.role !== "MANAGER"
+    && !hasPermission(user, "canViewFinancePage")
   ) {
     return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
   }

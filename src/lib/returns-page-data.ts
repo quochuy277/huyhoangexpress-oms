@@ -10,6 +10,14 @@ type GetReturnsTabDataOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
+  /** Exact match on shopName */
+  shopFilter?: string;
+  /** Days range: "lte3", "4to7", "gte8" */
+  daysRange?: string;
+  /** Staff notes: "has" | "empty" */
+  hasNotes?: string;
+  /** Customer confirm asked: "yes" | "no" (warehouse tab) */
+  confirmAsked?: string;
 };
 
 export async function getReturnsTabData({
@@ -17,24 +25,49 @@ export async function getReturnsTabData({
   page = 1,
   pageSize = 50,
   search = "",
+  shopFilter = "",
+  daysRange = "",
+  hasNotes = "",
+  confirmAsked = "",
 }: GetReturnsTabDataOptions): Promise<ReturnOrder[]> {
   let where: Prisma.OrderWhereInput = buildReturnsTabWhere(tab);
+  const andConditions: Prisma.OrderWhereInput[] = [];
 
   if (search) {
-    where = {
-      ...where,
-      AND: [
-        {
-          OR: [
-            { requestCode: { contains: search, mode: "insensitive" } },
-            { shopName: { contains: search, mode: "insensitive" } },
-            { receiverName: { contains: search, mode: "insensitive" } },
-            { receiverPhone: { contains: search } },
-            { carrierOrderCode: { contains: search, mode: "insensitive" } },
-          ],
-        },
+    andConditions.push({
+      OR: [
+        { requestCode: { contains: search, mode: "insensitive" } },
+        { shopName: { contains: search, mode: "insensitive" } },
+        { receiverName: { contains: search, mode: "insensitive" } },
+        { receiverPhone: { contains: search } },
+        { carrierOrderCode: { contains: search, mode: "insensitive" } },
       ],
-    };
+    });
+  }
+
+  if (shopFilter) {
+    andConditions.push({ shopName: shopFilter });
+  }
+
+  if (hasNotes === "has") {
+    andConditions.push({ staffNotes: { not: "" } });
+  } else if (hasNotes === "empty") {
+    andConditions.push({
+      OR: [{ staffNotes: null }, { staffNotes: "" }],
+    });
+  }
+
+  if (confirmAsked === "asked") {
+    andConditions.push({ customerConfirmAsked: true });
+  } else if (confirmAsked === "notasked") {
+    andConditions.push({ customerConfirmAsked: false });
+  }
+
+  // daysRange filter: computed from lastDelayDate/publicNotes, applied post-query
+  // (cannot be pushed to DB since it depends on note parsing)
+
+  if (andConditions.length > 0) {
+    where = { ...where, AND: andConditions };
   }
 
   const select = {
@@ -66,12 +99,10 @@ export async function getReturnsTabData({
   const rawOrders = await prisma.order.findMany({
     where,
     select,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
     orderBy: { lastUpdated: "desc" },
   });
 
-  return rawOrders.map((order) => {
+  const mappedOrders = rawOrders.map((order) => {
     const lastDelayDate = getLastDelayDate(order.publicNotes);
     const effectiveDate = lastDelayDate ?? getMostRecentTimestampFromNotes(order.publicNotes);
     const daysReturning = effectiveDate
@@ -90,6 +121,18 @@ export async function getReturnsTabData({
       daysReturning,
     };
   });
+
+  const daysFiltered = mappedOrders.filter((order) => {
+    if (!daysRange) return true;
+    if (daysRange === "lte3") return order.daysReturning <= 3;
+    if (daysRange === "4to7") return order.daysReturning >= 4 && order.daysReturning <= 7;
+    if (daysRange === "gte8") return order.daysReturning >= 8;
+    return true;
+  });
+
+  const start = (Math.max(page, 1) - 1) * Math.max(pageSize, 1);
+  const end = start + Math.max(pageSize, 1);
+  return daysFiltered.slice(start, end);
 }
 
 export async function getReturnsSummaryData() {

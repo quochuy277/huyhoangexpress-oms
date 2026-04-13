@@ -99,10 +99,8 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.requiredPermission) return true;
-    if (permissions) return permissions[item.requiredPermission];
-    if (item.requiredPermission === "canManageUsers") return userRole === "ADMIN";
-    if (item.requiredPermission === "canViewFinancePage") return userRole === "ADMIN" || userRole === "MANAGER";
-    return true;
+    if (userRole === "ADMIN") return true;
+    return !!permissions?.[item.requiredPermission];
   });
 
   const sidebarContent = (isMobile: boolean) => (

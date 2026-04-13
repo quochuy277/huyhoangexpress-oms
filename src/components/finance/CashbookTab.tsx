@@ -34,17 +34,23 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
   const [search, setSearch] = useState("");
   const skipInitialFetchRef = useRef(Boolean(initialData));
 
+  // Fetch summary + transactions (depends on filters/pagination)
   const fetchData = useCallback(async () => {
     const groupParam = groupFilter.length > 0 ? `&group=${groupFilter.join(",")}` : "";
     const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
     const customParams = period === "custom" && customFrom && customTo ? `&from=${customFrom}&to=${customTo}` : "";
-    const [sumRes, txRes, upRes] = await Promise.all([
+    const [sumRes, txRes] = await Promise.all([
       fetch(`/api/finance/cashbook/summary?period=${period}${customParams}`).then(r => r.json()),
       fetch(`/api/finance/cashbook?period=${period}&page=${pagination.page}&pageSize=${pagination.pageSize}${groupParam}${searchParam}${customParams}`).then(r => r.json()),
-      fetch("/api/finance/cashbook/uploads").then(r => r.json()),
     ]);
-    setSummary(sumRes); setTransactions(txRes.transactions || []); setPagination(txRes.pagination || pagination); setUploads(upRes.uploads || []);
+    setSummary(sumRes); setTransactions(txRes.transactions || []); setPagination(txRes.pagination || pagination);
   }, [period, pagination.page, pagination.pageSize, groupFilter, search, customFrom, customTo]);
+
+  // Fetch uploads separately — only on mount and after upload (not on every filter change)
+  const fetchUploads = useCallback(async () => {
+    const res = await fetch("/api/finance/cashbook/uploads").then(r => r.json());
+    setUploads(res.uploads || []);
+  }, []);
 
   useEffect(() => {
     if (skipInitialFetchRef.current) {
@@ -54,6 +60,11 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
 
     void fetchData();
   }, [fetchData]);
+
+  // Fetch uploads once on mount (if no initial data)
+  useEffect(() => {
+    if (!initialData?.uploads) void fetchUploads();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,7 +76,9 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
       const res = await fetch("/api/finance/cashbook/upload", { method: "POST", body: formData });
       const data = await res.json();
       setUploadResult(data);
+      // Refetch both data and uploads after upload
       fetchData();
+      fetchUploads();
     } catch { setUploadResult({ error: "Lỗi upload" }); }
     setUploading(false);
     e.target.value = "";

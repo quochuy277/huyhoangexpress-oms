@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
 
 // PATCH /api/admin/users/[id] — update user
@@ -13,7 +14,7 @@ export async function PATCH(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManageUsers) {
+    if (!hasPermission(session.user, "canManageUsers")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhân viên" }, { status: 403 });
     }
 
@@ -50,6 +51,20 @@ export async function PATCH(
       select: { id: true, name: true, email: true },
     });
 
+    // Invalidate sessions when permission-related fields change
+    if (permissionGroupId !== undefined || isActive !== undefined) {
+      const now = new Date();
+      await prisma.loginHistory.updateMany({
+        where: { userId: id, logoutTime: null },
+        data: { logoutTime: now, logoutReason: isActive === false ? "user_deactivated" : "permission_reassigned" },
+      });
+      await prisma.systemSetting.upsert({
+        where: { key: "force_logout_at" },
+        create: { key: "force_logout_at", value: now.toISOString() },
+        update: { value: now.toISOString() },
+      });
+    }
+
     return NextResponse.json(user);
   } catch (error) {
     console.error("Update user error:", error);
@@ -67,7 +82,7 @@ export async function DELETE(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManageUsers) {
+    if (!hasPermission(session.user, "canManageUsers")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhân viên" }, { status: 403 });
     }
 
@@ -81,6 +96,18 @@ export async function DELETE(
     await prisma.user.update({
       where: { id },
       data: { isActive: false },
+    });
+
+    // Invalidate all active sessions for the deactivated user
+    const now = new Date();
+    await prisma.loginHistory.updateMany({
+      where: { userId: id, logoutTime: null },
+      data: { logoutTime: now, logoutReason: "user_deactivated" },
+    });
+    await prisma.systemSetting.upsert({
+      where: { key: "force_logout_at" },
+      create: { key: "force_logout_at", value: now.toISOString() },
+      update: { value: now.toISOString() },
     });
 
     return NextResponse.json({ success: true });

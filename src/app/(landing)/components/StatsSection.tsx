@@ -41,17 +41,25 @@ function formatNumber(n: number): string {
   return n.toString();
 }
 
-export function StatsSection() {
+export type LandingStats = { totalOrders: number; activeShops: number; successRate: number };
+
+const DEFAULT_STATS: LandingStats = { totalOrders: 0, activeShops: 0, successRate: 0 };
+
+export function StatsSection({ initialStats }: { initialStats?: LandingStats }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const [stats, setStats] = useState({ totalOrders: 0, activeShops: 0, successRate: 0 });
+  const [stats, setStats] = useState<LandingStats>(initialStats ?? DEFAULT_STATS);
 
+  // Only fetch client-side if no initialStats provided (fallback)
   useEffect(() => {
+    if (initialStats) return;
     fetch("/api/landing/stats")
       .then((r) => r.json())
       .then((data) => setStats(data))
-      .catch(() => {});
-  }, []);
+      .catch((err) => {
+        console.warn("[StatsSection] Failed to fetch landing stats:", err);
+      });
+  }, [initialStats]);
 
   useEffect(() => {
     const el = ref.current;

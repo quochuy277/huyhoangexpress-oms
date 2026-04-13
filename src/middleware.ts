@@ -8,6 +8,10 @@ import { hasPermission } from "@/lib/route-permissions";
 const { auth } = NextAuth(authConfig);
 
 // Route → required permission key
+// NOTE: /todos and /attendance are intentionally NOT listed here.
+// All logged-in users can access their own todos and attendance records.
+// Feature-level restrictions (e.g. canViewAllTodos, canViewAllAttendance) are
+// enforced at the component/API level, not at the route level.
 const ROUTE_PERMISSIONS: Record<string, keyof PermissionSet> = {
   "/admin/users": "canManageUsers",
   "/finance": "canViewFinancePage",
@@ -35,8 +39,8 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
     return NextResponse.rewrite(url);
   }
 
-  // Public routes
-  const isPublicPage = pathname === "/" || pathname.startsWith("/login");
+  // Public routes (including /no-access which shows permission denied message)
+  const isPublicPage = pathname === "/" || pathname.startsWith("/login") || pathname === "/no-access";
   if (isPublicPage) {
     if (isLoggedIn && pathname.startsWith("/login")) {
       return NextResponse.redirect(new URL("/orders", req.url));
@@ -51,10 +55,16 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
 
   // Permission-based restrictions
   const permissions = session?.user?.permissions;
-  if (permissions) {
-    for (const [route, permKey] of Object.entries(ROUTE_PERMISSIONS)) {
-      if (pathname.startsWith(route) && !hasPermission(session?.user, permKey)) {
-        return NextResponse.redirect(new URL("/orders", req.url));
+  const userRole = session?.user?.role;
+
+  for (const [route, permKey] of Object.entries(ROUTE_PERMISSIONS)) {
+    if (pathname.startsWith(route)) {
+      // If no permissions object and not ADMIN, deny access
+      if (!permissions && userRole !== "ADMIN") {
+        return NextResponse.redirect(new URL("/no-access", req.url));
+      }
+      if (!hasPermission(session?.user, permKey)) {
+        return NextResponse.redirect(new URL("/no-access", req.url));
       }
     }
   }

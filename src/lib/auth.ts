@@ -9,7 +9,7 @@ import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 
-const PERMISSIONS_REFRESH_INTERVAL = 30 * 60 * 1000;
+const PERMISSIONS_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30 for faster permission propagation)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -30,15 +30,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { role: true, name: true, permissionGroup: true },
+            select: { role: true, name: true, isActive: true, permissionGroup: true },
           });
-          if (dbUser) {
-            token.role = dbUser.role;
-            token.name = dbUser.name;
-            token.permissions = dbUser.permissionGroup
-              ? extractPermissions(dbUser.permissionGroup as unknown as Record<string, unknown>)
-              : getDefaultPermissions(dbUser.role);
+          if (!dbUser || !dbUser.isActive) {
+            // User deactivated or deleted — invalidate token
+            return { ...token, id: null, role: null, permissions: null };
           }
+          token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.permissions = dbUser.permissionGroup
+            ? extractPermissions(dbUser.permissionGroup as unknown as Record<string, unknown>)
+            : getDefaultPermissions(dbUser.role);
           token.permissionsUpdatedAt = Date.now();
         } catch {
           // Silently fail — keep existing permissions

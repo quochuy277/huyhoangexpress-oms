@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// Allowlist of user fields that can be changed via info change requests
+const ALLOWED_CHANGE_FIELDS = ["name", "phone", "dateOfBirth", "hometown", "permanentAddress", "currentAddress", "citizenId", "socialLink"];
+
 // PATCH — Admin approve/reject a change request
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -20,8 +23,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const request = await prisma.infoChangeRequest.findUnique({ where: { id } });
   if (!request) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
 
-  // If approving, update the user's field
+  // If approving, update the user's field (with allowlist validation)
   if (action === "approve") {
+    if (!ALLOWED_CHANGE_FIELDS.includes(request.fieldName)) {
+      return NextResponse.json({ error: "Trường không được phép thay đổi" }, { status: 400 });
+    }
     const updateData: Record<string, string> = {};
     updateData[request.fieldName] = request.newValue;
     await prisma.user.update({ where: { id: request.userId }, data: updateData });

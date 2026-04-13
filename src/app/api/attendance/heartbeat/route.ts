@@ -29,7 +29,25 @@ export async function POST(req: NextRequest) {
         data: { lastHeartbeat: now },
       });
     } else {
-      // No active session — auto-create one (user revisited with valid JWT)
+      // No active session — check if this is because of a forced logout
+      // before auto-creating a new session.
+      const recentLogout = await prisma.loginHistory.findFirst({
+        where: {
+          userId,
+          logoutReason: { in: ["admin_force_logout", "permission_group_changed", "permission_reassigned", "user_deactivated"] },
+        },
+        orderBy: { logoutTime: "desc" },
+        select: { logoutTime: true },
+      });
+      if (recentLogout?.logoutTime) {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        if (recentLogout.logoutTime > fiveMinutesAgo) {
+          // Session was recently force-closed — do NOT recreate, signal logout
+          return NextResponse.json({ ok: false, forceLogout: true });
+        }
+      }
+
+      // No recent force-logout — auto-create session (user revisited with valid JWT)
       const userAgent = req.headers.get("user-agent") || "unknown";
       const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
       const deviceType = parseDeviceType(userAgent);
@@ -75,20 +93,6 @@ export async function POST(req: NextRequest) {
       sessionCreated: !activeSession || closedCount > 0,
     });
   } catch (error) {
-    // Check if this is because admin force-logged us out
-    try {
-      const forceLogoutSetting = await prisma.systemSetting.findUnique({
-        where: { key: "force_logout_at" },
-      });
-      if (forceLogoutSetting) {
-        const forceLogoutTime = new Date(forceLogoutSetting.value);
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-        if (forceLogoutTime > tenMinutesAgo) {
-          return NextResponse.json({ ok: false, forceLogout: true });
-        }
-      }
-    } catch { /* ignore */ }
-
     console.error("Heartbeat error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

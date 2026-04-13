@@ -37,6 +37,10 @@ describe("DashboardPage", () => {
       user: {
         name: "Nhân viên A",
         role: "MANAGER",
+        permissions: {
+          canViewDashboard: true,
+          canViewDashboardFinance: true,
+        },
       },
     } as never);
     vi.mocked(getDashboardSummaryData).mockResolvedValue({ todayOrderCount: 0 } as never);
@@ -44,11 +48,13 @@ describe("DashboardPage", () => {
     const { default: DashboardPage } = await import("@/app/(dashboard)/overview/page");
 
     const element = await DashboardPage();
-    const children = (element as any).props.children;
+    const children = (element as { props: { children: unknown[] } }).props.children;
+    const getInitialSummaryData = (child: unknown) =>
+      (child as { props?: { initialSummaryData?: unknown } }).props?.initialSummaryData;
 
     expect(vi.mocked(getDashboardSummaryData)).toHaveBeenCalledTimes(1);
-    expect(children[1].props.initialSummaryData).toEqual({ todayOrderCount: 0 });
-    expect(children[2].props.initialSummaryData).toEqual({ todayOrderCount: 0 });
-    expect(children[5].props.initialSummaryData).toEqual({ todayOrderCount: 0 });
+    expect(getInitialSummaryData(children[1])).toEqual({ todayOrderCount: 0 });
+    expect(getInitialSummaryData(children[2])).toEqual({ todayOrderCount: 0 });
+    expect(getInitialSummaryData(children[5])).toEqual({ todayOrderCount: 0 });
   }, 120000);
 });

@@ -13,7 +13,6 @@ import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ReturnFilters } from "./ReturnFilterPanel";
 import { ReturnOrder } from "@/types/returns";
 import { format } from "date-fns";
 
@@ -40,11 +39,10 @@ function getPriority(days: number): "LOW" | "MEDIUM" | "HIGH" | "URGENT" {
 
 interface Props {
   data: ReturnOrder[];
-  filters: ReturnFilters;
   pageSize: number;
 }
 
-export function FullReturnTab({ data, filters, pageSize }: Props) {
+export function FullReturnTab({ data, pageSize }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -67,27 +65,8 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
-  // Filter
-  let filtered = data.filter((o) => {
-    if (filters.search) {
-      const s = filters.search.toLowerCase();
-      if (
-        !o.requestCode.toLowerCase().includes(s) &&
-        !(o.carrierOrderCode || "").toLowerCase().includes(s) &&
-        !(o.shopName || "").toLowerCase().includes(s)
-      ) return false;
-    }
-    if (filters.shopName && o.shopName !== filters.shopName) return false;
-    if (filters.daysRange) {
-      const d = o.daysReturning ?? 0;
-      if (filters.daysRange === "lte3" && d > 3) return false;
-      if (filters.daysRange === "4to7" && (d < 4 || d > 7)) return false;
-      if (filters.daysRange === "gte8" && d < 8) return false;
-    }
-    if (filters.hasNotes === "has" && !o.staffNotes) return false;
-    if (filters.hasNotes === "empty" && o.staffNotes) return false;
-    return true;
-  });
+  // Filter params are handled server-side (search/shopName/hasNotes/daysRange).
+  let filtered = [...data];
 
   // Sort
   filtered = [...filtered].sort((a, b) => {
@@ -108,9 +87,9 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
     return 0;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = currentPage > totalPages ? 1 : currentPage;
-  const pageData = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const safePage = Math.max(1, currentPage);
+  const pageData = filtered;
+  const hasNextPage = pageData.length >= pageSize;
 
   const requestSort = (key: string) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -219,17 +198,17 @@ export function FullReturnTab({ data, filters, pageSize }: Props) {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {(safePage > 1 || hasNextPage) && (
         <div className="bg-slate-50 border-t border-slate-200 p-3 flex items-center justify-between shrink-0">
           <span className="text-[13px] text-slate-500 font-medium">
-            Trang <b className="text-slate-700">{safePage}</b> / {totalPages} <span className="opacity-50">|</span> {filtered.length} đơn
+            Trang <b className="text-slate-700">{safePage}</b> <span className="opacity-50">|</span> {pageData.length} đơn
           </span>
           <div className="flex gap-2">
             <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
               className="px-3 py-1.5 flex items-center gap-1 border border-slate-200 rounded text-[13px] font-medium bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm transition-all">
               <ChevronLeft className="w-3.5 h-3.5" /> Trước
             </button>
-            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+            <button onClick={() => setCurrentPage((p) => p + 1)} disabled={!hasNextPage}
               className="px-3 py-1.5 flex items-center gap-1 border border-slate-200 rounded text-[13px] font-medium bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm transition-all">
               Sau <ChevronRight className="w-3.5 h-3.5" />
             </button>

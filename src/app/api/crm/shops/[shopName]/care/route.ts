@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 
 export async function POST(
   request: NextRequest,
@@ -10,9 +11,7 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
+  if (!hasPermission(session.user, "canViewCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

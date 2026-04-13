@@ -1,5 +1,6 @@
 import FinancePageClient from "@/components/finance/FinancePageClient";
 import { getCachedSession } from "@/lib/cached-session";
+import { hasPermission } from "@/lib/route-permissions";
 import { getFinanceLandingData, resolvePnlRange } from "@/lib/finance/landing";
 import { getFinanceAnalysisInitialData, getFinanceCashbookInitialData } from "@/lib/finance/page-data";
 import { parsePeriodFromURL } from "@/lib/finance-period";
@@ -13,10 +14,9 @@ export default async function FinancePage({ searchParams }: Props) {
   const session = await getCachedSession();
   if (!session?.user) redirect("/login");
 
-  const { role, permissions } = session.user;
-  if (!permissions?.canViewFinancePage && role !== "ADMIN") redirect("/");
+  if (!hasPermission(session.user, "canViewFinancePage")) redirect("/no-access");
 
-  const isAdmin = role === "ADMIN";
+  const isAdmin = session.user.role === "ADMIN";
   const resolvedSearchParams = await searchParams;
   const activeTab = typeof resolvedSearchParams.tab === "string" ? resolvedSearchParams.tab : "overview";
   const params = new URLSearchParams();

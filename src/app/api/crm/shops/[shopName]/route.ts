@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 import { Decimal } from "@prisma/client/runtime/library";
 
 export async function GET(
@@ -11,9 +12,7 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
+  if (!hasPermission(session.user, "canViewCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -22,7 +21,7 @@ export async function GET(
 
   try {
     // Check assignment if user can't view all
-    const canViewAll = permissions.canViewAllShops || session.user.role === "ADMIN";
+    const canViewAll = hasPermission(session.user, "canViewAllShops");
     if (!canViewAll) {
       const assignment = await prisma.shopAssignment.findFirst({
         where: {
@@ -256,13 +255,11 @@ export async function PUT(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
+  if (!hasPermission(session.user, "canViewCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (!permissions.canEditShopInfo && session.user.role !== "ADMIN") {
+  if (!hasPermission(session.user, "canEditShopInfo")) {
     return NextResponse.json({ error: "Bạn không có quyền sửa thông tin khách hàng" }, { status: 403 });
   }
 

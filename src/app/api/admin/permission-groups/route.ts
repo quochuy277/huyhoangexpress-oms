@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERMISSION_KEYS } from "@/lib/permissions";
+import { hasPermission } from "@/lib/route-permissions";
 
 // GET /api/admin/permission-groups — list all groups
 export async function GET() {
@@ -10,7 +11,7 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManagePermissions) {
+    if (!hasPermission(session.user, "canManagePermissions")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
     }
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManagePermissions) {
+    if (!hasPermission(session.user, "canManagePermissions")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
     }
 

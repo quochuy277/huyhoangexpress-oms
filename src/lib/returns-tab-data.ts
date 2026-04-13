@@ -45,8 +45,58 @@ export function shouldFetchReturnsTab(
   return force || tabData[tab] === null;
 }
 
-export async function fetchReturnsTabData(fetchImpl: FetchLike, tab: ReturnsTabKey) {
-  const response = await fetchImpl(`/api/orders/returns?tab=${tab}`);
+export type ReturnsFilterParams = {
+  search?: string;
+  shop?: string;
+  days?: string;
+  notes?: string;
+  confirm?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export function getReturnsPageParamKey(tab: ReturnsTabKey) {
+  if (tab === "partial") return "partialPage";
+  if (tab === "full") return "fullPage";
+  return "warehousePage";
+}
+
+export function resolveReturnsTabPage(
+  searchParams: Pick<URLSearchParams, "get">,
+  tab: ReturnsTabKey,
+) {
+  const rawPage = searchParams.get(getReturnsPageParamKey(tab));
+  const page = Number.parseInt(rawPage || "1", 10);
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
+}
+
+export function clearReturnsPaginationParams(searchParams: Pick<URLSearchParams, "delete">) {
+  searchParams.delete("page");
+  searchParams.delete("partialPage");
+  searchParams.delete("fullPage");
+  searchParams.delete("warehousePage");
+}
+
+export async function fetchReturnsTabData(
+  fetchImpl: FetchLike,
+  tab: ReturnsTabKey,
+  params?: ReturnsFilterParams,
+) {
+  const qs = new URLSearchParams({ tab });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.shop) qs.set("shop", params.shop);
+  if (params?.days) qs.set("days", params.days);
+  if (params?.notes) qs.set("notes", params.notes);
+  if (params?.confirm) qs.set("confirm", params.confirm);
+  if (params?.page && params.page > 1) qs.set("page", String(params.page));
+  if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+
+  const response = await fetchImpl(`/api/orders/returns?${qs.toString()}`);
   const payload = await response.json();
 
   return (payload.data as ReturnOrder[] | undefined) || [];

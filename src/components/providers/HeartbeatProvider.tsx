@@ -20,6 +20,9 @@ export default function HeartbeatProvider() {
             // Admin force-logged us out — redirect to login
             signOut({ callbackUrl: "/login" });
           }
+        } else if (res.status === 401) {
+          // JWT invalidated (user deactivated/deleted) — force sign out
+          signOut({ callbackUrl: "/login" });
         }
       } catch {
         // Silently ignore network errors

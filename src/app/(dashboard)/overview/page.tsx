@@ -8,6 +8,7 @@ import { ActivityAndRatesRow } from "@/components/dashboard/ActivityAndRatesRow"
 import dynamic from "next/dynamic";
 import { getDashboardSummaryData } from "@/lib/dashboard-overview-data";
 import { redirect } from "next/navigation";
+import { hasPermission } from "@/lib/route-permissions";
 
 const TrendAndStatusRow = dynamic(() => import("@/components/dashboard/TrendAndStatusRow").then(m => ({ default: m.TrendAndStatusRow })), {
   loading: () => <div className="h-64 animate-pulse bg-muted rounded" />,
@@ -29,8 +30,8 @@ export default async function DashboardPage() {
   const userRole = session.user.role || "VIEWER";
   const permissions = session.user.permissions;
 
-  if (!permissions?.canViewDashboard && userRole !== "ADMIN") {
-    redirect("/orders");
+  if (!hasPermission(session.user, "canViewDashboard")) {
+    redirect("/no-access");
   }
   const initialSummaryData = await getDashboardSummaryData(userRole);
 
@@ -52,8 +53,8 @@ export default async function DashboardPage() {
       {/* Row 1: Alert Cards (All Roles) */}
       <AlertCardsRow initialSummaryData={initialSummaryData} />
 
-      {/* Row 2: Financial Cards (Manager/Admin Only) */}
-        {(userRole === "ADMIN" || userRole === "MANAGER") && (
+      {/* Row 2: Financial Cards (requires canViewDashboardFinance) */}
+      {hasPermission(session.user, "canViewDashboardFinance") && (
         <FinanceCardsRow initialSummaryData={initialSummaryData} />
       )}
 

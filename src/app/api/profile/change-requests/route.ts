@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(requests);
 }
 
+// Allowlist of user fields that can be changed via info change requests
+const ALLOWED_CHANGE_FIELDS = ["name", "phone", "dateOfBirth", "hometown", "permanentAddress", "currentAddress", "citizenId", "socialLink"];
+
 // POST — Submit info change request
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -36,6 +39,10 @@ export async function POST(req: NextRequest) {
 
   if (!fieldName || !fieldLabel || !newValue?.trim()) {
     return NextResponse.json({ error: "Vui lòng điền đầy đủ thông tin" }, { status: 400 });
+  }
+
+  if (!ALLOWED_CHANGE_FIELDS.includes(fieldName)) {
+    return NextResponse.json({ error: "Không được phép thay đổi trường này" }, { status: 400 });
   }
 
   const request = await prisma.infoChangeRequest.create({

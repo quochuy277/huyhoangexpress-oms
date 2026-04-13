@@ -35,6 +35,8 @@ import { auth } from "@/lib/auth";
 import { processOrderImport } from "@/lib/order-import-service";
 import { prisma } from "@/lib/prisma";
 
+type TransactionMock = (callback: (tx: unknown) => unknown) => Promise<unknown>;
+
 function makeSession(overrides: Record<string, unknown> = {}) {
   return {
     user: {
@@ -77,7 +79,7 @@ describe("orders API RBAC", () => {
     vi.mocked(prisma.order.count).mockResolvedValue(0 as never);
     vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as never);
     vi.mocked(prisma.order.findUnique).mockResolvedValue(null as never);
-    vi.mocked(prisma.$transaction as any).mockImplementation(async (callback: any) =>
+    vi.mocked(prisma.$transaction as unknown as TransactionMock).mockImplementation(async (callback) =>
       callback({
         order: {
           findMany: vi.fn().mockResolvedValue([{ id: "order-1" }]),
@@ -219,6 +221,15 @@ describe("orders API RBAC", () => {
 
   it("allows ADMIN to export orders even when canExportOrders is false in the permission group", async () => {
     vi.mocked(auth).mockResolvedValue(makeAdminSession() as never);
+    vi.mocked(prisma.order.findMany).mockResolvedValueOnce([
+      {
+        requestCode: "REQ-001",
+        createdTime: new Date("2026-04-12T00:00:00.000Z"),
+        deliveryStatus: "DELIVERED",
+        codAmount: 100000,
+        totalFee: 25000,
+      },
+    ] as never);
 
     const { GET } = await import("@/app/api/orders/export/route");
     const response = await GET(new NextRequest("http://localhost/api/orders/export"));
@@ -238,7 +249,7 @@ describe("orders API RBAC", () => {
     }));
 
     expect(response.status).toBe(200);
-    expect(vi.mocked(prisma.$transaction as any)).toHaveBeenCalled();
+    expect(vi.mocked(prisma.$transaction as unknown as TransactionMock)).toHaveBeenCalled();
   });
 
   it("allows ADMIN to edit staff notes even when canEditStaffNotes is false in the permission group", async () => {

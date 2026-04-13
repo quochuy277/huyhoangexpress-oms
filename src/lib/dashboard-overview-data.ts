@@ -1,6 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 
+// Simple in-memory cache for dashboard summary data (avoids re-querying DB for every user)
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds
+const summaryCache = new Map<string, { data: any; timestamp: number }>();
+
+function getCachedSummary(cacheKey: string) {
+  const entry = summaryCache.get(cacheKey);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry.data;
+  }
+  return null;
+}
+
+function setCachedSummary(cacheKey: string, data: any) {
+  summaryCache.set(cacheKey, { data, timestamp: Date.now() });
+  // Prevent unbounded growth — clear old entries
+  if (summaryCache.size > 10) {
+    const oldest = [...summaryCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+    if (oldest) summaryCache.delete(oldest[0]);
+  }
+}
+
 function toNumber(value: unknown) {
   if (value == null) return value;
   if (typeof value === "number") return value;
@@ -31,6 +52,10 @@ export function normalizeDashboardSummaryData(data: any) {
 
 export async function getDashboardSummaryData(role: Role | string | null | undefined) {
   const isManagerOrAdmin = role === "ADMIN" || role === "MANAGER";
+  const cacheKey = isManagerOrAdmin ? "admin" : "staff";
+
+  const cached = getCachedSummary(cacheKey);
+  if (cached) return cached;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -160,5 +185,7 @@ export async function getDashboardSummaryData(role: Role | string | null | undef
     };
   }
 
-  return normalizeDashboardSummaryData(responseData);
+  const result = normalizeDashboardSummaryData(responseData);
+  setCachedSummary(cacheKey, result);
+  return result;
 }

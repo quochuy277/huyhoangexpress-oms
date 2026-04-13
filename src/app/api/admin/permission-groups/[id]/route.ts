@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERMISSION_KEYS } from "@/lib/permissions";
+import { hasPermission } from "@/lib/route-permissions";
 
 // PATCH /api/admin/permission-groups/[id] — update group
 export async function PATCH(
@@ -13,7 +14,7 @@ export async function PATCH(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManagePermissions) {
+    if (!hasPermission(session.user, "canManagePermissions")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
     }
 
@@ -46,6 +47,27 @@ export async function PATCH(
       data: updateData,
     });
 
+    // Auto-invalidate sessions of affected users so permission changes take effect immediately
+    const affectedUsers = await prisma.user.findMany({
+      where: { permissionGroupId: id },
+      select: { id: true },
+    });
+    if (affectedUsers.length > 0) {
+      const now = new Date();
+      await prisma.loginHistory.updateMany({
+        where: {
+          userId: { in: affectedUsers.map(u => u.id) },
+          logoutTime: null,
+        },
+        data: { logoutTime: now, logoutReason: "permission_group_changed" },
+      });
+      await prisma.systemSetting.upsert({
+        where: { key: "force_logout_at" },
+        create: { key: "force_logout_at", value: now.toISOString() },
+        update: { value: now.toISOString() },
+      });
+    }
+
     return NextResponse.json(group);
   } catch (error) {
     console.error("Update permission group error:", error);
@@ -63,7 +85,7 @@ export async function DELETE(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManagePermissions) {
+    if (!hasPermission(session.user, "canManagePermissions")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhóm quyền" }, { status: 403 });
     }
 

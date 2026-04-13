@@ -5,6 +5,7 @@ import { ordersQuerySchema } from "@/lib/validations";
 import type { OrdersApiResponse } from "@/types/orders";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { hasPermission } from "@/lib/route-permissions";
 
 export const metadata: Metadata = { title: "Quản Lý Đơn Hàng" };
 
@@ -18,12 +19,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const userRole = session.user.role || "VIEWER";
   const permissions = session.user.permissions;
-  if (!permissions?.canViewOrders && userRole !== "ADMIN") {
-    redirect("/");
+  if (!hasPermission(session.user, "canViewOrders")) {
+    redirect("/no-access");
   }
 
-  const canEditStaffNotes = userRole === "ADMIN" || permissions?.canEditStaffNotes === true;
-  const canUseAdvancedFilters = userRole === "ADMIN" || permissions?.canUseAdvancedFilters === true;
+  const canEditStaffNotes = hasPermission(session.user, "canEditStaffNotes");
+  const canUseAdvancedFilters = hasPermission(session.user, "canUseAdvancedFilters");
   const resolvedSearchParams = await searchParams;
   const rawParams = Object.entries(resolvedSearchParams).reduce<Record<string, string>>(
     (accumulator, [key, value]) => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DeliveryStatus } from "@prisma/client";
 
@@ -9,6 +10,9 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
+
+  const denied = requirePermission(session.user, "canViewDashboard", "Không có quyền xem tổng quan");
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
   const days = parseInt(searchParams.get("days") || "7", 10);

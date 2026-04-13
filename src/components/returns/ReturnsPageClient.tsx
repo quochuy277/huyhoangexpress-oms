@@ -7,12 +7,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { ReturnFilterPanel, type ReturnFilters } from "@/components/returns/ReturnFilterPanel";
 import {
+  clearReturnsPaginationParams,
   createReturnsTabDataWithInitial,
   fetchReturnsSummary,
   fetchReturnsTabData,
   getReturnShopNames,
   invalidateReturnsTabs,
+  resolveReturnsTabPage,
   shouldFetchReturnsTab,
+  type ReturnsFilterParams,
   type ReturnsSummaryCounts,
   type ReturnsTabKey,
   type ReturnsTabDataMap,
@@ -77,8 +80,17 @@ export function ReturnsPageClient({
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState<ReturnFilters>(initialFilters);
 
-  const updateUrl = useCallback((tab: TabKey, nextFilters: ReturnFilters) => {
+  const updateUrl = useCallback((
+    tab: TabKey,
+    nextFilters: ReturnFilters,
+    options?: { resetPagination?: boolean },
+  ) => {
     const params = new URLSearchParams(searchParams.toString());
+
+    if (options?.resetPagination) {
+      clearReturnsPaginationParams(params);
+    }
+
     params.set("tab", tab);
 
     if (nextFilters.search) params.set("search", nextFilters.search);
@@ -106,7 +118,7 @@ export function ReturnsPageClient({
 
   const handleSetFilters = useCallback((nextFilters: ReturnFilters) => {
     setFilters(nextFilters);
-    updateUrl(activeTab, nextFilters);
+    updateUrl(activeTab, nextFilters, { resetPagination: true });
   }, [activeTab, updateUrl]);
 
   const loadSummary = useCallback(async () => {
@@ -119,6 +131,20 @@ export function ReturnsPageClient({
     }
   }, []);
 
+  const buildFilterParams = useCallback((
+    tab: TabKey,
+    f: ReturnFilters,
+    ps: number,
+  ): ReturnsFilterParams => ({
+    search: f.search || undefined,
+    shop: f.shopName || undefined,
+    days: f.daysRange || undefined,
+    notes: f.hasNotes || undefined,
+    confirm: f.confirmAsked || undefined,
+    page: resolveReturnsTabPage(searchParams, tab),
+    pageSize: ps,
+  }), [searchParams]);
+
   const loadTab = useCallback(async (tab: TabKey, force = false) => {
     const needsFetch = shouldFetchReturnsTab(tabData, tab, force);
     if (!needsFetch) {
@@ -127,7 +153,8 @@ export function ReturnsPageClient({
 
     setLoading(true);
     try {
-      const rows = await fetchReturnsTabData(fetch, tab);
+      const params = buildFilterParams(tab, filters, pageSize);
+      const rows = await fetchReturnsTabData(fetch, tab, params);
       setTabData((prev) => ({
         ...prev,
         [tab]: rows,
@@ -137,11 +164,17 @@ export function ReturnsPageClient({
     } finally {
       setLoading(false);
     }
-  }, [tabData]);
+  }, [tabData, filters, pageSize, buildFilterParams]);
 
+  // Re-fetch when active tab changes
   useEffect(() => {
     loadTab(activeTab);
   }, [activeTab, loadTab]);
+
+  // Re-fetch when filters or pageSize change — invalidate current tab then fetch
+  useEffect(() => {
+    setTabData((prev) => invalidateReturnsTabs(prev, [activeTab]));
+  }, [filters, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleWarehouseConfirm = async (requestCode: string) => {
     try {
@@ -303,9 +336,9 @@ export function ReturnsPageClient({
           </div>
         ) : (
           <>
-            {activeTab === "partial" && <PartialReturnTab data={partialData} filters={filters} pageSize={pageSize} onWarehouseConfirm={handleWarehouseConfirm} />}
-            {activeTab === "full" && <FullReturnTab data={fullData} filters={filters} pageSize={pageSize} />}
-            {activeTab === "warehouse" && <WaitingReturnTab data={warehouseData} filters={filters} pageSize={pageSize} onConfirmAskedToggle={handleConfirmAskedToggle} onCustomerConfirmedToggle={handleCustomerConfirmedToggle} />}
+            {activeTab === "partial" && <PartialReturnTab data={partialData} pageSize={pageSize} onWarehouseConfirm={handleWarehouseConfirm} />}
+            {activeTab === "full" && <FullReturnTab data={fullData} pageSize={pageSize} />}
+            {activeTab === "warehouse" && <WaitingReturnTab data={warehouseData} pageSize={pageSize} onConfirmAskedToggle={handleConfirmAskedToggle} onCustomerConfirmedToggle={handleCustomerConfirmedToggle} />}
           </>
         )}
       </div>
