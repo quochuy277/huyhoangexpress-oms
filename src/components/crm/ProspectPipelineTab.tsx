@@ -64,7 +64,7 @@ export function ProspectPipelineTab({ userRole, userId, userName, initialData }:
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
 
-  // Stats
+  // Stats — staleTime 2min (prospect stats change infrequently)
   const { data: statsData } = useQuery({
     queryKey: ["crm-prospect-stats"],
     queryFn: async () => {
@@ -73,10 +73,11 @@ export function ProspectPipelineTab({ userRole, userId, userName, initialData }:
       return res.json();
     },
     refetchInterval: 300000,
+    staleTime: 2 * 60 * 1000,
     initialData: initialData?.stats,
   });
 
-  // Prospects list
+  // Prospects list — staleTime 1min
   const { data: prospectsData, isLoading } = useQuery({
     queryKey: ["crm-prospects", appliedSearch],
     queryFn: async () => {
@@ -88,6 +89,7 @@ export function ProspectPipelineTab({ userRole, userId, userName, initialData }:
       return res.json();
     },
     refetchInterval: 300000,
+    staleTime: 60 * 1000,
     initialData: appliedSearch ? undefined : initialData?.prospects,
   });
 

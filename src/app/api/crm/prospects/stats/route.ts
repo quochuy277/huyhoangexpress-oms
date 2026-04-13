@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 
 
 export async function GET() {
@@ -9,13 +10,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
+  if (!hasPermission(session.user, "canViewCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const canViewAll = permissions.canViewAllShops || session.user.role === "ADMIN";
+  const canViewAll = hasPermission(session.user, "canViewAllShops");
   const assigneeFilter = canViewAll ? {} : { assigneeId: session.user.id };
 
   try {

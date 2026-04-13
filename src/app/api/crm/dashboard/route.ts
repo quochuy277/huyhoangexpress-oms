@@ -1,202 +1,34 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCrmShopsInitialData } from "@/lib/crm-page-data";
+import { hasPermission } from "@/lib/route-permissions";
+import { createServerTiming, mergeServerTimingValues } from "@/lib/server-timing";
 
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const canViewAll = permissions.canViewAllShops || session.user.role === "ADMIN";
-  const userId = session.user.id;
+  const timing = createServerTiming();
 
   try {
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-
-    // Get assigned shop names if user can't view all
-    let assignedShopNames: string[] | null = null;
-    if (!canViewAll) {
-      const assignments = await prisma.shopAssignment.findMany({
-        where: { userId },
-        include: { shop: { select: { shopName: true } } },
-      });
-      assignedShopNames = assignments.map((a) => a.shop.shopName);
+    const session = await timing.measure("auth", () => auth());
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: timing.headers() });
     }
 
-    const shopNameFilter = assignedShopNames !== null
-      ? { shopName: { in: assignedShopNames } }
-      : {};
-
-    // Run all three groupBy queries in parallel
-    const [allShops, recentShops, prevShops] = await Promise.all([
-      // Get all unique shopNames with their order stats
-      prisma.order.groupBy({
-        by: ["shopName"],
-        where: {
-          shopName: { not: "" },
-          ...shopNameFilter,
-        },
-        _count: { id: true },
-        _max: { createdTime: true },
-        _min: { createdTime: true },
-      }),
-      // Recent orders (last 30 days) grouped by shop
-      prisma.order.groupBy({
-        by: ["shopName"],
-        where: {
-          shopName: { not: "" },
-          createdTime: { gte: thirtyDaysAgo },
-          ...shopNameFilter,
-        },
-        _count: { id: true },
-      }),
-      // Previous 30 days for trend (30-60 days ago)
-      prisma.order.groupBy({
-        by: ["shopName"],
-        where: {
-          shopName: { not: "" },
-          createdTime: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
-          ...shopNameFilter,
-        },
-        _count: { id: true },
-      }),
-    ]);
-
-    const recentMap = new Map(recentShops.map((s) => [s.shopName, s._count.id]));
-    const prevMap = new Map(prevShops.map((s) => [s.shopName, s._count.id]));
-
-    // Classify shops
-    let activeShops = 0;
-    let vipShops = 0;
-    let newShops = 0;
-    let warningShops = 0;
-    let inactiveShops = 0;
-
-    for (const shop of allShops) {
-      const name = shop.shopName;
-      if (!name) continue;
-      const recent = recentMap.get(name) || 0;
-      const prev = prevMap.get(name) || 0;
-      const lastOrder = shop._max.createdTime;
-      const firstOrder = shop._min.createdTime;
-      const totalOrders = shop._count.id;
-
-      // Classification logic
-      const isInactive = !lastOrder || lastOrder < thirtyDaysAgo;
-      const isNew = firstOrder && firstOrder >= thirtyDaysAgo;
-      const decline = prev > 0 ? ((prev - recent) / prev) * 100 : 0;
-      const isWarning = !isInactive && !isNew && decline >= 30;
-      const avgPerMonth = totalOrders / Math.max(1, Math.ceil((now.getTime() - (firstOrder?.getTime() || now.getTime())) / (30 * 24 * 60 * 60 * 1000)));
-      const monthsActive = firstOrder ? Math.ceil((now.getTime() - firstOrder.getTime()) / (30 * 24 * 60 * 60 * 1000)) : 0;
-      const isVip = !isInactive && !isNew && !isWarning && avgPerMonth >= 50 && monthsActive >= 3;
-
-      if (isInactive) inactiveShops++;
-      else if (isNew) newShops++;
-      else if (isWarning) warningShops++;
-      else if (isVip) vipShops++;
-      activeShops += isInactive ? 0 : 1;
+    if (!hasPermission(session.user, "canViewCRM")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: timing.headers() });
     }
 
-    // Urgent list — shops needing attention
-    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const initialData = await getCrmShopsInitialData(session.user);
+    const headers = timing.headers();
+    headers["Server-Timing"] = mergeServerTimingValues(headers["Server-Timing"], initialData._timing);
+    timing.log("crm-dashboard-api");
 
-    // Run shopProfiles and recentActivities queries in parallel
-    const [shopProfiles, recentActivities] = await Promise.all([
-      // Get all ShopProfiles with their latest care log
-      prisma.shopProfile.findMany({
-        where: assignedShopNames !== null ? { shopName: { in: assignedShopNames } } : {},
-        include: {
-          careLogs: {
-            where: { isAutoLog: false },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-        },
-      }),
-      // Recent activities (latest 10 non-auto care logs)
-      prisma.shopCareLog.findMany({
-        where: {
-          isAutoLog: false,
-          ...(assignedShopNames !== null
-            ? { shop: { shopName: { in: assignedShopNames } } }
-            : {}),
-        },
-        include: { shop: { select: { shopName: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      }),
-    ]);
-
-    // Build a Map for O(1) shop lookups instead of O(n) allShops.find()
-    const allShopsMap = new Map(allShops.map((s) => [s.shopName, s]));
-
-    const urgentList: Array<{
-      shopName: string;
-      reason: string;
-      lastContactDate: Date | null;
-      classification: string | null;
-    }> = [];
-
-    for (const profile of shopProfiles) {
-      const lastContact = profile.careLogs[0]?.createdAt || null;
-      const needsContact = !lastContact || lastContact < fourteenDaysAgo;
-      if (!needsContact) continue;
-
-      const recent = recentMap.get(profile.shopName) || 0;
-      const prev = prevMap.get(profile.shopName) || 0;
-      const decline = prev > 0 ? Math.round(((prev - recent) / prev) * 100) : 0;
-      const shopData = allShopsMap.get(profile.shopName);
-      const lastOrder = shopData?._max.createdTime;
-      const isInactive = !lastOrder || lastOrder < thirtyDaysAgo;
-
-      let reason = "Chưa liên hệ 14+ ngày";
-      if (isInactive) reason = `Ngừng gửi hàng ${lastOrder ? Math.ceil((now.getTime() - lastOrder.getTime()) / (24 * 60 * 60 * 1000)) : "?"} ngày`;
-      else if (decline >= 30) reason = `Giảm ${decline}% đơn`;
-
-      urgentList.push({
-        shopName: profile.shopName,
-        reason,
-        lastContactDate: lastContact,
-        classification: profile.classification,
-      });
-    }
-
-    // Sort: WARNING > INACTIVE > others, then by last contact date
-    urgentList.sort((a, b) => {
-      const priority = (r: string) =>
-        r.includes("Giảm") ? 0 : r.includes("Ngừng") ? 1 : 2;
-      return priority(a.reason) - priority(b.reason);
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        stats: { activeShops, vipShops, newShops, warningShops, inactiveShops },
-        urgentList: urgentList.slice(0, 10),
-        recentActivities: recentActivities.map((a) => ({
-          shopName: a.shop.shopName,
-          authorName: a.authorName,
-          contactMethod: a.contactMethod,
-          content: a.content.substring(0, 100),
-          createdAt: a.createdAt,
-        })),
-      },
-    });
+    return NextResponse.json(initialData.dashboard, { headers });
   } catch (error) {
     console.error("CRM Dashboard Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers: timing.headers() }
     );
   }
 }

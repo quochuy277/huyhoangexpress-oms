@@ -111,7 +111,7 @@ export function useClaimsList({
       const response = await fetch("/api/claims/filter-options");
       return parseClaimsFilterOptionsResponse(response);
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000, // 30 min — filter options rarely change
   });
 
   const claims = claimsQuery.data?.claims || [];

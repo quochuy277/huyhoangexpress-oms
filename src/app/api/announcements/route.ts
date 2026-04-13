@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 
 // GET — List announcements (all users, paginated)
 export async function GET(req: NextRequest) {
@@ -47,8 +48,8 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  // Check permission from JWT
-  if (!session.user.permissions?.canCreateAnnouncement) {
+  // Check permission (hasPermission handles ADMIN override)
+  if (!hasPermission(session.user, "canCreateAnnouncement")) {
     return NextResponse.json({ error: "Không có quyền tạo thông báo" }, { status: 403 });
   }
   const user = session.user as { id: string; name?: string };

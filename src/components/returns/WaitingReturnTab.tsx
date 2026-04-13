@@ -13,7 +13,6 @@ import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ReturnFilters } from "./ReturnFilterPanel";
 import { ReturnOrder } from "@/types/returns";
 import { format } from "date-fns";
 
@@ -64,13 +63,12 @@ function TrackingCheckbox({ checked, byName, byAt, onToggle, labelOn, labelOff }
 
 interface Props {
   data: ReturnOrder[];
-  filters: ReturnFilters;
   pageSize: number;
   onConfirmAskedToggle: (requestCode: string, value: boolean) => Promise<void>;
   onCustomerConfirmedToggle: (requestCode: string, value: boolean) => Promise<void>;
 }
 
-export function WaitingReturnTab({ data, filters, pageSize, onConfirmAskedToggle, onCustomerConfirmedToggle }: Props) {
+export function WaitingReturnTab({ data, pageSize, onConfirmAskedToggle, onCustomerConfirmedToggle }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -92,26 +90,9 @@ export function WaitingReturnTab({ data, filters, pageSize, onConfirmAskedToggle
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
 
-  // Filter
-  let filtered = data.filter((o) => {
-    if (filters.search) {
-      const s = filters.search.toLowerCase();
-      if (
-        !o.requestCode.toLowerCase().includes(s) &&
-        !(o.carrierOrderCode || "").toLowerCase().includes(s) &&
-        !(o.shopName || "").toLowerCase().includes(s)
-      ) return false;
-    }
-    if (filters.shopName && o.shopName !== filters.shopName) return false;
-    if (filters.hasNotes === "has" && !o.staffNotes) return false;
-    if (filters.hasNotes === "empty" && o.staffNotes) return false;
-    if (filters.confirmAsked === "asked" && !o.customerConfirmAsked) return false;
-    if (filters.confirmAsked === "notasked" && o.customerConfirmAsked) return false;
-    return true;
-  });
-
+  // Filter params are handled server-side (search/shopName/hasNotes/confirmAsked).
   // Sort
-  filtered = [...filtered].sort((a, b) => {
+  const filtered = [...data].sort((a, b) => {
     let va: any, vb: any;
     if (sortKey === "warehouseDate") {
       va = getWarehouseDate(a)?.getTime() ?? 0;
@@ -126,9 +107,9 @@ export function WaitingReturnTab({ data, filters, pageSize, onConfirmAskedToggle
     return 0;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = currentPage > totalPages ? 1 : currentPage;
-  const pageData = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const safePage = Math.max(1, currentPage);
+  const pageData = filtered;
+  const hasNextPage = pageData.length >= pageSize;
 
   const requestSort = (key: string) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -259,17 +240,17 @@ export function WaitingReturnTab({ data, filters, pageSize, onConfirmAskedToggle
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {(safePage > 1 || hasNextPage) && (
         <div className="bg-slate-50 border-t border-slate-200 p-3 flex items-center justify-between shrink-0">
           <span className="text-[13px] text-slate-500 font-medium">
-            Trang <b className="text-slate-700">{safePage}</b> / {totalPages} <span className="opacity-50">|</span> {filtered.length} đơn
+            Trang <b className="text-slate-700">{safePage}</b> <span className="opacity-50">|</span> {pageData.length} đơn
           </span>
           <div className="flex gap-2">
             <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
               className="px-3 py-1.5 flex items-center gap-1 border border-slate-200 rounded text-[13px] font-medium bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm transition-all">
               <ChevronLeft className="w-3.5 h-3.5" /> Trước
             </button>
-            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+            <button onClick={() => setCurrentPage((p) => p + 1)} disabled={!hasNextPage}
               className="px-3 py-1.5 flex items-center gap-1 border border-slate-200 rounded text-[13px] font-medium bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm transition-all">
               Sau <ChevronRight className="w-3.5 h-3.5" />
             </button>

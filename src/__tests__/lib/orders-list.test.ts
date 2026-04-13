@@ -25,7 +25,7 @@ describe("buildOrdersListQuery", () => {
     });
 
     expect(query.where).toEqual({
-      AND: expect.arrayContaining([{ requestCode: "B65ACHM0007569" }]),
+      AND: expect.arrayContaining([{ requestCode: { in: ["B65ACHM0007569"] } }]),
     });
     expect(query.skipCount).toBe(true);
   });

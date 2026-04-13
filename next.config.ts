@@ -4,8 +4,19 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", ".prisma/client"],
   devIndicators: false,
   compress: true,
+  productionBrowserSourceMaps: false,
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', '@tiptap/react', '@tiptap/starter-kit'],
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tooltip',
+    ],
   },
   headers: async () => [
     {

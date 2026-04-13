@@ -31,10 +31,10 @@ const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
   {
     path: "src/components/orders/OrderFilters.tsx",
     phrases: [
-      "Tìm mã yêu cầu, mã đối tác, SĐT hoặc 4 số cuối SĐT...",
+      "Nhập mã yêu cầu, mã đối tác, SĐT... (Shift+Enter thêm dòng, tối đa 50 mã)",
       "Mặc định chỉ hiển thị đơn trong 30 ngày gần nhất.",
       "Tất cả trạng thái",
-      "Tất cả đối tác",
+      "Tất cả cửa hàng",
       "Nâng cao",
     ],
   },

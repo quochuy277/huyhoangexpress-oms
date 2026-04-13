@@ -100,8 +100,10 @@ describe("buildOrderSearchFilters", () => {
       searchMeta: {
         kind: "requestCode",
         normalized: "B65ACHM0007569",
+        isMulti: false,
+        hasExactMatch: true,
       },
-      filters: [{ requestCode: "B65ACHM0007569" }],
+      filters: [{ requestCode: { in: ["B65ACHM0007569"] } }],
     });
   });
 
@@ -113,6 +115,8 @@ describe("buildOrderSearchFilters", () => {
     expect(result.searchMeta).toEqual({
       kind: "text",
       normalized: "431 Oni",
+      isMulti: false,
+      hasExactMatch: false,
     });
     expect(result.filters).toEqual(
       expect.arrayContaining([
@@ -139,6 +143,8 @@ describe("buildOrderSearchFilters", () => {
       searchMeta: {
         kind: "phoneLast4",
         normalized: "3551",
+        isMulti: false,
+        hasExactMatch: false,
       },
       filters: expect.arrayContaining([
         { receiverPhone: { endsWith: "3551" } },
@@ -159,6 +165,8 @@ describe("buildOrderSearchFilters", () => {
       searchMeta: {
         kind: "text",
         normalized: "431 Oni",
+        isMulti: false,
+        hasExactMatch: false,
       },
       filters: [
         {

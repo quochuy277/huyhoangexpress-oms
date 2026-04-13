@@ -1,32 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
+import { createServerTiming } from "@/lib/server-timing";
 
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const canViewAll = permissions.canViewAllShops || session.user.role === "ADMIN";
-  const { searchParams } = new URL(request.url);
-
-  const stage = searchParams.get("stage") || "";
-  const source = searchParams.get("source") || "";
-  const assignee = searchParams.get("assignee") || "";
-  const search = searchParams.get("search") || "";
-  const showLost = searchParams.get("showLost") === "true";
-  const page = parseInt(searchParams.get("page") || "1");
-  const pageSize = parseInt(searchParams.get("pageSize") || "100");
+  const timing = createServerTiming();
 
   try {
+    const session = await timing.measure("auth", () => auth());
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: timing.headers() });
+    }
+
+    if (!hasPermission(session.user, "canViewCRM")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: timing.headers() });
+    }
+
+    const canViewAll = hasPermission(session.user, "canViewAllShops");
+    const { searchParams } = new URL(request.url);
+
+    const stage = searchParams.get("stage") || "";
+    const source = searchParams.get("source") || "";
+    const assignee = searchParams.get("assignee") || "";
+    const search = searchParams.get("search") || "";
+    const showLost = searchParams.get("showLost") === "true";
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "100", 10);
+
     const where: Record<string, unknown> = {};
 
     if (!showLost) where.isLost = false;
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const [prospects, total] = await Promise.all([
+    const [prospects, total] = await timing.measure("queries", () => Promise.all([
       prisma.shopProspect.findMany({
         where,
         include: {
@@ -57,9 +59,11 @@ export async function GET(request: NextRequest) {
         take: pageSize,
       }),
       prisma.shopProspect.count({ where }),
-    ]);
+    ]));
 
-    return NextResponse.json({
+    const transformStartedAt = performance.now();
+
+    const payload = {
       success: true,
       data: {
         prospects: prospects.map((p) => ({
@@ -74,10 +78,15 @@ export async function GET(request: NextRequest) {
           totalPages: Math.ceil(total / pageSize),
         },
       },
-    });
+    };
+
+    timing.record("transform", performance.now() - transformStartedAt);
+    timing.log("crm-prospects-api");
+
+    return NextResponse.json(payload, { headers: timing.headers() });
   } catch (error) {
     console.error("CRM Prospects List Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: timing.headers() });
   }
 }
 
@@ -87,9 +96,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
+  if (!hasPermission(session.user, "canViewCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

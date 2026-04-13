@@ -1,4 +1,5 @@
 import { getCachedSession } from "@/lib/cached-session";
+import { hasPermission } from "@/lib/route-permissions";
 import { CrmClient } from "@/components/crm/CrmClient";
 import { getCrmProspectsInitialData, getCrmShopsInitialData } from "@/lib/crm-page-data";
 import type { Metadata } from "next";
@@ -25,9 +26,8 @@ export default async function CrmPage({ searchParams }: CrmPageProps) {
   const initialProspectsData = activeTab === "prospects" ? await getCrmProspectsInitialData(crmUser) : null;
   const initialShopsData = activeTab === "shops" ? await getCrmShopsInitialData(crmUser) : null;
 
-  const permissions = session?.user?.permissions;
-  const canManageCRM = !!permissions?.canManageCRM || userRole === "ADMIN";
-  const canEditShopInfo = !!permissions?.canEditShopInfo || userRole === "ADMIN";
+  const canManageCRM = hasPermission(session?.user, "canManageCRM");
+  const canEditShopInfo = hasPermission(session?.user, "canEditShopInfo");
 
   return (
     <CrmClient

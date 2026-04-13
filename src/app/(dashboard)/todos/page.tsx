@@ -1,4 +1,5 @@
 import { getCachedSession } from "@/lib/cached-session";
+import { hasPermission } from "@/lib/route-permissions";
 import { redirect } from "next/navigation";
 import dynamic from "next/dynamic";
 import { getTodosBootstrapData } from "@/lib/todo-page-data";
@@ -16,7 +17,7 @@ export default async function TodosPage() {
     permissions: user.permissions,
   });
 
-  const canViewAllTodos = user.role === "ADMIN" || !!user.permissions?.canViewAllTodos;
+  const canViewAllTodos = hasPermission(user, "canViewAllTodos");
 
   return (
     <TodosClient

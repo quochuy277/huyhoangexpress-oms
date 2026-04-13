@@ -39,7 +39,9 @@ export default function IdleLogoutProvider({ children }: { children: React.React
   const fetchSettings = useCallback(async () => {
     try {
       settingsRef.current = await loadAttendanceSettings();
-    } catch {}
+    } catch (err) {
+      console.warn("[IdleLogoutProvider] Failed to fetch attendance settings:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -73,12 +75,13 @@ export default function IdleLogoutProvider({ children }: { children: React.React
       debounceTimer = setTimeout(updateActivity, 1000);
     };
 
-    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
-    events.forEach(e => window.addEventListener(e, handleActivity));
+    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"] as const;
+    const opts: AddEventListenerOptions = { passive: true };
+    events.forEach(e => window.addEventListener(e, handleActivity, opts));
     updateActivity();
 
     return () => {
-      events.forEach(e => window.removeEventListener(e, handleActivity));
+      events.forEach(e => window.removeEventListener(e, handleActivity, opts));
       clearTimeout(debounceTimer);
     };
   }, []);

@@ -1,48 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getCrmShopsInitialData } from "@/lib/crm-page-data";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
+import { createServerTiming, mergeServerTimingValues } from "@/lib/server-timing";
 
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const permissions = session.user.permissions;
-
-  if (!permissions.canViewCRM) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const canViewAll = permissions.canViewAllShops || session.user.role === "ADMIN";
-  const userId = session.user.id;
-  const { searchParams } = new URL(request.url);
-
-  const classFilter = searchParams.get("class") || "";
-  const assigneeFilter = searchParams.get("assignee") || "";
-  const lastContactFilter = searchParams.get("lastContact") || "";
-  const search = searchParams.get("search") || "";
-  const page = parseInt(searchParams.get("page") || "1");
-  const pageSize = parseInt(searchParams.get("pageSize") || "20");
+  const timing = createServerTiming();
 
   try {
+    const session = await timing.measure("auth", () => auth());
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: timing.headers() });
+    }
+
+    if (!hasPermission(session.user, "canViewCRM")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: timing.headers() });
+    }
+
+    const canViewAll = hasPermission(session.user, "canViewAllShops");
+    const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+
+    const classFilter = searchParams.get("class") || "";
+    const assigneeFilter = searchParams.get("assignee") || "";
+    const lastContactFilter = searchParams.get("lastContact") || "";
+    const search = searchParams.get("search") || "";
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "20", 10);
+    const isDefaultBootstrapRequest =
+      !classFilter &&
+      !assigneeFilter &&
+      !lastContactFilter &&
+      !search &&
+      page === 1 &&
+      pageSize === 20;
+
+    if (isDefaultBootstrapRequest) {
+      const initialData = await getCrmShopsInitialData(session.user);
+      const headers = timing.headers();
+      headers["Server-Timing"] = mergeServerTimingValues(headers["Server-Timing"], initialData._timing);
+      timing.log("crm-shops-api");
+
+      return NextResponse.json(initialData.shops, { headers });
+    }
+
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // Get assigned shop names if restricted
     let assignedShopNames: string[] | null = null;
     if (!canViewAll) {
-      const assignments = await prisma.shopAssignment.findMany({
-        where: { userId },
-        include: { shop: { select: { shopName: true } } },
-      });
+      const assignments = await timing.measure("assignments", () =>
+        prisma.shopAssignment.findMany({
+          where: { userId },
+          include: { shop: { select: { shopName: true } } },
+        }),
+      );
       assignedShopNames = assignments.map((a) => a.shop.shopName);
       if (assignedShopNames.length === 0) {
         return NextResponse.json({
           success: true,
           data: { shops: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 }, message: "Chưa được phân công shop nào." },
-        });
+        }, { headers: timing.headers() });
       }
     }
 
@@ -69,7 +90,7 @@ export async function GET(request: NextRequest) {
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
-    const [allShops, monthlyOrders, returnedOrders, recentOrders, prevOrders, profiles] = await Promise.all([
+    const [allShops, monthlyOrders, returnedOrders, recentOrders, prevOrders, profiles] = await timing.measure("queries", () => Promise.all([
       // Get all unique shopNames from Orders
       prisma.order.groupBy({
         by: ["shopName"],
@@ -143,7 +164,9 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-    ]);
+    ]));
+
+    const transformStartedAt = performance.now();
 
     const monthlyMap = new Map(monthlyOrders.map((s) => [s.shopName, { count: s._count.id, revenue: s._sum.revenue }]));
     const returnedMap = new Map(returnedOrders.map((s) => [s.shopName, s._count.id]));
@@ -252,15 +275,18 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil(total / pageSize);
     const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
+    timing.record("transform", performance.now() - transformStartedAt);
+    timing.log("crm-shops-api");
+
     return NextResponse.json({
       success: true,
       data: {
         shops: paginated,
         pagination: { page, pageSize, total, totalPages },
       },
-    });
+    }, { headers: timing.headers() });
   } catch (error) {
     console.error("CRM Shops Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: timing.headers() });
   }
 }

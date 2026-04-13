@@ -187,6 +187,85 @@ export function buildDelayedFacets(orders: ProcessedDelayedOrder[]): DelayedFace
   };
 }
 
+/**
+ * Combined single-pass computation of summary + facets.
+ * Avoids iterating the array twice when both are needed.
+ */
+export function buildDelayedSummaryAndFacets(orders: ProcessedDelayedOrder[]): {
+  summary: DelayedSummary;
+  facets: DelayedFacets;
+} {
+  const shops = new Set<string>();
+  const statuses = new Set<string>();
+  const reasons = new Set<string>();
+  const reasonCounts = new Map<string, number>();
+  let count1 = 0;
+  let count2 = 0;
+  let count3 = 0;
+  let count4 = 0;
+
+  const summary: DelayedSummary = {
+    total: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    totalCOD: 0,
+    highCOD: 0,
+  };
+
+  for (const order of orders) {
+    // Summary
+    summary.total += 1;
+    summary.totalCOD += order.codAmount;
+    if (order.risk === "high") {
+      summary.high += 1;
+      summary.highCOD += order.codAmount;
+    } else if (order.risk === "medium") {
+      summary.medium += 1;
+    } else {
+      summary.low += 1;
+    }
+
+    // Facets
+    if (order.shopName) shops.add(order.shopName);
+    if (order.status) statuses.add(order.status);
+
+    if (order.delayCount >= 4) count4 += 1;
+    else if (order.delayCount === 3) count3 += 1;
+    else if (order.delayCount === 2) count2 += 1;
+    else count1 += 1;
+
+    for (const reason of order.uniqueReasons) {
+      reasons.add(reason);
+      reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+    }
+  }
+
+  return {
+    summary,
+    facets: {
+      shops: [...shops].sort(),
+      statuses: [...statuses].sort(),
+      reasons: [...reasons].sort(),
+      delayDistribution: [
+        { name: "1 lần", count: count1 },
+        { name: "2 lần", count: count2 },
+        { name: "3 lần", count: count3 },
+        { name: "4+ lần", count: count4 },
+      ],
+      reasonDistribution: [...reasonCounts.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort((left, right) => {
+          if (right.count !== left.count) {
+            return right.count - left.count;
+          }
+          return left.name.localeCompare(right.name);
+        })
+        .slice(0, 7),
+    },
+  };
+}
+
 export function paginateDelayedOrders(
   orders: ProcessedDelayedOrder[],
   page: number,

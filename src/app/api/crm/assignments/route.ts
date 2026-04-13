@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 
 
 export async function GET() {
@@ -9,9 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const permissions = session.user.permissions;
-
-  if (!permissions.canManageCRM) {
+  if (!hasPermission(session.user, "canManageCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -37,9 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const permissions = session.user.permissions;
-
-  if (!permissions.canManageCRM) {
+  if (!hasPermission(session.user, "canManageCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

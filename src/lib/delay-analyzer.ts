@@ -119,7 +119,22 @@ function extractReasonText(eventText: string) {
   return repairedEventText.slice(separatorIndex + 1).trim();
 }
 
+// Quick check before expensive line-by-line parsing.
+// These are the raw markers (both clean UTF-8 and mojibake variants) that indicate delay notes.
+const DELAY_QUICK_HINTS = /ho[aã]n giao h[aà]ng|x[aá]c nh[aậ]n ho[aà]n|delay giao h[aà]ng|Hoãn giao hàng|Xác nhận hoàn|Delay giao hàng/i;
+
 function scanDelayNote(note: string): DelayScanResult {
+  // Fast path: if no delay markers found, skip expensive parsing
+  if (!DELAY_QUICK_HINTS.test(note)) {
+    return {
+      delayCount: 0,
+      delays: [],
+      reasons: ["Không rõ lý do"],
+      lastDelayDate: null,
+      mostRecentTimestamp: null,
+    };
+  }
+
   const delaysWithTimestamp: Array<{
     time: string;
     date: string;

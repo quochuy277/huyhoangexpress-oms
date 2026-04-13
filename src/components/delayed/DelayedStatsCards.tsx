@@ -3,7 +3,7 @@
 import { AlertCircle, AlertTriangle, PackageX, ShieldCheck } from "lucide-react";
 import type { DelayedSummary } from "@/types/delayed";
 
-export function DelayedStatsCards({ summary }: { summary?: DelayedSummary }) {
+export function DelayedStatsCards({ summary }: { summary?: DelayedSummary | null }) {
   if (!summary) {
     return null;
   }

@@ -2,6 +2,7 @@ import { getCachedSession } from "@/lib/cached-session";
 import { prisma } from "@/lib/prisma";
 import { formatVND, formatDate, formatDateOnly } from "@/lib/utils";
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
+import { hasPermission } from "@/lib/route-permissions";
 import { Package, MapPin, User, CreditCard, FileText, Truck } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { TrackingTimelineSection } from "@/components/tracking/TrackingTimelineSection";
@@ -25,7 +26,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
 
   const session = await getCachedSession();
   const userRole = session?.user?.role || "VIEWER";
-  const isStaffOrViewer = userRole === "STAFF" || userRole === "VIEWER";
+  const canSeeCarrierFee = hasPermission(session?.user, "canViewCarrierFee");
+  const canSeeRevenue = hasPermission(session?.user, "canViewRevenue");
 
   const order = await prisma.order.findUnique({
     where: { requestCode },
@@ -71,11 +73,13 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         { label: "Phí Dịch Vụ COD", value: formatVND(order.codServiceFee) },
         { label: "Phí Hoàn", value: formatVND(order.returnFee) },
         { label: "Tổng Phí", value: formatVND(order.totalFee), highlight: true },
-        ...(isStaffOrViewer ? [] : [
+        ...(canSeeCarrierFee ? [
           { label: "Phí Đối Tác Thu", value: formatVND(order.carrierFee) },
           { label: "Phí BH GHSV", value: formatVND(order.ghsvInsuranceFee) },
+        ] : []),
+        ...(canSeeRevenue ? [
           { label: "Doanh Thu", value: ['RECONCILED', 'RETURNED_FULL', 'RETURNED_PARTIAL'].includes(order.deliveryStatus) ? formatVND((order as any).revenue) : "—", highlight: true, green: true },
-        ]),
+        ] : []),
         { label: "Mã Đối Soát", value: order.reconciliationCode },
         { label: "Ngày Đối Soát", value: formatDate(order.reconciliationDate) },
         { label: "Ngày Xác Nhận TT", value: formatDate(order.paymentConfirmDate) },

@@ -37,8 +37,10 @@ export type DelayedMeta = {
 
 export type DelayedResponseData = {
   rows: ProcessedDelayedOrder[];
-  summary: DelayedSummary;
-  facets: DelayedFacets;
+  /** null when skipFacets=1 (page/sort-only change) — client uses cached value */
+  summary: DelayedSummary | null;
+  /** null when skipFacets=1 (page/sort-only change) — client uses cached value */
+  facets: DelayedFacets | null;
   pagination: DelayedPagination;
   meta: DelayedMeta;
 };

@@ -18,6 +18,10 @@ import {
   DEFAULT_DELAYED_PAGE,
   DelayedViewState,
 } from "@/lib/delayed-url-state";
+import {
+  createDelayedFacetSignature,
+  shouldSkipDelayedFacets,
+} from "@/lib/delayed-skip-facets";
 import type { DelayedResponse, DelayedSortableKey } from "@/types/delayed";
 
 const DelayDistributionChart = dynamic(
@@ -119,6 +123,15 @@ export function DelayedClient({
   }, [viewState]);
 
   const apiQueryString = useMemo(() => buildDelayedApiSearchParams(viewState).toString(), [viewState]);
+
+  const currentFacetSignature = useMemo(() => createDelayedFacetSignature(filters), [filters]);
+  const lastFacetSignatureRef = useRef(currentFacetSignature);
+  const shouldSkipFacets = shouldSkipDelayedFacets({
+    didMount: didMountRef.current,
+    currentSignature: currentFacetSignature,
+    lastFacetSignature: lastFacetSignatureRef.current,
+  });
+
   const queryBootstrap = useMemo(
     () =>
       getDelayedQueryBootstrap({
@@ -130,10 +143,15 @@ export function DelayedClient({
     [apiQueryString, initialData],
   );
 
-  const { data, isLoading, isFetching, error } = useQuery<DelayedResponse>({
-    queryKey: ["delayedOrders", apiQueryString],
+  // Keep last known summary/facets to fill in when server skips them
+  const lastSummaryRef = useRef(initialData?.data?.summary ?? null);
+  const lastFacetsRef = useRef(initialData?.data?.facets ?? null);
+
+  const { data: rawData, isLoading, isFetching, error } = useQuery<DelayedResponse>({
+    queryKey: ["delayedOrders", apiQueryString, shouldSkipFacets ? "skip" : "full"],
     queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/orders/delayed?${apiQueryString}`, { signal });
+      const skipParam = shouldSkipFacets ? "&skipFacets=1" : "";
+      const response = await fetch(`/api/orders/delayed?${apiQueryString}${skipParam}`, { signal });
 
       if (!response.ok) {
         throw new Error("Failed to fetch delayed orders");
@@ -147,6 +165,31 @@ export function DelayedClient({
     initialData: queryBootstrap.initialData,
     initialDataUpdatedAt: queryBootstrap.initialDataUpdatedAt,
   });
+
+  useEffect(() => {
+    if (rawData?.data?.summary && rawData?.data?.facets) {
+      lastFacetSignatureRef.current = currentFacetSignature;
+    }
+  }, [currentFacetSignature, rawData]);
+
+  // Merge: if server skipped facets/summary, use last known values
+  const data = useMemo(() => {
+    if (!rawData) return rawData;
+    const d = rawData.data;
+    if (d?.summary) lastSummaryRef.current = d.summary;
+    if (d?.facets) lastFacetsRef.current = d.facets;
+    if (!d?.summary || !d?.facets) {
+      return {
+        ...rawData,
+        data: {
+          ...d,
+          summary: d?.summary ?? lastSummaryRef.current,
+          facets: d?.facets ?? lastFacetsRef.current,
+        },
+      } as DelayedResponse;
+    }
+    return rawData;
+  }, [rawData]);
 
   const delayedData = data?.data;
 
@@ -226,8 +269,8 @@ export function DelayedClient({
       <DelayedStatsCards summary={delayedData?.summary} />
 
       <div className="hidden gap-4 lg:grid lg:grid-cols-2">
-        <DelayDistributionChart data={delayedData?.facets.delayDistribution || []} />
-        <DelayReasonChart data={delayedData?.facets.reasonDistribution || []} />
+        <DelayDistributionChart data={delayedData?.facets?.delayDistribution || []} />
+        <DelayReasonChart data={delayedData?.facets?.reasonDistribution || []} />
       </div>
 
       <div className="hidden">
@@ -256,9 +299,9 @@ export function DelayedClient({
           </button>
         </div>
         {mobileChartTab === "delay" ? (
-          <DelayDistributionChart data={delayedData?.facets.delayDistribution || []} />
+          <DelayDistributionChart data={delayedData?.facets?.delayDistribution || []} />
         ) : (
-          <DelayReasonChart data={delayedData?.facets.reasonDistribution || []} />
+          <DelayReasonChart data={delayedData?.facets?.reasonDistribution || []} />
         )}
       </div>
 
@@ -266,9 +309,9 @@ export function DelayedClient({
         filters={filters}
         searchInput={searchInput}
         options={{
-          shops: delayedData?.facets.shops || [],
-          statuses: delayedData?.facets.statuses || [],
-          reasons: delayedData?.facets.reasons || [],
+          shops: delayedData?.facets?.shops || [],
+          statuses: delayedData?.facets?.statuses || [],
+          reasons: delayedData?.facets?.reasons || [],
         }}
         resultCount={delayedData?.pagination.total || 0}
         currentPageCount={delayedData?.rows.length || 0}

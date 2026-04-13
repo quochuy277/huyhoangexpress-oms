@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { hasPermission } from "@/lib/route-permissions";
 import { expenseSchema } from "@/lib/validations";
 
 // GET — list expenses with filters
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     const { session, error } = await requireFinanceAccess();
     if (error) return error;
 
-    if (!session!.user.permissions?.canManageExpenses) return NextResponse.json({ error: "Không có quyền quản lý chi phí" }, { status: 403 });
+    if (!hasPermission(session!.user, "canManageExpenses")) return NextResponse.json({ error: "Không có quyền quản lý chi phí" }, { status: 403 });
 
     const body = await req.json();
     const parsed = expenseSchema.safeParse(body);

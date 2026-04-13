@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 import path from "path";
 import fs from "fs/promises";
 
@@ -23,7 +24,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (!session.user.permissions?.canManageDocuments) {
+  if (!hasPermission(session.user, "canManageDocuments")) {
     return NextResponse.json({ error: "Không có quyền quản lý tài liệu" }, { status: 403 });
   }
 

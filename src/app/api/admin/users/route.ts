@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
 
 // GET /api/admin/users — list all users
@@ -10,7 +11,7 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManageUsers) {
+    if (!hasPermission(session.user, "canManageUsers")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhân viên" }, { status: 403 });
     }
 
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
-    if (!session.user.permissions?.canManageUsers) {
+    if (!hasPermission(session.user, "canManageUsers")) {
       return NextResponse.json({ error: "Không có quyền quản lý nhân viên" }, { status: 403 });
     }
 

@@ -66,7 +66,7 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
   const [selectedShop, setSelectedShop] = useState<string | null>(null);
   const [careLogShop, setCareLogShop] = useState<string | null>(null);
 
-  // Dashboard data
+  // Dashboard data — staleTime 2min (CRM stats change infrequently)
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ["crm-dashboard"],
     queryFn: async () => {
@@ -75,10 +75,11 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
       return res.json();
     },
     refetchInterval: 300000,
+    staleTime: 2 * 60 * 1000,
     initialData: initialData?.dashboard,
   });
 
-  // Shops list
+  // Shops list — staleTime 1min, placeholderData to avoid spinner on filter changes
   const { data: shopData, isLoading: shopsLoading } = useQuery({
     queryKey: ["crm-shops", classFilter, lastContactFilter, search, page],
     queryFn: async () => {
@@ -93,6 +94,8 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
       return res.json();
     },
     refetchInterval: 300000,
+    staleTime: 60 * 1000,
+    placeholderData: (prev: unknown) => prev,
     initialData: !classFilter && !lastContactFilter && !search && page === 1 ? initialData?.shops : undefined,
   });
 

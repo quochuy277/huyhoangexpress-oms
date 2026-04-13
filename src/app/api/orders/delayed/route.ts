@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     const todayOnly = searchParams.get("today") === "1";
     const sortKey = (searchParams.get("sortKey") || "delayCount") as keyof ProcessedDelayedOrder;
     const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
+    const skipFacets = searchParams.get("skipFacets") === "1";
 
     const data = await getDelayedPageData({
       page,
@@ -47,9 +48,15 @@ export async function GET(req: NextRequest) {
       todayOnly,
       sortKey,
       sortDir,
+      skipFacets,
     });
 
-    return NextResponse.json(data);
+    const timingHeader = data._timing;
+    const { _timing, ...responseData } = data;
+    const headers: Record<string, string> = {};
+    if (timingHeader) headers["Server-Timing"] = timingHeader;
+
+    return NextResponse.json(responseData, { headers });
   } catch (error) {
     console.error("Error fetching delayed orders:", error);
     return NextResponse.json(

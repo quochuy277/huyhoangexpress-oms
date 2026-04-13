@@ -69,7 +69,7 @@ describe("GET /api/claims/search-orders", () => {
     expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          AND: [{ requestCode: "B65ACHM0007569" }],
+          AND: [{ requestCode: { in: ["B65ACHM0007569"] } }],
         },
       }),
     );
@@ -92,7 +92,7 @@ describe("GET /api/claims/search-orders", () => {
     expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          AND: [{ receiverPhone: "0904873551" }],
+          AND: [{ receiverPhone: { in: ["0904873551"] } }],
         },
       }),
     );

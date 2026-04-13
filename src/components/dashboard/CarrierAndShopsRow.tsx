@@ -29,6 +29,7 @@ export function CarrierAndShopsRow() {
       if (!res.ok) throw new Error("Lỗi tải nhà cung cấp");
       return res.json();
     },
+    staleTime: 10 * 60 * 1000, // 10 min — carrier stats change slowly
   });
 
   const { data: shopsData, isLoading: isLoadingShops } = useQuery({
