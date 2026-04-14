@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 interface StatsCache {
   data: { totalOrders: number; activeShops: number; successRate: number };
@@ -79,7 +80,7 @@ export async function GET() {
     statsCache = { data, timestamp: Date.now() };
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Landing stats error:", error);
+    logger.error("GET /api/landing/stats", "Error", error);
     // Return safe fallback
     return NextResponse.json({
       totalOrders: LANDING_BASE_ORDERS,

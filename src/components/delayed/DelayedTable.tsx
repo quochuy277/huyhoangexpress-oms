@@ -11,6 +11,26 @@ import { vi } from "date-fns/locale";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Copy, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
+function DelayedTableSortIcon({
+  activeSortKey,
+  colKey,
+  sortDir,
+}: {
+  activeSortKey: string;
+  colKey: string;
+  sortDir: "asc" | "desc";
+}) {
+  if (activeSortKey !== colKey) {
+    return <ChevronDown className="ml-1 inline-block h-3 w-3 text-slate-300" />;
+  }
+
+  return sortDir === "desc" ? (
+    <ChevronDown className="ml-1 inline-block h-3 w-3 text-blue-600" />
+  ) : (
+    <ChevronUp className="ml-1 inline-block h-3 w-3 text-blue-600" />
+  );
+}
+
 export function DelayedTable({ data, isLoading }: { data: any[]; isLoading: boolean }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -59,13 +79,6 @@ export function DelayedTable({ data, isLoading }: { data: any[]; isLoading: bool
     }
   };
 
-  const SortIcon = ({ colKey }: { colKey: string }) => {
-    if (sortKey !== colKey) return <ChevronDown className="w-3 h-3 text-slate-300 inline-block ml-1" />;
-    return sortDir === "desc" ? 
-      <ChevronDown className="w-3 h-3 text-blue-600 inline-block ml-1" /> : 
-      <ChevronUp className="w-3 h-3 text-blue-600 inline-block ml-1" />;
-  };
-
   return (
     <div className="flex flex-col h-full overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
       <div className="flex-1 overflow-auto custom-scrollbar">
@@ -76,34 +89,34 @@ export function DelayedTable({ data, isLoading }: { data: any[]; isLoading: bool
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
                 onClick={() => RequestSort("requestCode")}
-              >Mã Yêu Cầu <SortIcon colKey="requestCode" /></TableHead>
+              >Mã Yêu Cầu <DelayedTableSortIcon activeSortKey={sortKey} colKey="requestCode" sortDir={sortDir} /></TableHead>
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
                 onClick={() => RequestSort("shopName")}
-              >Cửa Hàng <SortIcon colKey="shopName" /></TableHead>
+              >Cửa Hàng <DelayedTableSortIcon activeSortKey={sortKey} colKey="shopName" sortDir={sortDir} /></TableHead>
               <TableHead className="text-[12px] font-medium uppercase text-slate-500 min-w-[200px]">Thông Tin Giao Hàng</TableHead>
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
                 onClick={() => RequestSort("status")}
-              >Trạng Thái <SortIcon colKey="status" /></TableHead>
+              >Trạng Thái <DelayedTableSortIcon activeSortKey={sortKey} colKey="status" sortDir={sortDir} /></TableHead>
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors text-center"
                 onClick={() => RequestSort("delayCount")}
-              >Hoãn <SortIcon colKey="delayCount" /></TableHead>
+              >Hoãn <DelayedTableSortIcon activeSortKey={sortKey} colKey="delayCount" sortDir={sortDir} /></TableHead>
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
                 onClick={() => RequestSort("daysAge")}
-              >Thời Gian <SortIcon colKey="daysAge" /></TableHead>
+              >Thời Gian <DelayedTableSortIcon activeSortKey={sortKey} colKey="daysAge" sortDir={sortDir} /></TableHead>
               <TableHead className="text-[12px] font-medium uppercase text-slate-500">Lý Do Đã Lọc</TableHead>
               <TableHead className="text-[12px] font-medium uppercase text-slate-500 min-w-[200px]">Chi Tiết Note</TableHead>
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 cursor-pointer hover:bg-slate-100 transition-colors text-center"
                 onClick={() => RequestSort("riskScore")}
-              >Risk <SortIcon colKey="riskScore" /></TableHead>
+              >Risk <DelayedTableSortIcon activeSortKey={sortKey} colKey="riskScore" sortDir={sortDir} /></TableHead>
               <TableHead 
                 className="text-[12px] font-medium uppercase text-slate-500 text-right whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
                 onClick={() => RequestSort("codAmount")}
-              >Thu Hộ (VND) <SortIcon colKey="codAmount" /></TableHead>
+              >Thu Hộ (VND) <DelayedTableSortIcon activeSortKey={sortKey} colKey="codAmount" sortDir={sortDir} /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

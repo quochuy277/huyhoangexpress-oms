@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // GET — specific user's attendance (for manager detail view)
 export async function GET(
@@ -36,7 +37,7 @@ export async function GET(
 
     return NextResponse.json({ user, attendance, loginHistory });
   } catch (error) {
-    console.error("GET attendance/user error:", error);
+    logger.error("GET /api/attendance/user/[userId]", "GET attendance/user error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

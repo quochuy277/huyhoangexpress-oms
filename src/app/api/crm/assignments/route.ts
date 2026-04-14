@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 
 export async function GET() {
@@ -25,7 +26,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: assignments });
   } catch (error) {
-    console.error("CRM Assignments List Error:", error);
+    logger.error("GET /api/crm/assignments", "CRM Assignments List Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       data: { created, skipped },
     });
   } catch (error) {
-    console.error("CRM Assignment Create Error:", error);
+    logger.error("POST /api/crm/assignments", "CRM Assignment Create Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

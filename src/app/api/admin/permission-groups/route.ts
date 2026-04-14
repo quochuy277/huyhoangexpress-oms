@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERMISSION_KEYS } from "@/lib/permissions";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 // GET /api/admin/permission-groups — list all groups
 export async function GET() {
@@ -22,7 +23,7 @@ export async function GET() {
 
     return NextResponse.json(groups);
   } catch (error) {
-    console.error("List permission groups error:", error);
+    logger.error("GET /api/admin/permission-groups", "List permission groups error", error);
     return NextResponse.json({ error: "Lỗi khi lấy danh sách nhóm quyền" }, { status: 500 });
   }
 }
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(group, { status: 201 });
   } catch (error) {
-    console.error("Create permission group error:", error);
+    logger.error("POST /api/admin/permission-groups", "Create permission group error", error);
     return NextResponse.json({ error: "Lỗi khi tạo nhóm quyền" }, { status: 500 });
   }
 }

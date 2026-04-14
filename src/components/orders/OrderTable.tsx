@@ -1,9 +1,10 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -18,10 +19,23 @@ import {
 
 import { OrderStaffNoteDialog } from "@/components/orders/OrderStaffNoteDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
-import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
-import { TrackingPopup } from "@/components/tracking/TrackingPopup";
+
+const AddClaimFromPageDialog = dynamic(
+  () => import("@/components/shared/AddClaimFromPageDialog").then((m) => ({ default: m.AddClaimFromPageDialog })),
+  { loading: () => null },
+);
+const AddTodoDialog = dynamic(
+  () => import("@/components/shared/AddTodoDialog").then((m) => ({ default: m.AddTodoDialog })),
+  { loading: () => null },
+);
+const OrderDetailDialog = dynamic(
+  () => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })),
+  { loading: () => null },
+);
+const TrackingPopup = dynamic(
+  () => import("@/components/tracking/TrackingPopup").then((m) => ({ default: m.TrackingPopup })),
+  { loading: () => null },
+);
 import { mapStatusToVietnamese, STATUS_COLORS } from "@/lib/status-mapper";
 import { formatDate, formatVND } from "@/lib/utils";
 import type { OrderRow, OrdersApiResponse } from "@/types/orders";
@@ -76,14 +90,15 @@ function OrderTableInner({
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
   const [noteDialogOrder, setNoteDialogOrder] = useState<OrderRow | null>(null);
-  const usedInitialDataRef = useRef(false);
   const queryClient = useQueryClient();
 
   const isAdminOrManager = userRole === "ADMIN" || userRole === "MANAGER";
   const sortBy = searchParams.get("sortBy") || "createdTime";
   const sortOrder = searchParams.get("sortOrder") || "desc";
   const currentQueryString = searchParams.toString();
-  const initialData = !usedInitialDataRef.current ? initialOrdersData ?? undefined : undefined;
+  const [initialQueryString] = useState(() => currentQueryString);
+  const initialData =
+    initialQueryString === currentQueryString ? initialOrdersData ?? undefined : undefined;
   const queryKey = ["orders", currentQueryString];
 
   const { data, isLoading: loading, isFetching } = useQuery<OrdersApiResponse>({
@@ -95,13 +110,8 @@ function OrderTableInner({
       return res.json();
     },
     initialData,
-    initialDataUpdatedAt: initialData ? Date.now() : undefined,
     placeholderData: (previousData) => previousData,
   });
-
-  useEffect(() => {
-    usedInitialDataRef.current = true;
-  }, []);
 
   const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ["orders"] });
 

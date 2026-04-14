@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "verify:text-encoding": "vitest run src/__tests__/lib/source-text-encoding.test.ts src/__tests__/lib/attendance-text-encoding.test.ts src/__tests__/lib/claims-text-encoding.test.ts src/__tests__/lib/crm-text-encoding.test.ts src/__tests__/lib/dashboard-shell-text-encoding.test.ts src/__tests__/lib/delayed-text-encoding.test.ts src/__tests__/lib/finance-text-encoding.test.ts src/__tests__/lib/orders-text-encoding.test.ts src/__tests__/lib/returns-text-encoding.test.ts src/__tests__/lib/todos-text-encoding.test.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -49,8 +50,7 @@
     "tinyexec": "^1.0.4",
     "typescript": "^5.9.3",
     "xlsx": "^0.18.5",
-    "zod": "^4.3.6",
-    "zustand": "^5.0.11"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",

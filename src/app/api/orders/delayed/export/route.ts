@@ -11,6 +11,7 @@ import {
   getDelayedExportOrderBy,
 } from "@/lib/delayed-query";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { exportLimiter } from "@/lib/rate-limiter";
 import { requirePermission } from "@/lib/route-permissions";
 
@@ -69,10 +70,12 @@ export async function GET(req: NextRequest) {
     "Lý Do",
   ];
 
+  const exportStart = performance.now();
   const stream = new ReadableStream({
     async start(controller) {
       let skip = 0;
       let exportIndex = 1;
+      let totalRows = 0;
 
       controller.enqueue(encoder.encode(`\uFEFF${headers.map((header) => escapeCsvCell(header)).join(",")}\n`));
 
@@ -109,6 +112,7 @@ export async function GET(req: NextRequest) {
           if (processedOrders.length > 0) {
             const csvRows = buildDelayedExportRows(processedOrders, exportIndex);
             exportIndex += csvRows.length;
+            totalRows += csvRows.length;
             controller.enqueue(encoder.encode(`${rowsToCsv(csvRows)}\n`));
           }
 
@@ -119,9 +123,10 @@ export async function GET(req: NextRequest) {
           skip += DELAYED_EXPORT_BATCH_SIZE;
         }
 
+        logger.info("GET /api/orders/delayed/export", `Exported ${totalRows} rows in ${(performance.now() - exportStart).toFixed(1)}ms`);
         controller.close();
       } catch (error) {
-        console.error("Error streaming delayed export:", error);
+        logger.error("GET /api/orders/delayed/export", "Error streaming", error);
         controller.error(error);
       }
     },

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import type { ProcessedDelayedOrder } from "@/lib/delay-analyzer";
 import { getDelayedPageData } from "@/lib/delayed-page-data";
+import { logger } from "@/lib/logger";
 import { requirePermission } from "@/lib/route-permissions";
 
 export async function GET(req: NextRequest) {
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(responseData, { headers });
   } catch (error) {
-    console.error("Error fetching delayed orders:", error);
+    logger.error("GET /api/orders/delayed", "Error fetching delayed orders", error);
     return NextResponse.json(
       { success: false, error: "Không thể tải danh sách đơn hoãn" },
       { status: 500 },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // GET — my attendance for a month
 export async function GET(req: NextRequest) {
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       stats: { present, halfDay, absent, onLeave, lateCount, totalMinutes, equivalent: present + halfDay * 0.5 },
     });
   } catch (error) {
-    console.error("GET attendance/me error:", error);
+    logger.error("GET /api/attendance/me", "GET attendance/me error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

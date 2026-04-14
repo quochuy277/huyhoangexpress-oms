@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/route-permissions";
 
@@ -50,7 +51,7 @@ export async function GET(
 
     return NextResponse.json(response);
   } catch (err) {
-    console.error("[Order Detail API] Error:", err);
+    logger.error("GET /api/orders/[requestCode]/detail", "Error", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

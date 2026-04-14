@@ -4,19 +4,17 @@ import { auth } from "@/lib/auth";
 import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 import { getClaimsListData } from "@/lib/claims-page-data";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-
-function createServerTimingHeader(metricName: string, durationMs: number) {
-  return `${metricName};dur=${durationMs.toFixed(1)}`;
-}
+import { createServerTiming } from "@/lib/server-timing";
 
 export async function GET(req: NextRequest) {
-  const startedAt = performance.now();
+  const timing = createServerTiming();
 
   try {
-    const session = await auth();
+    const session = await timing.measure("auth", () => auth());
     if (!session?.user) {
-      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401, headers: timing.headers() });
     }
     const denied = requireClaimsPermission(session.user, "canViewClaims");
     if (denied) {
@@ -35,27 +33,27 @@ export async function GET(req: NextRequest) {
     const sortBy = params.get("sortBy") || "deadline";
     const sortDir = (params.get("sortDir") || "asc") as "asc" | "desc";
 
-    const data = await getClaimsListData({
-      page,
-      pageSize,
-      search,
-      issueType: issueType ? issueType.split(",") : [],
-      status: claimStatus,
-      shopName,
-      orderStatus,
-      showCompleted,
-      sortBy,
-      sortDir,
-    });
+    const data = await timing.measure("claims_data", () =>
+      getClaimsListData({
+        page,
+        pageSize,
+        search,
+        issueType: issueType ? issueType.split(",") : [],
+        status: claimStatus,
+        shopName,
+        orderStatus,
+        showCompleted,
+        sortBy,
+        sortDir,
+      }),
+    );
 
-    return NextResponse.json(data, {
-      headers: {
-        "Server-Timing": createServerTimingHeader("claims", performance.now() - startedAt),
-      },
-    });
+    timing.log("claims-api");
+
+    return NextResponse.json(data, { headers: timing.headers() });
   } catch (error) {
-    console.error("GET /api/claims error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+    logger.error("GET /api/claims", "Error", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500, headers: timing.headers() });
   }
 }
 
@@ -153,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, claim });
   } catch (error) {
-    console.error("POST /api/claims error:", error);
+    logger.error("POST /api/claims", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

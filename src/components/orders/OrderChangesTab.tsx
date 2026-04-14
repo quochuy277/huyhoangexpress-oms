@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import { formatDate } from "@/lib/utils";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
+
+const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,11 +15,9 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
-  RefreshCw,
   Search,
   X,
   ExternalLink,
-  Loader2,
   Info,
 } from "lucide-react";
 import type { OrderChangeType } from "@prisma/client";
@@ -159,7 +159,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
   });
 
   // Build query params for changes list
-  const changesParams = useMemo(() => {
+  const changesParams = (() => {
     const params = new URLSearchParams();
     if (activeBatchId) params.set("uploadHistoryId", activeBatchId);
     for (const t of selectedTypes) params.append("changeType", t);
@@ -171,16 +171,7 @@ export function OrderChangesTab({ userRole }: { userRole: string }) {
     params.set("sortBy", sortBy);
     params.set("sortOrder", sortOrder);
     return params.toString();
-  }, [
-    activeBatchId,
-    selectedTypes,
-    searchCode,
-    shopFilter,
-    carrierFilter,
-    page,
-    sortBy,
-    sortOrder,
-  ]);
+  })();
 
   // Fetch changes
   const {

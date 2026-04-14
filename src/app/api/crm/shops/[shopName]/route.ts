@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import { Decimal } from "@prisma/client/runtime/library";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   _request: NextRequest,
@@ -242,7 +243,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("CRM Shop Detail Error:", error);
+    logger.error("GET /api/crm/shops/[shopName]", "CRM Shop Detail Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -295,7 +296,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: profile });
   } catch (error) {
-    console.error("CRM Shop Update Error:", error);
+    logger.error("PUT /api/crm/shops/[shopName]", "CRM Shop Update Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

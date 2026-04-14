@@ -51,7 +51,7 @@ export function ProspectFormDialog({ userId, onClose }: ProspectFormDialogProps)
         const u = data.data || data.users || data;
         if (Array.isArray(u)) setUsers(u);
       })
-      .catch(() => {});
+      .catch((err) => { console.warn("[ProspectFormDialog] Failed to fetch users:", err); });
   }, []);
 
   const handleSave = async () => {

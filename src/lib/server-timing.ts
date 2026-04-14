@@ -11,6 +11,8 @@
  *   Server-Timing: db;dur=123.4, transform;dur=5.6, total;dur=130.2
  */
 
+import { logger } from "@/lib/logger";
+
 interface TimingEntry {
   name: string;
   duration: number; // milliseconds
@@ -46,10 +48,14 @@ export function createServerTiming() {
      */
     async measure<T>(name: string, fn: () => T | Promise<T>, description?: string): Promise<T> {
       const t0 = performance.now();
-      const result = await fn();
-      const duration = performance.now() - t0;
-      entries.push({ name, duration, description });
-      return result;
+      try {
+        const result = await fn();
+        entries.push({ name, duration: performance.now() - t0, description });
+        return result;
+      } catch (err) {
+        entries.push({ name, duration: performance.now() - t0, description: `${description ?? name}(error)` });
+        throw err;
+      }
     },
 
     /**
@@ -85,10 +91,16 @@ export function createServerTiming() {
      * Log timing summary to console (for dev/debugging).
      */
     log(routeName: string) {
+      if (process.env.NODE_ENV === "production") return;
       const total = performance.now() - startTime;
-      const lines = entries.map((e) => `  ${e.name}: ${e.duration.toFixed(1)}ms`);
-      lines.push(`  total: ${total.toFixed(1)}ms`);
-      console.log(`[Server-Timing] ${routeName}\n${lines.join("\n")}`);
+      logger.info(`Server-Timing ${routeName}`, "Timing summary", {
+        entries: entries.map((entry) => ({
+          name: entry.name,
+          duration: Number(entry.duration.toFixed(1)),
+          description: entry.description,
+        })),
+        total: Number(total.toFixed(1)),
+      });
     },
   };
 }

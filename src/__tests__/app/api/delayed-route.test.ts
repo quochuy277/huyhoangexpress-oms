@@ -59,6 +59,7 @@ function makeRawOrder(index: number, overrides: Record<string, unknown> = {}) {
 describe("delayed route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-22T05:00:00.000Z"));
   });

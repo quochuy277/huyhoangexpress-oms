@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
-import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import type { PermissionSet } from "@/lib/permissions";
+import { authConfig } from "@/lib/auth.config";
 import { hasPermission } from "@/lib/route-permissions";
+import type { PermissionSet } from "@/lib/permissions";
 
 const { auth } = NextAuth(authConfig);
 
@@ -29,7 +29,6 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
   const session = req.auth;
   const isLoggedIn = !!session?.user;
 
-  // Handle login subdomain
   if (hostname === "login.huyhoang.express") {
     if (isLoggedIn) {
       return NextResponse.redirect(new URL("https://huyhoang.express/orders"));
@@ -39,7 +38,6 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
     return NextResponse.rewrite(url);
   }
 
-  // Public routes (including /no-access which shows permission denied message)
   const isPublicPage = pathname === "/" || pathname.startsWith("/login") || pathname === "/no-access";
   if (isPublicPage) {
     if (isLoggedIn && pathname.startsWith("/login")) {
@@ -48,24 +46,24 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
     return NextResponse.next();
   }
 
-  // Protected pages — must be logged in
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Permission-based restrictions
   const permissions = session?.user?.permissions;
   const userRole = session?.user?.role;
 
   for (const [route, permKey] of Object.entries(ROUTE_PERMISSIONS)) {
-    if (pathname.startsWith(route)) {
-      // If no permissions object and not ADMIN, deny access
-      if (!permissions && userRole !== "ADMIN") {
-        return NextResponse.redirect(new URL("/no-access", req.url));
-      }
-      if (!hasPermission(session?.user, permKey)) {
-        return NextResponse.redirect(new URL("/no-access", req.url));
-      }
+    if (!pathname.startsWith(route)) {
+      continue;
+    }
+
+    if (!permissions && userRole !== "ADMIN") {
+      return NextResponse.redirect(new URL("/no-access", req.url));
+    }
+
+    if (!hasPermission(session?.user, permKey)) {
+      return NextResponse.redirect(new URL("/no-access", req.url));
     }
   }
 

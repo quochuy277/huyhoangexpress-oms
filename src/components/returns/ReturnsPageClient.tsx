@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Download, Package, Truck, Warehouse } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -8,7 +8,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReturnFilterPanel, type ReturnFilters } from "@/components/returns/ReturnFilterPanel";
 import {
   clearReturnsPaginationParams,
-  createReturnsTabDataWithInitial,
+  createReturnsTabRequestSignature,
+  DEFAULT_RETURNS_PAGE_SIZE,
   fetchReturnsSummary,
   fetchReturnsTabData,
   getReturnShopNames,
@@ -20,7 +21,6 @@ import {
   type ReturnsTabKey,
   type ReturnsTabDataMap,
 } from "@/lib/returns-tab-data";
-import type { ReturnOrder } from "@/types/returns";
 
 const PartialReturnTab = dynamic(
   () => import("@/components/returns/PartialReturnTab").then((mod) => mod.PartialReturnTab),
@@ -74,11 +74,29 @@ export function ReturnsPageClient({
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialActiveTab);
   const [tabData, setTabData] = useState<ReturnsTabDataMap>(initialTabData);
+  const tabDataRef = useRef(tabData);
+  tabDataRef.current = tabData;
+  const initialSignature = createReturnsTabRequestSignature(initialActiveTab, {
+    search: initialFilters.search || undefined,
+    shop: initialFilters.shopName || undefined,
+    days: initialFilters.daysRange || undefined,
+    notes: initialFilters.hasNotes || undefined,
+    confirm: initialFilters.confirmAsked || undefined,
+    page: resolveReturnsTabPage(searchParams, initialActiveTab),
+    pageSize: DEFAULT_RETURNS_PAGE_SIZE,
+  });
+  const lastLoadedSignatureRef = useRef<Record<TabKey, string | null>>({
+    partial: initialActiveTab === "partial" ? initialSignature : null,
+    full: initialActiveTab === "full" ? initialSignature : null,
+    warehouse: initialActiveTab === "warehouse" ? initialSignature : null,
+  });
   const [summaryCounts, setSummaryCounts] = useState<ReturnsSummaryCounts>(initialSummaryCounts);
   const [summaryReady, setSummaryReady] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [pageSize, setPageSize] = useState(20);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState(DEFAULT_RETURNS_PAGE_SIZE);
   const [filters, setFilters] = useState<ReturnFilters>(initialFilters);
+  const didMountRef = useRef(false);
 
   const updateUrl = useCallback((
     tab: TabKey,
@@ -126,8 +144,9 @@ export function ReturnsPageClient({
       const counts = await fetchReturnsSummary(fetch);
       setSummaryCounts(counts);
       setSummaryReady(true);
-    } catch (error) {
-      console.error("Failed to fetch returns summary:", error);
+      setErrorMessage(null);
+    } catch {
+      setErrorMessage("Không thể tải tổng quan đơn hoàn. Vui lòng thử lại.");
     }
   }, []);
 
@@ -145,26 +164,39 @@ export function ReturnsPageClient({
     pageSize: ps,
   }), [searchParams]);
 
+  const invalidateTabs = useCallback((tabs: TabKey[]) => {
+    setTabData((prev) => invalidateReturnsTabs(prev, tabs));
+    for (const tab of tabs) {
+      lastLoadedSignatureRef.current[tab] = null;
+    }
+  }, []);
+
   const loadTab = useCallback(async (tab: TabKey, force = false) => {
-    const needsFetch = shouldFetchReturnsTab(tabData, tab, force);
+    const params = buildFilterParams(tab, filters, pageSize);
+    const requestSignature = createReturnsTabRequestSignature(tab, params);
+    const needsFetch = shouldFetchReturnsTab(tabDataRef.current, tab, force, {
+      currentSignature: requestSignature,
+      lastLoadedSignature: lastLoadedSignatureRef.current[tab],
+    });
     if (!needsFetch) {
       return;
     }
 
     setLoading(true);
+    setErrorMessage(null);
     try {
-      const params = buildFilterParams(tab, filters, pageSize);
       const rows = await fetchReturnsTabData(fetch, tab, params);
       setTabData((prev) => ({
         ...prev,
         [tab]: rows,
       }));
-    } catch (error) {
-      console.error("Failed to fetch return data:", error);
+      lastLoadedSignatureRef.current[tab] = requestSignature;
+    } catch {
+      setErrorMessage("Không thể tải dữ liệu đơn hoàn. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
-  }, [tabData, filters, pageSize, buildFilterParams]);
+  }, [filters, pageSize, buildFilterParams]); // tabData removed — use ref instead
 
   // Re-fetch when active tab changes
   useEffect(() => {
@@ -173,18 +205,27 @@ export function ReturnsPageClient({
 
   // Re-fetch when filters or pageSize change — invalidate current tab then fetch
   useEffect(() => {
-    setTabData((prev) => invalidateReturnsTabs(prev, [activeTab]));
-  }, [filters, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+
+    invalidateTabs([activeTab]);
+    loadTab(activeTab, true);
+  }, [activeTab, filters, invalidateTabs, loadTab, pageSize]);
 
   const handleWarehouseConfirm = async (requestCode: string) => {
     try {
       const response = await fetch(`/api/orders/${requestCode}/warehouse`, { method: "PATCH" });
       if (response.ok) {
-        setTabData((prev) => invalidateReturnsTabs(prev, ["partial", "warehouse"]));
+        invalidateTabs(["partial", "warehouse"]);
         await Promise.all([loadSummary(), loadTab(activeTab, true)]);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage("Không thể xác nhận trạng thái về kho. Vui lòng thử lại.");
       }
     } catch {
-      // silent
+      setErrorMessage("Không thể xác nhận trạng thái về kho. Vui lòng thử lại.");
     }
   };
 
@@ -196,11 +237,14 @@ export function ReturnsPageClient({
         body: JSON.stringify({ value }),
       });
       if (response.ok) {
-        setTabData((prev) => invalidateReturnsTabs(prev, ["warehouse"]));
+        invalidateTabs(["warehouse"]);
         await loadTab("warehouse", true);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage("Không thể cập nhật trạng thái hỏi khách hàng. Vui lòng thử lại.");
       }
     } catch {
-      // silent
+      setErrorMessage("Không thể cập nhật trạng thái hỏi khách hàng. Vui lòng thử lại.");
     }
   };
 
@@ -212,11 +256,14 @@ export function ReturnsPageClient({
         body: JSON.stringify({ value }),
       });
       if (response.ok) {
-        setTabData((prev) => invalidateReturnsTabs(prev, ["warehouse"]));
+        invalidateTabs(["warehouse"]);
         await loadTab("warehouse", true);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage("Không thể cập nhật xác nhận của khách hàng. Vui lòng thử lại.");
       }
     } catch {
-      // silent
+      setErrorMessage("Không thể cập nhật xác nhận của khách hàng. Vui lòng thử lại.");
     }
   };
 
@@ -313,6 +360,12 @@ export function ReturnsPageClient({
       </div>
 
       <ReturnFilterPanel filters={filters} onChange={handleSetFilters} shopNames={allShopNames} activeTab={activeTab} />
+
+      {errorMessage && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {errorMessage}
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" style={{ minHeight: "400px" }}>
         {loading ? (

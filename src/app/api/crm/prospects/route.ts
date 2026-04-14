@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import { createServerTiming } from "@/lib/server-timing";
+import { logger } from "@/lib/logger";
 
 
 export async function GET(request: NextRequest) {
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload, { headers: timing.headers() });
   } catch (error) {
-    console.error("CRM Prospects List Error:", error);
+    logger.error("GET /api/crm/prospects", "CRM Prospects List Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: timing.headers() });
   }
 }
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: prospect });
   } catch (error) {
-    console.error("CRM Prospect Create Error:", error);
+    logger.error("POST /api/crm/prospects", "CRM Prospect Create Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

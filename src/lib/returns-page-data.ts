@@ -96,10 +96,21 @@ export async function getReturnsTabData({
     claimOrder: { select: { issueType: true } },
   } as const;
 
+  // When daysRange is not active, use DB-level pagination (take/skip) for efficiency.
+  // When daysRange IS active, we must load all rows because daysRange depends on
+  // computed daysReturning (from note parsing) — cannot be pushed to DB.
+  const useDbPagination = !daysRange;
+  const safePage = Math.max(page, 1);
+  const safePageSize = Math.max(pageSize, 1);
+
   const rawOrders = await prisma.order.findMany({
     where,
     select,
     orderBy: { lastUpdated: "desc" },
+    ...(useDbPagination && {
+      skip: (safePage - 1) * safePageSize,
+      take: safePageSize,
+    }),
   });
 
   const mappedOrders = rawOrders.map((order) => {
@@ -122,17 +133,21 @@ export async function getReturnsTabData({
     };
   });
 
+  // DB already paginated — return directly
+  if (useDbPagination) {
+    return mappedOrders;
+  }
+
+  // daysRange active — filter in-memory, then paginate
   const daysFiltered = mappedOrders.filter((order) => {
-    if (!daysRange) return true;
     if (daysRange === "lte3") return order.daysReturning <= 3;
     if (daysRange === "4to7") return order.daysReturning >= 4 && order.daysReturning <= 7;
     if (daysRange === "gte8") return order.daysReturning >= 8;
     return true;
   });
 
-  const start = (Math.max(page, 1) - 1) * Math.max(pageSize, 1);
-  const end = start + Math.max(pageSize, 1);
-  return daysFiltered.slice(start, end);
+  const start = (safePage - 1) * safePageSize;
+  return daysFiltered.slice(start, start + safePageSize);
 }
 
 export async function getReturnsSummaryData() {

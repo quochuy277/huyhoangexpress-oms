@@ -2,6 +2,7 @@ import type { ReturnOrder } from "@/types/returns";
 
 export type ReturnsTabKey = "partial" | "full" | "warehouse";
 export type ReturnsSummaryCounts = Record<ReturnsTabKey, number>;
+export const DEFAULT_RETURNS_PAGE_SIZE = 20;
 
 export type ReturnsTabDataMap = Record<ReturnsTabKey, ReturnOrder[] | null>;
 
@@ -41,8 +42,20 @@ export function shouldFetchReturnsTab(
   tabData: ReturnsTabDataMap,
   tab: ReturnsTabKey,
   force = false,
+  options?: {
+    currentSignature?: string;
+    lastLoadedSignature?: string | null;
+  },
 ) {
-  return force || tabData[tab] === null;
+  if (force || tabData[tab] === null) {
+    return true;
+  }
+
+  if (!options?.currentSignature) {
+    return false;
+  }
+
+  return options.currentSignature !== options.lastLoadedSignature;
 }
 
 export type ReturnsFilterParams = {
@@ -82,8 +95,7 @@ export function clearReturnsPaginationParams(searchParams: Pick<URLSearchParams,
   searchParams.delete("warehousePage");
 }
 
-export async function fetchReturnsTabData(
-  fetchImpl: FetchLike,
+export function createReturnsTabRequestSignature(
   tab: ReturnsTabKey,
   params?: ReturnsFilterParams,
 ) {
@@ -95,8 +107,17 @@ export async function fetchReturnsTabData(
   if (params?.confirm) qs.set("confirm", params.confirm);
   if (params?.page && params.page > 1) qs.set("page", String(params.page));
   if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+  return qs.toString();
+}
 
-  const response = await fetchImpl(`/api/orders/returns?${qs.toString()}`);
+export async function fetchReturnsTabData(
+  fetchImpl: FetchLike,
+  tab: ReturnsTabKey,
+  params?: ReturnsFilterParams,
+) {
+  const response = await fetchImpl(
+    `/api/orders/returns?${createReturnsTabRequestSignature(tab, params)}`,
+  );
   const payload = await response.json();
 
   return (payload.data as ReturnOrder[] | undefined) || [];

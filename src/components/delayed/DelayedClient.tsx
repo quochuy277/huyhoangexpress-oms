@@ -60,14 +60,19 @@ export function DelayedClient({
   const [sortDir, setSortDir] = useState<"asc" | "desc">(initialViewState.sortDir);
   const [mobileChartTab, setMobileChartTab] = useState<"delay" | "reason">("delay");
   const [searchInput, setSearchInput] = useState(initialViewState.filters.searchTerm);
+  const [initialQueryString] = useState(() =>
+    buildDelayedApiSearchParams(initialViewState).toString(),
+  );
+  const [hasFacets, setHasFacets] = useState(
+    Boolean(initialData?.data?.summary && initialData?.data?.facets),
+  );
+  const [lastFacetSignature, setLastFacetSignature] = useState(
+    createDelayedFacetSignature(initialViewState.filters),
+  );
+  const [cachedSummary, setCachedSummary] = useState(initialData?.data?.summary ?? null);
+  const [cachedFacets, setCachedFacets] = useState(initialData?.data?.facets ?? null);
   const didMountRef = useRef(false);
   const skipNextHistorySyncRef = useRef(false);
-  const initialQueryStringRef = useRef(buildDelayedApiSearchParams(initialViewState).toString());
-  const initialDataUpdatedAtRef = useRef(initialData ? Date.now() : undefined);
-
-  useEffect(() => {
-    setSearchInput(filters.searchTerm);
-  }, [filters.searchTerm]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -125,27 +130,22 @@ export function DelayedClient({
   const apiQueryString = useMemo(() => buildDelayedApiSearchParams(viewState).toString(), [viewState]);
 
   const currentFacetSignature = useMemo(() => createDelayedFacetSignature(filters), [filters]);
-  const lastFacetSignatureRef = useRef(currentFacetSignature);
-  const shouldSkipFacets = shouldSkipDelayedFacets({
-    didMount: didMountRef.current,
+  const shouldSkipFacets = hasFacets && shouldSkipDelayedFacets({
+    didMount: true,
     currentSignature: currentFacetSignature,
-    lastFacetSignature: lastFacetSignatureRef.current,
+    lastFacetSignature,
   });
 
   const queryBootstrap = useMemo(
     () =>
       getDelayedQueryBootstrap({
         currentQueryString: apiQueryString,
-        initialQueryString: initialQueryStringRef.current,
+        initialQueryString,
         initialData,
-        initialDataUpdatedAt: initialDataUpdatedAtRef.current,
+        initialDataUpdatedAt: undefined,
       }),
-    [apiQueryString, initialData],
+    [apiQueryString, initialData, initialQueryString],
   );
-
-  // Keep last known summary/facets to fill in when server skips them
-  const lastSummaryRef = useRef(initialData?.data?.summary ?? null);
-  const lastFacetsRef = useRef(initialData?.data?.facets ?? null);
 
   const { data: rawData, isLoading, isFetching, error } = useQuery<DelayedResponse>({
     queryKey: ["delayedOrders", apiQueryString, shouldSkipFacets ? "skip" : "full"],
@@ -167,39 +167,61 @@ export function DelayedClient({
   });
 
   useEffect(() => {
-    if (rawData?.data?.summary && rawData?.data?.facets) {
-      lastFacetSignatureRef.current = currentFacetSignature;
+    if (!rawData?.data) {
+      return;
     }
+
+    const nextSummary = rawData.data.summary;
+    const nextFacets = rawData.data.facets;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (nextSummary && nextFacets) {
+        setHasFacets(true);
+        setLastFacetSignature(currentFacetSignature);
+      }
+
+      if (nextSummary) {
+        setCachedSummary(nextSummary);
+      }
+
+      if (nextFacets) {
+        setCachedFacets(nextFacets);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [currentFacetSignature, rawData]);
 
   // Merge: if server skipped facets/summary, use last known values
   const data = useMemo(() => {
     if (!rawData) return rawData;
     const d = rawData.data;
-    if (d?.summary) lastSummaryRef.current = d.summary;
-    if (d?.facets) lastFacetsRef.current = d.facets;
     if (!d?.summary || !d?.facets) {
       return {
         ...rawData,
         data: {
           ...d,
-          summary: d?.summary ?? lastSummaryRef.current,
-          facets: d?.facets ?? lastFacetsRef.current,
+          summary: d?.summary ?? cachedSummary,
+          facets: d?.facets ?? cachedFacets,
         },
       } as DelayedResponse;
     }
     return rawData;
-  }, [rawData]);
+  }, [cachedFacets, cachedSummary, rawData]);
 
   const delayedData = data?.data;
 
   const updateFilters = useCallback((partial: Partial<typeof filters>) => {
     setFilters((previous) => ({ ...previous, ...partial }));
+    if (partial.searchTerm !== undefined) {
+      setSearchInput(partial.searchTerm);
+    }
     setPage(DEFAULT_DELAYED_PAGE);
   }, []);
 
   const replaceFilters = useCallback((next: typeof filters) => {
     setFilters(next);
+    setSearchInput(next.searchTerm);
     setPage(DEFAULT_DELAYED_PAGE);
   }, []);
 

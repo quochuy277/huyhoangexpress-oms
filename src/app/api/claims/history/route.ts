@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 function getActionFromField(fieldName: string, newValue: string | null): {
@@ -287,7 +288,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("History error:", error);
+    logger.error("GET /api/claims/history", "Error", error);
     return NextResponse.json({
       error: "Không thể tải lịch sử claims",
       activities: [],

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
 
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error("GET /api/orders/upload-history error:", error);
+    logger.error("GET /api/orders/upload-history", "Error", error);
     return NextResponse.json(
       { error: "Lỗi hệ thống khi tải lịch sử upload" },
       { status: 500 }

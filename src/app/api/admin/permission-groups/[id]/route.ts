@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERMISSION_KEYS } from "@/lib/permissions";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 // PATCH /api/admin/permission-groups/[id] — update group
 export async function PATCH(
@@ -70,7 +71,7 @@ export async function PATCH(
 
     return NextResponse.json(group);
   } catch (error) {
-    console.error("Update permission group error:", error);
+    logger.error("PATCH /api/admin/permission-groups/[id]", "Update permission group error", error);
     return NextResponse.json({ error: "Lỗi khi cập nhật nhóm quyền" }, { status: 500 });
   }
 }
@@ -114,7 +115,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete permission group error:", error);
+    logger.error("DELETE /api/admin/permission-groups/[id]", "Delete permission group error", error);
     return NextResponse.json({ error: "Lỗi khi xóa nhóm quyền" }, { status: 500 });
   }
 }

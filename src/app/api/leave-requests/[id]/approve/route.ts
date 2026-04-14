@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 // PATCH — approve leave request
 export async function PATCH(
@@ -47,7 +48,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Approve leave error:", error);
+    logger.error("PATCH /api/leave-requests/[id]/approve", "Approve leave error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

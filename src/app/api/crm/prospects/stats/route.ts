@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 
 export async function GET() {
@@ -53,7 +54,7 @@ export async function GET() {
       data: { activeProspects, convertedThisMonth, conversionRate, avgConversionDays },
     });
   } catch (error) {
-    console.error("CRM Prospect Stats Error:", error);
+    logger.error("GET /api/crm/prospects/stats", "CRM Prospect Stats Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

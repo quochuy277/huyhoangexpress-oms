@@ -92,7 +92,7 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const announcements: AnnouncementPreview[] = announcementsListData?.announcements || [];
 
   const handleMarkRead = async (id: string) => {
-    await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch(() => { });
+    await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch((err) => { console.warn("[Header] Failed to mark announcement as read:", err); });
   };
 
   const handleAnnouncementSelect = async (announcement: HeaderAnnouncementPreviewItem) => {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 // Helper: auto-conversion logic when prospect reaches CONVERTED
 async function handleConversion(prospectId: string) {
@@ -88,7 +89,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: prospect });
   } catch (error) {
-    console.error("CRM Prospect Stage Error:", error);
+    logger.error("PATCH /api/crm/prospects/[id]/stage", "CRM Prospect Stage Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

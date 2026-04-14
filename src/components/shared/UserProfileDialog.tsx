@@ -86,7 +86,7 @@ export function UserProfileDialog({ onClose }: Props) {
   const [subDialog, setSubDialog] = useState<"password" | "change" | "feedback" | null>(null);
 
   useEffect(() => {
-    fetch("/api/profile").then(r => r.json()).then(setProfile).catch(() => { }).finally(() => setLoading(false));
+    fetch("/api/profile").then(r => r.json()).then(setProfile).catch((err) => { console.warn("[UserProfileDialog] Failed to fetch profile:", err); }).finally(() => setLoading(false));
   }, []);
 
   const formatValue = (key: string, val: unknown): string => {

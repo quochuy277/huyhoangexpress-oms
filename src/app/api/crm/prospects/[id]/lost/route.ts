@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 export async function PATCH(
   request: NextRequest,
@@ -40,7 +41,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: prospect });
   } catch (error) {
-    console.error("CRM Prospect Lost Error:", error);
+    logger.error("PATCH /api/crm/prospects/[id]/lost", "CRM Prospect Lost Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

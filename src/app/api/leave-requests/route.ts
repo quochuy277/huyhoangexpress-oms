@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // GET — own leave requests
 export async function GET() {
@@ -15,7 +16,7 @@ export async function GET() {
 
     return NextResponse.json({ requests });
   } catch (error) {
-    console.error("GET leave-requests error:", error);
+    logger.error("GET /api/leave-requests", "GET leave-requests error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, request });
   } catch (error) {
-    console.error("POST leave-requests error:", error);
+    logger.error("POST /api/leave-requests", "POST leave-requests error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

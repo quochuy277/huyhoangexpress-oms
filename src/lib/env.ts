@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 /**
  * Runtime validation for environment variables.
@@ -18,8 +19,10 @@ function validateEnv() {
     const parsed = envSchema.safeParse(process.env);
 
     if (!parsed.success) {
-        console.error(
-            "❌ Invalid environment variables:",
+        logger.error(
+            "env",
+            "Invalid environment variables",
+            parsed.error,
             parsed.error.flatten().fieldErrors
         );
         throw new Error(

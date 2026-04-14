@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireFinanceAccess } from "@/lib/finance-auth";
 import { getFinanceLandingData, resolvePnlRange } from "@/lib/finance/landing";
 import { parsePeriodFromURL } from "@/lib/finance-period";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Finance landing error:", error);
+    logger.error("GET /api/finance/landing", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

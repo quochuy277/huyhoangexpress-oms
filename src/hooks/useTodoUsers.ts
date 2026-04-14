@@ -3,43 +3,52 @@ import type { TodoUser } from "@/types/todo";
 
 let cachedUsers: TodoUser[] | null = null;
 
-export function useTodoUsers(canAssign: boolean, initialUsers?: TodoUser[]) {
-  if (initialUsers && initialUsers.length > 0) {
-    cachedUsers = initialUsers;
-  }
+function readCachedUsers() {
+  return cachedUsers;
+}
 
-  const [users, setUsers] = useState<TodoUser[]>(initialUsers || cachedUsers || []);
-  const [loading, setLoading] = useState(!initialUsers && !cachedUsers && canAssign);
-  const fetched = useRef(false);
+function writeCachedUsers(users: TodoUser[]) {
+  cachedUsers = [...users];
+}
+
+function clearCachedUsers() {
+  cachedUsers = null;
+}
+
+export function useTodoUsers(canAssign: boolean, initialUsers?: TodoUser[]) {
+  const hasInitialUsers = initialUsers !== undefined;
+  const initialCachedUsers = hasInitialUsers ? null : readCachedUsers();
+  const [users, setUsers] = useState<TodoUser[]>(initialCachedUsers || []);
+  const [loading, setLoading] = useState(!hasInitialUsers && !initialCachedUsers && canAssign);
+  const fetched = useRef(Boolean(initialCachedUsers));
 
   useEffect(() => {
-    if (!canAssign || fetched.current) return;
-    if (initialUsers) {
+    if (hasInitialUsers) {
+      writeCachedUsers(initialUsers ?? []);
       fetched.current = true;
-      setLoading(false);
       return;
     }
-    if (cachedUsers) {
-      setUsers(cachedUsers);
-      setLoading(false);
-      return;
-    }
+    if (!canAssign || fetched.current) return;
     fetched.current = true;
-    setLoading(true);
     fetch("/api/todos/users")
       .then((r) => r.json())
       .then((d) => {
-        const list = d.users || [];
-        cachedUsers = list;
+        const list = Array.isArray(d.users) ? d.users : [];
+        writeCachedUsers(list);
         setUsers(list);
       })
-      .catch(() => {})
+      .catch((err) => { console.warn("[useTodoUsers] Failed to fetch users:", err); })
       .finally(() => setLoading(false));
-  }, [canAssign, initialUsers]);
+  }, [canAssign, hasInitialUsers, initialUsers]);
 
   const invalidate = () => {
-    cachedUsers = null;
+    clearCachedUsers();
+    fetched.current = false;
   };
 
-  return { users, loading, invalidate };
+  return {
+    users: hasInitialUsers ? (initialUsers ?? []) : users,
+    loading: hasInitialUsers ? false : loading,
+    invalidate,
+  };
 }

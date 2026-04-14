@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { requireFinanceAccess } from "@/lib/finance-auth";
 import { CashbookGroup } from "@prisma/client";
+import { logger } from "@/lib/logger";
 
 export const maxDuration = 60;
 
@@ -181,7 +182,7 @@ export async function POST(req: NextRequest) {
       dateTo,
     });
   } catch (error) {
-    console.error("Cashbook upload error:", error);
+    logger.error("POST /api/finance/cashbook/upload", "Error", error);
     return NextResponse.json({ error: "Lỗi xử lý file" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 // GET — all leave requests (manager/admin)
 export async function GET() {
@@ -21,7 +22,7 @@ export async function GET() {
 
     return NextResponse.json({ requests, pendingCount });
   } catch (error) {
-    console.error("GET leave-requests/all error:", error);
+    logger.error("GET /api/leave-requests/all", "GET leave-requests/all error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

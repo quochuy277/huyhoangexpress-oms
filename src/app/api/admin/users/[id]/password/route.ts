@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
+import { logger } from "@/lib/logger";
 
 // PATCH /api/admin/users/[id]/password — change password
 export async function PATCH(
@@ -34,7 +35,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Change password error:", error);
+    logger.error("PATCH /api/admin/users/[id]/password", "Change password error", error);
     return NextResponse.json({ error: "Lỗi khi đổi mật khẩu" }, { status: 500 });
   }
 }

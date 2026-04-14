@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 // PUT — edit attendance (manager/admin only)
 export async function PUT(
@@ -36,7 +37,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PUT attendance error:", error);
+    logger.error("PUT /api/attendance/[id]", "PUT attendance error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
+import { logger } from "@/lib/logger";
 
 // PATCH /api/admin/users/[id] — update user
 export async function PATCH(
@@ -67,7 +68,7 @@ export async function PATCH(
 
     return NextResponse.json(user);
   } catch (error) {
-    console.error("Update user error:", error);
+    logger.error("PATCH /api/admin/users/[id]", "Update user error", error);
     return NextResponse.json({ error: "Lỗi khi cập nhật nhân viên" }, { status: 500 });
   }
 }
@@ -112,7 +113,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete user error:", error);
+    logger.error("DELETE /api/admin/users/[id]", "Delete user error", error);
     return NextResponse.json({ error: "Lỗi khi khóa tài khoản" }, { status: 500 });
   }
 }

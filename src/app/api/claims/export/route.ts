@@ -5,7 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { CLAIM_STATUS_CONFIG, ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
 import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { createServerTiming } from "@/lib/server-timing";
 
 const SOURCE_LABELS: Record<string, string> = {
   AUTO_SLOW_JOURNEY: "Tự động (hành trình chậm)",
@@ -34,10 +36,12 @@ function formatDateTimeVN(date: Date | string | null): string {
 }
 
 export async function GET(req: NextRequest) {
+  const timing = createServerTiming();
+
   try {
-    const session = await auth();
+    const session = await timing.measure("auth", () => auth());
     if (!session?.user) {
-      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401, headers: timing.headers() });
     }
     const denied = requireClaimsPermission(session.user, "canViewClaims");
     if (denied) {
@@ -83,80 +87,88 @@ export async function GET(req: NextRequest) {
       where.order = orderWhere;
     }
 
-    const claims = await prisma.claimOrder.findMany({
-      where,
-      include: {
-        order: {
-          select: {
-            requestCode: true,
-            carrierOrderCode: true,
-            carrierName: true,
-            shopName: true,
-            status: true,
-            deliveryStatus: true,
-            codAmount: true,
-            totalFee: true,
-            staffNotes: true,
-            receiverPhone: true,
-            receiverName: true,
-            receiverAddress: true,
-            pickupTime: true,
-            regionGroup: true,
+    const claims = await timing.measure("db", () =>
+      prisma.claimOrder.findMany({
+        where,
+        include: {
+          order: {
+            select: {
+              requestCode: true,
+              carrierOrderCode: true,
+              carrierName: true,
+              shopName: true,
+              status: true,
+              deliveryStatus: true,
+              codAmount: true,
+              totalFee: true,
+              staffNotes: true,
+              receiverPhone: true,
+              receiverName: true,
+              receiverAddress: true,
+              pickupTime: true,
+              regionGroup: true,
+            },
           },
+          createdBy: { select: { name: true } },
         },
-        createdBy: { select: { name: true } },
-      },
-      orderBy: { deadline: "asc" },
-      take: EXPORT_LIMIT,
+        orderBy: { deadline: "asc" },
+        take: EXPORT_LIMIT,
+      }),
+    );
+
+    const rows = await timing.measure("transform", () =>
+      claims.map((claim, index) => {
+        const daysPending = Math.floor((Date.now() - new Date(claim.detectedDate).getTime()) / 86400000);
+
+        return {
+          STT: index + 1,
+          "Mã Yêu Cầu": claim.order?.requestCode || "",
+          "Mã ĐT Đối Tác": claim.order?.carrierOrderCode || "",
+          "Cửa Hàng": claim.order?.shopName || "",
+          "Đối Tác Vận Chuyển": claim.order?.carrierName || "",
+          "Trạng Thái Đơn": claim.order?.status || "",
+          "COD (đ)": Number(claim.order?.codAmount || 0),
+          "Tổng Phí (đ)": Number(claim.order?.totalFee || 0),
+          "Nhóm Vùng Miền": claim.order?.regionGroup || "",
+          "Thời Gian Lấy Hàng": formatDateTimeVN(claim.order?.pickupTime || null),
+          "Loại Vấn Đề": ISSUE_TYPE_CONFIG[claim.issueType as keyof typeof ISSUE_TYPE_CONFIG]?.label || claim.issueType,
+          "Nội Dung Vấn Đề": claim.issueDescription || "",
+          "Ngày Phát Hiện": formatDateVN(claim.detectedDate),
+          "Ngày Tồn Đọng": `${daysPending} ngày`,
+          "TT Xử Lý":
+            CLAIM_STATUS_CONFIG[claim.claimStatus as keyof typeof CLAIM_STATUS_CONFIG]?.label || claim.claimStatus,
+          "Nội Dung Xử Lý": claim.processingContent || "",
+          "Thời Hạn": formatDateVN(claim.deadline),
+          "Số Tiền NVC Đền Bù (đ)": Number(claim.carrierCompensation || 0),
+          "Số Tiền Đền Bù KH (đ)": Number(claim.customerCompensation || 0),
+          "Hoàn Tất": claim.isCompleted ? "Đã hoàn tất" : "Chưa",
+          Nguồn: SOURCE_LABELS[claim.source] || claim.source,
+          "Người Tạo": claim.createdBy?.name || "",
+          "Ngày Tạo": formatDateVN(claim.createdAt),
+          "Người Nhận": claim.order?.receiverName || "",
+          "SĐT Người Nhận": claim.order?.receiverPhone || "",
+          "Ghi Chú NB": claim.order?.staffNotes || "",
+        };
+      }),
+    );
+
+    const buffer = await timing.measure("workbook", () => {
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const worksheetHeaders = Object.keys(rows[0] || {});
+      worksheet["!cols"] = worksheetHeaders.map((key) => ({ wch: Math.max(key.length + 2, 14) }));
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn Có Vấn Đề");
+
+      return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     });
-
-    const rows = claims.map((claim, index) => {
-      const daysPending = Math.floor((Date.now() - new Date(claim.detectedDate).getTime()) / 86400000);
-
-      return {
-        STT: index + 1,
-        "Mã Yêu Cầu": claim.order?.requestCode || "",
-        "Mã ĐT Đối Tác": claim.order?.carrierOrderCode || "",
-        "Cửa Hàng": claim.order?.shopName || "",
-        "Đối Tác Vận Chuyển": claim.order?.carrierName || "",
-        "Trạng Thái Đơn": claim.order?.status || "",
-        "COD (đ)": Number(claim.order?.codAmount || 0),
-        "Tổng Phí (đ)": Number(claim.order?.totalFee || 0),
-        "Nhóm Vùng Miền": claim.order?.regionGroup || "",
-        "Thời Gian Lấy Hàng": formatDateTimeVN(claim.order?.pickupTime || null),
-        "Loại Vấn Đề": ISSUE_TYPE_CONFIG[claim.issueType as keyof typeof ISSUE_TYPE_CONFIG]?.label || claim.issueType,
-        "Nội Dung Vấn Đề": claim.issueDescription || "",
-        "Ngày Phát Hiện": formatDateVN(claim.detectedDate),
-        "Ngày Tồn Đọng": `${daysPending} ngày`,
-        "TT Xử Lý":
-          CLAIM_STATUS_CONFIG[claim.claimStatus as keyof typeof CLAIM_STATUS_CONFIG]?.label || claim.claimStatus,
-        "Nội Dung Xử Lý": claim.processingContent || "",
-        "Thời Hạn": formatDateVN(claim.deadline),
-        "Số Tiền NVC Đền Bù (đ)": Number(claim.carrierCompensation || 0),
-        "Số Tiền Đền Bù KH (đ)": Number(claim.customerCompensation || 0),
-        "Hoàn Tất": claim.isCompleted ? "Đã hoàn tất" : "Chưa",
-        Nguồn: SOURCE_LABELS[claim.source] || claim.source,
-        "Người Tạo": claim.createdBy?.name || "",
-        "Ngày Tạo": formatDateVN(claim.createdAt),
-        "Người Nhận": claim.order?.receiverName || "",
-        "SĐT Người Nhận": claim.order?.receiverPhone || "",
-        "Ghi Chú NB": claim.order?.staffNotes || "",
-      };
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const worksheetHeaders = Object.keys(rows[0] || {});
-    worksheet["!cols"] = worksheetHeaders.map((key) => ({ wch: Math.max(key.length + 2, 14) }));
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Đơn Có Vấn Đề");
-
-    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     const timestamp = new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).replace(/\//g, "");
+    const timingHeader = timing.headerValue();
 
     const headers = new Headers({
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename=\"don-co-van-de-${timestamp}.xlsx\"`,
+      "Server-Timing": timingHeader,
     });
 
     if (claims.length === EXPORT_LIMIT) {
@@ -164,12 +176,16 @@ export async function GET(req: NextRequest) {
     }
     headers.set("X-Claims-Export-Limit", String(EXPORT_LIMIT));
 
+    logger.info("GET /api/claims/export", `Exported ${claims.length} rows`, {
+      timing: timingHeader,
+    });
+
     return new NextResponse(buffer, {
       status: 200,
       headers,
     });
   } catch (error) {
-    console.error("GET /api/claims/export error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+    logger.error("GET /api/claims/export", "Error", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500, headers: timing.headers() });
   }
 }

@@ -51,15 +51,16 @@ export function StatsSection({ initialStats }: { initialStats?: LandingStats }) 
   const [stats, setStats] = useState<LandingStats>(initialStats ?? DEFAULT_STATS);
 
   // Only fetch client-side if no initialStats provided (fallback)
+  const hasInitialStats = !!initialStats;
   useEffect(() => {
-    if (initialStats) return;
+    if (hasInitialStats) return;
     fetch("/api/landing/stats")
       .then((r) => r.json())
       .then((data) => setStats(data))
       .catch((err) => {
         console.warn("[StatsSection] Failed to fetch landing stats:", err);
       });
-  }, [initialStats]);
+  }, [hasInitialStats]);
 
   useEffect(() => {
     const el = ref.current;

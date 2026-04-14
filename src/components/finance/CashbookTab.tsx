@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart } from "recharts";
+import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart } from "recharts";
 import { buildCashbookTransactionSummary, buildShopPayoutSummary } from "./financeResponsive";
 
 const PERIODS = [
@@ -15,6 +15,7 @@ const GROUP_LABELS: Record<string, { label: string; color: string }> = {
   OTHER: { label: "Khác", color: "#64748b" },
 };
 const PIE_COLORS = ["#10b981", "#ef4444", "#94a3b8", "#2563eb", "#8b5cf6", "#f59e0b", "#64748b"];
+const DEFAULT_PAGINATION = { total: 0, page: 1, pageSize: 20, pages: 0 };
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
 
 export default function CashbookTab({ initialData = null }: { initialData?: any }) {
@@ -27,7 +28,7 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
   const [summary, setSummary] = useState<any>(() => initialData?.summary || null);
   const [transactions, setTransactions] = useState<any[]>(() => initialData?.transactions || []);
   const [pagination, setPagination] = useState<{ total: number; page: number; pageSize: number; pages: number }>(
-    () => initialData?.pagination || { total: 0, page: 1, pageSize: 20, pages: 0 },
+    () => initialData?.pagination || DEFAULT_PAGINATION,
   );
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState("");
@@ -43,7 +44,9 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
       fetch(`/api/finance/cashbook/summary?period=${period}${customParams}`).then(r => r.json()),
       fetch(`/api/finance/cashbook?period=${period}&page=${pagination.page}&pageSize=${pagination.pageSize}${groupParam}${searchParam}${customParams}`).then(r => r.json()),
     ]);
-    setSummary(sumRes); setTransactions(txRes.transactions || []); setPagination(txRes.pagination || pagination);
+    setSummary(sumRes);
+    setTransactions(txRes.transactions || []);
+    setPagination(txRes.pagination || DEFAULT_PAGINATION);
   }, [period, pagination.page, pagination.pageSize, groupFilter, search, customFrom, customTo]);
 
   // Fetch uploads separately — only on mount and after upload (not on every filter change)
@@ -58,13 +61,24 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
       return;
     }
 
-    void fetchData();
+    const loadCashbookData = async () => {
+      await fetchData();
+    };
+
+    void loadCashbookData();
   }, [fetchData]);
 
-  // Fetch uploads once on mount (if no initial data)
   useEffect(() => {
-    if (!initialData?.uploads) void fetchUploads();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (initialData?.uploads) {
+      return;
+    }
+
+    const loadUploads = async () => {
+      await fetchUploads();
+    };
+
+    void loadUploads();
+  }, [fetchUploads, initialData?.uploads]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,9 +90,7 @@ export default function CashbookTab({ initialData = null }: { initialData?: any 
       const res = await fetch("/api/finance/cashbook/upload", { method: "POST", body: formData });
       const data = await res.json();
       setUploadResult(data);
-      // Refetch both data and uploads after upload
-      fetchData();
-      fetchUploads();
+      await Promise.all([fetchData(), fetchUploads()]);
     } catch { setUploadResult({ error: "Lỗi upload" }); }
     setUploading(false);
     e.target.value = "";

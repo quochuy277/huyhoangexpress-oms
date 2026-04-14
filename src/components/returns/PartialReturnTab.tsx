@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Flag, CheckSquare, Info, ChevronLeft, ChevronRight, Truck } from "lucide-react";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
-import { TrackingPopup } from "@/components/tracking/TrackingPopup";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
+
+const AddTodoDialog = dynamic(() => import("@/components/shared/AddTodoDialog").then((m) => ({ default: m.AddTodoDialog })), { loading: () => null });
+const AddClaimFromPageDialog = dynamic(() => import("@/components/shared/AddClaimFromPageDialog").then((m) => ({ default: m.AddClaimFromPageDialog })), { loading: () => null });
+const TrackingPopup = dynamic(() => import("@/components/tracking/TrackingPopup").then((m) => ({ default: m.TrackingPopup })), { loading: () => null });
+const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ReturnOrder } from "@/types/returns";
@@ -27,6 +29,32 @@ function DaysBadge({ days }: { days: number }) {
     <span className={`inline-flex justify-center items-center px-2 py-0.5 rounded text-[11px] font-bold ${cls}`}>
       {days} ngày
     </span>
+  );
+}
+
+function PartialSortHead({
+  label,
+  sortKey,
+  width,
+  activeSortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  sortKey: string;
+  width: string;
+  activeSortKey: string;
+  sortDir: "asc" | "desc";
+  onSort: (key: string) => void;
+}) {
+  return (
+    <TableHead
+      className="text-[11px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors px-2"
+      style={{ width, minWidth: width }}
+      onClick={() => onSort(sortKey)}
+    >
+      {label} {activeSortKey === sortKey && (sortDir === "asc" ? "↑" : "↓")}
+    </TableHead>
   );
 }
 
@@ -87,16 +115,6 @@ export function PartialReturnTab({ data, pageSize, onWarehouseConfirm }: Props) 
     else { setSortKey(key); setSortDir("desc"); }
   };
 
-  const SortHead = ({ label, k, w }: { label: string; k: string; w: string }) => (
-    <TableHead
-      className="text-[11px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors px-2"
-      style={{ width: w, minWidth: w }}
-      onClick={() => requestSort(k)}
-    >
-      {label} {sortKey === k && (sortDir === "asc" ? "↑" : "↓")}
-    </TableHead>
-  );
-
   return (
     <>
       <style>{`@keyframes fadeInOut{0%{opacity:0;transform:scale(.5)}15%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:scale(.8)}}`}</style>
@@ -105,13 +123,13 @@ export function PartialReturnTab({ data, pageSize, onWarehouseConfirm }: Props) 
           <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "40px" }}>STT</TableHead>
-              <SortHead label="Mã Yêu Cầu" k="requestCode" w="140px" />
-              <SortHead label="Mã Đơn Đối Tác" k="carrierOrderCode" w="120px" />
-              <SortHead label="Tên Cửa Hàng" k="shopName" w="140px" />
+              <PartialSortHead label="Mã Yêu Cầu" sortKey="requestCode" width="140px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
+              <PartialSortHead label="Mã Đơn Đối Tác" sortKey="carrierOrderCode" width="120px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
+              <PartialSortHead label="Tên Cửa Hàng" sortKey="shopName" width="140px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "120px" }}>Trạng Thái</TableHead>
-              <SortHead label="Ngày Giao" k="deliveredDate" w="100px" />
-              <SortHead label="Số Ngày Hoàn" k="daysReturning" w="80px" />
-              <SortHead label="Mã 1 Phần" k="partialOrderCode" w="120px" />
+              <PartialSortHead label="Ngày Giao" sortKey="deliveredDate" width="100px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
+              <PartialSortHead label="Số Ngày Hoàn" sortKey="daysReturning" width="80px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
+              <PartialSortHead label="Mã 1 Phần" sortKey="partialOrderCode" width="120px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "85px" }}>Đã Về Kho</TableHead>
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "120px" }}>Ghi Chú</TableHead>
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "100px" }}>Thao Tác</TableHead>

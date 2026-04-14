@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
 
@@ -37,7 +38,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PATCH customer-confirmed error:", error);
+    logger.error("PATCH /api/orders/[requestCode]/customer-confirmed", "Error", error);
     return NextResponse.json(
       { error: "Không thể cập nhật" },
       { status: 500 }

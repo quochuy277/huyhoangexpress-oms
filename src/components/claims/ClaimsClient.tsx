@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import {
@@ -516,23 +516,23 @@ function ClaimsClientInner({
   }, [detailClaimId, externalDetailClaimId, onExternalDetailConsumed]);
 
 
-  const handleOpenTodoFromClaim = (data: ClaimDetailData) => {
+  const handleOpenTodoFromClaim = useCallback((data: ClaimDetailData) => {
     setTodoClaimOrder({
       order: data.order,
       issueType: data.issueType,
       claimStatus: data.claimStatus,
     });
-  };
+  }, []);
 
-  const handleRequestCompleteToggle = (claimId: string, requestCode: string, isCompleted: boolean) => {
+  const handleRequestCompleteToggle = useCallback((claimId: string, requestCode: string, isCompleted: boolean) => {
     if (isCompleted) {
       setReopenConfirm({ id: claimId, requestCode, loading: false, success: null });
       return;
     }
     setCompleteConfirm({ id: claimId, requestCode, loading: false, success: null });
-  };
+  }, []);
 
-  const handleDrawerCompleteToggle = ({
+  const handleDrawerCompleteToggle = useCallback(({
     id,
     requestCode,
     isCompleted,
@@ -542,9 +542,9 @@ function ClaimsClientInner({
     isCompleted: boolean;
   }) => {
     handleRequestCompleteToggle(id, requestCode, isCompleted);
-  };
+  }, [handleRequestCompleteToggle]);
 
-  const executeComplete = async () => {
+  const executeComplete = useCallback(async () => {
     if (!completeConfirm) return;
     setCompleteConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
@@ -563,9 +563,9 @@ function ClaimsClientInner({
     } catch {
       setCompleteConfirm(prev => prev ? { ...prev, loading: false } : null);
     }
-  };
+  }, [completeConfirm, fetchClaims]);
 
-  const executeReopen = async () => {
+  const executeReopen = useCallback(async () => {
     if (!reopenConfirm) return;
     setReopenConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
@@ -584,17 +584,17 @@ function ClaimsClientInner({
     } catch {
       setReopenConfirm(prev => prev ? { ...prev, loading: false } : null);
     }
-  };
+  }, [reopenConfirm, fetchClaims]);
 
   // Cập nhật optimistic: chỉ cập nhật row trong state, không reload toàn bảng
 
-  const handleDelete = (claimId: string, requestCode: string) => {
+  const handleDelete = useCallback((claimId: string, requestCode: string) => {
     if (!canDeleteClaim) return;
     setInlineNotice(null);
     setDeleteConfirm({ id: claimId, requestCode, loading: false, success: null });
-  };
+  }, [canDeleteClaim]);
 
-  const executeDelete = async () => {
+  const executeDelete = useCallback(async () => {
     if (!deleteConfirm) return;
     setDeleteConfirm(prev => prev ? { ...prev, loading: true } : null);
     try {
@@ -610,27 +610,27 @@ function ClaimsClientInner({
     } catch {
       setDeleteConfirm(prev => prev ? { ...prev, loading: false } : null);
     }
-  };
+  }, [deleteConfirm, fetchClaims]);
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = useCallback((id: string) => {
     if (!canUpdateClaim && !canDeleteClaim) return;
     setSelectedIds(prev => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
-  };
+  }, [canUpdateClaim, canDeleteClaim]);
 
-  const toggleSelectAll = () => {
+  const toggleSelectAll = useCallback(() => {
     if (!canUpdateClaim && !canDeleteClaim) return;
     if (selectedIds.size === claims.length) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(claims.map(c => c.id)));
     }
-  };
+  }, [canUpdateClaim, canDeleteClaim, selectedIds.size, claims]);
 
-  const handleBulkAction = async (field: string, value: string) => {
+  const handleBulkAction = useCallback(async (field: string, value: string) => {
     if (!canUpdateClaim || selectedIds.size === 0) return;
     setBulkProcessing(true);
     try {
@@ -644,9 +644,9 @@ function ClaimsClientInner({
     } finally {
       setBulkProcessing(false);
     }
-  };
+  }, [canUpdateClaim, selectedIds, fetchClaims]);
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = useCallback(async () => {
     if (!canDeleteClaim || selectedIds.size === 0) return;
     setInlineNotice(null);
     setBulkDeleteConfirm({
@@ -655,9 +655,9 @@ function ClaimsClientInner({
       loading: false,
       success: null,
     });
-  };
+  }, [canDeleteClaim, selectedIds]);
 
-  const executeBulkDelete = async () => {
+  const executeBulkDelete = useCallback(async () => {
     if (!bulkDeleteConfirm) return;
 
     setBulkDeleteConfirm((current) => current ? { ...current, loading: true } : null);
@@ -702,29 +702,29 @@ function ClaimsClientInner({
     } finally {
       setBulkProcessing(false);
     }
-  };
+  }, [bulkDeleteConfirm, fetchClaims]);
 
-  const toggleIssueFilter = (type: string) => {
+  const toggleIssueFilter = useCallback((type: string) => {
     setFilters(f => ({
       ...f,
       page: 1,
       issueType: f.issueType.includes(type) ? f.issueType.filter(t => t !== type) : [...f.issueType, type],
     }));
-  };
+  }, [setFilters]);
 
-  const toggleSort = (field: string) => {
+  const toggleSort = useCallback((field: string) => {
     setFilters(f => ({
       ...f,
       page: 1,
       sortBy: field,
       sortDir: f.sortBy === field ? (f.sortDir === "asc" ? "desc" : "asc") : "asc",
     }));
-  };
+  }, [setFilters]);
 
-  const completeDialogCopy = getClaimCompleteDialogCopy(completeConfirm?.requestCode || "");
-  const deleteDialogCopy = getClaimDeleteDialogCopy(deleteConfirm?.requestCode || "");
-  const reopenDialogCopy = getClaimReopenDialogCopy(reopenConfirm?.requestCode || "");
-  const bulkDeleteDialogCopy = getBulkDeleteDialogCopy(bulkDeleteConfirm?.count || 0);
+  const completeDialogCopy = useMemo(() => getClaimCompleteDialogCopy(completeConfirm?.requestCode || ""), [completeConfirm?.requestCode]);
+  const deleteDialogCopy = useMemo(() => getClaimDeleteDialogCopy(deleteConfirm?.requestCode || ""), [deleteConfirm?.requestCode]);
+  const reopenDialogCopy = useMemo(() => getClaimReopenDialogCopy(reopenConfirm?.requestCode || ""), [reopenConfirm?.requestCode]);
+  const bulkDeleteDialogCopy = useMemo(() => getBulkDeleteDialogCopy(bulkDeleteConfirm?.count || 0), [bulkDeleteConfirm?.count]);
   const canBulkSelect = canUpdateClaim || canDeleteClaim;
 
   return (

@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Flag, CheckSquare, Info, ChevronLeft, ChevronRight, Truck } from "lucide-react";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
-import { TrackingPopup } from "@/components/tracking/TrackingPopup";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
 import { ClaimBadge } from "@/components/shared/ClaimBadge";
+
+const AddTodoDialog = dynamic(() => import("@/components/shared/AddTodoDialog").then((m) => ({ default: m.AddTodoDialog })), { loading: () => null });
+const AddClaimFromPageDialog = dynamic(() => import("@/components/shared/AddClaimFromPageDialog").then((m) => ({ default: m.AddClaimFromPageDialog })), { loading: () => null });
+const TrackingPopup = dynamic(() => import("@/components/tracking/TrackingPopup").then((m) => ({ default: m.TrackingPopup })), { loading: () => null });
+const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ReturnOrder } from "@/types/returns";
@@ -59,6 +61,40 @@ function TrackingCheckbox({ checked, byName, byAt, onToggle, labelOn, labelOff }
       )}
     </div>
   );
+}
+
+function WaitingSortHead({
+  label,
+  sortKey,
+  width,
+  activeSortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  sortKey: string;
+  width: string;
+  activeSortKey: string;
+  sortDir: "asc" | "desc";
+  onSort: (key: string) => void;
+}) {
+  return (
+    <TableHead
+      className="text-[11px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors px-2"
+      style={{ width, minWidth: width }}
+      onClick={() => onSort(sortKey)}
+    >
+      {label} {activeSortKey === sortKey && (sortDir === "asc" ? "↑" : "↓")}
+    </TableHead>
+  );
+}
+
+function WaitingReturnStatusBadge({ order }: { order: ReturnOrder }) {
+  const status = order.status || "";
+  if (status.toLowerCase().includes("hoãn trả") || order.deliveryStatus === "RETURN_DELAYED") {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 whitespace-nowrap">Hoãn trả hàng</span>;
+  }
+  return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 whitespace-nowrap">Đã giao hàng</span>;
 }
 
 interface Props {
@@ -116,24 +152,6 @@ export function WaitingReturnTab({ data, pageSize, onConfirmAskedToggle, onCusto
     else { setSortKey(key); setSortDir("desc"); }
   };
 
-  const SortHead = ({ label, k, w }: { label: string; k: string; w: string }) => (
-    <TableHead
-      className="text-[11px] font-medium uppercase text-slate-500 whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors px-2"
-      style={{ width: w, minWidth: w }}
-      onClick={() => requestSort(k)}
-    >
-      {label} {sortKey === k && (sortDir === "asc" ? "↑" : "↓")}
-    </TableHead>
-  );
-
-  const getStatusBadge = (o: ReturnOrder) => {
-    const s = o.status || "";
-    if (s.toLowerCase().includes("hoãn trả") || o.deliveryStatus === "RETURN_DELAYED") {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 whitespace-nowrap">Hoãn trả hàng</span>;
-    }
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 whitespace-nowrap">Đã giao hàng</span>;
-  };
-
   return (
     <>
       <div className="flex-1 overflow-auto custom-scrollbar">
@@ -141,11 +159,11 @@ export function WaitingReturnTab({ data, pageSize, onConfirmAskedToggle, onCusto
           <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "40px" }}>STT</TableHead>
-              <SortHead label="Mã Yêu Cầu" k="requestCode" w="130px" />
-              <SortHead label="Mã Đơn Đối Tác" k="carrierOrderCode" w="110px" />
-              <SortHead label="Tên Cửa Hàng" k="shopName" w="130px" />
+              <WaitingSortHead label="Mã Yêu Cầu" sortKey="requestCode" width="130px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
+              <WaitingSortHead label="Mã Đơn Đối Tác" sortKey="carrierOrderCode" width="110px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
+              <WaitingSortHead label="Tên Cửa Hàng" sortKey="shopName" width="130px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "110px" }}>Trạng Thái</TableHead>
-              <SortHead label="Ngày Về Kho" k="warehouseDate" w="90px" />
+              <WaitingSortHead label="Ngày Về Kho" sortKey="warehouseDate" width="90px" activeSortKey={sortKey} sortDir={sortDir} onSort={requestSort} />
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "100px" }}>Đã Hỏi KH</TableHead>
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 text-center px-1" style={{ width: "100px" }}>KH Xác Nhận</TableHead>
               <TableHead className="text-[11px] font-medium uppercase text-slate-500 px-2" style={{ width: "130px" }}>Ghi Chú</TableHead>
@@ -181,7 +199,7 @@ export function WaitingReturnTab({ data, pageSize, onConfirmAskedToggle, onCusto
                     </TableCell>
                     <TableCell className="text-slate-700 text-[11px] px-2 truncate">{o.carrierOrderCode || "-"}</TableCell>
                     <TableCell className="text-slate-700 text-[12px] px-2 truncate" title={o.shopName || ""}>{o.shopName || "-"}</TableCell>
-                    <TableCell className="px-2">{getStatusBadge(o)}</TableCell>
+                    <TableCell className="px-2"><WaitingReturnStatusBadge order={o} /></TableCell>
                     <TableCell className="text-[11px] text-slate-700 px-2 whitespace-nowrap">
                       {whDate ? format(whDate, "dd/MM/yyyy") : "-"}
                     </TableCell>

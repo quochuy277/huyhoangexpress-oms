@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getCrmShopsInitialData } from "@/lib/crm-page-data";
 import { hasPermission } from "@/lib/route-permissions";
 import { createServerTiming, mergeServerTimingValues } from "@/lib/server-timing";
+import { logger } from "@/lib/logger";
 
 
 export async function GET() {
@@ -25,7 +26,7 @@ export async function GET() {
 
     return NextResponse.json(initialData.dashboard, { headers });
   } catch (error) {
-    console.error("CRM Dashboard Error:", error);
+    logger.error("GET /api/crm/dashboard", "CRM Dashboard Error", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500, headers: timing.headers() }

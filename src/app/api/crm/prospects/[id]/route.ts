@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   _request: NextRequest,
@@ -36,7 +37,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: prospect });
   } catch (error) {
-    console.error("CRM Prospect Detail Error:", error);
+    logger.error("GET /api/crm/prospects/[id]", "CRM Prospect Detail Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -81,7 +82,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: prospect });
   } catch (error) {
-    console.error("CRM Prospect Update Error:", error);
+    logger.error("PUT /api/crm/prospects/[id]", "CRM Prospect Update Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -104,7 +105,7 @@ export async function DELETE(
     await prisma.shopProspect.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("CRM Prospect Delete Error:", error);
+    logger.error("DELETE /api/crm/prospects/[id]", "CRM Prospect Delete Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

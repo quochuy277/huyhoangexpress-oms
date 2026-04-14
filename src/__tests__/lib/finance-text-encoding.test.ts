@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+﻿import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,15 @@ const FINANCE_FILES = [
   },
   {
     path: "src/components/finance/OverviewTab.tsx",
-    phrases: ["Tháng này", "Tổng doanh thu", "Quản lý khoản chi", "Ngân sách hàng tháng"],
+    phrases: ["Tháng này", "Tổng doanh thu"],
+  },
+  {
+    path: "src/components/finance/ExpenseSection.tsx",
+    phrases: ["Quản lý khoản chi"],
+  },
+  {
+    path: "src/components/finance/BudgetSection.tsx",
+    phrases: ["Ngân sách hàng tháng"],
   },
   {
     path: "src/components/finance/AnalysisTab.tsx",
@@ -39,3 +47,4 @@ describe("finance text encoding", () => {
     }
   });
 });
+

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import path from "path";
 import fs from "fs/promises";
+import { logger } from "@/lib/logger";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "documents");
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ document: doc });
   } catch (e) {
-    console.error("Upload error:", e);
+    logger.error("POST /api/documents", "Upload error", e);
     return NextResponse.json({ error: "Lỗi tải lên" }, { status: 500 });
   }
 }

@@ -2,18 +2,22 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { createServerTiming } from "@/lib/server-timing";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  }
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
 
-  const denied = requirePermission(session.user, "canViewDashboard", "Không có quyền xem tổng quan");
-  if (denied) return denied;
+    const denied = requirePermission(session.user, "canViewDashboard", "Không có quyền xem tổng quan");
+    if (denied) return denied;
 
-  // Fetch all 4 data sources in parallel
-  const [uploads, claims, returns, todos] = await Promise.all([
+    const timing = createServerTiming();
+    // Fetch all 4 data sources in parallel
+    const [uploads, claims, returns, todos] = await timing.measure("db_queries", () => Promise.all([
     prisma.uploadHistory.findMany({
       orderBy: { uploadedAt: 'desc' },
       select: {
@@ -54,7 +58,7 @@ export async function GET() {
       },
       take: 5
     }),
-  ]);
+  ]));
 
   // Định dạng mảng
   const activities = [];
@@ -99,7 +103,11 @@ export async function GET() {
   // Sắp xếp giảm dần theo thời gian
   activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  return NextResponse.json({ recentActivities: activities.slice(0, 10) }, {
-    headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
-  });
+    return NextResponse.json({ recentActivities: activities.slice(0, 10) }, {
+      headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60", ...timing.headers() },
+    });
+  } catch (error) {
+    logger.error("GET /api/dashboard/activities", "Error", error);
+    return NextResponse.json({ error: "Không thể tải hoạt động gần đây" }, { status: 500 });
+  }
 }

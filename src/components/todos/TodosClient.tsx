@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Columns3, ListTodo, Loader2, Plus } from "lucide-react";
 
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
+const AddTodoDialog = dynamic(() => import("@/components/shared/AddTodoDialog").then((m) => ({ default: m.AddTodoDialog })), { loading: () => null });
+const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 import { useTodos } from "@/hooks/useTodos";
 import { useTodoStats } from "@/hooks/useTodoStats";
 import { useTodoUsers } from "@/hooks/useTodoUsers";
@@ -61,7 +62,7 @@ export default function TodosClient({
     priority: "",
     dueFilter: "",
   });
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState(() => filters.search);
   const [selectedTodo, setSelectedTodo] = useState<TodoItemData | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -87,10 +88,6 @@ export default function TodosClient({
   const { scope, assigneeId } = parseTodoScopeSelection(scopeSelection);
   const scopeStats = getTodoStatsForSelection(stats, scopeSelection);
   const deleteTarget = deleteId ? todos.find((todo) => todo.id === deleteId) : null;
-
-  useEffect(() => {
-    setSearchInput(filters.search);
-  }, [filters.search]);
 
   const doFetch = useCallback(() => {
     fetchTodos({ scope, assigneeId, filters, hideDone, page, pageSize: 20 });

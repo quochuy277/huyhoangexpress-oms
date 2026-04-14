@@ -162,5 +162,6 @@ describe("claims api permissions", () => {
       }),
     );
     expect(response.headers.get("Content-Type")).toContain("spreadsheetml");
+    expect(response.headers.get("Server-Timing")).toContain("total;dur=");
   });
 });

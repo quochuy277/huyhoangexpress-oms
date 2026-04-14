@@ -28,10 +28,29 @@ describe("ReturnsPage", () => {
 
     const { default: ReturnsPage } = await import("@/app/(dashboard)/returns/page");
 
-    const element = await ReturnsPage({ searchParams: Promise.resolve({ tab: "full" }) } as never);
+    const element = await ReturnsPage({
+      searchParams: Promise.resolve({
+        tab: "full",
+        search: "REQ-001",
+        shop: "Shop A",
+        days: "4to7",
+        notes: "has",
+        confirm: "asked",
+        fullPage: "3",
+      }),
+    } as never);
 
     expect(vi.mocked(getReturnsSummaryData)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(getReturnsTabData)).toHaveBeenCalledWith({ tab: "full", search: "", page: 1, pageSize: 50 });
+    expect(vi.mocked(getReturnsTabData)).toHaveBeenCalledWith({
+      tab: "full",
+      search: "REQ-001",
+      shopFilter: "Shop A",
+      daysRange: "4to7",
+      hasNotes: "has",
+      confirmAsked: "asked",
+      page: 3,
+      pageSize: 20,
+    });
     expect((element as any).props.initialActiveTab).toBe("full");
     expect((element as any).props.initialTabData.full).toEqual([{ requestCode: "REQ-001" }]);
     expect((element as any).props.initialSummaryCounts).toEqual({ partial: 1, full: 2, warehouse: 3 });

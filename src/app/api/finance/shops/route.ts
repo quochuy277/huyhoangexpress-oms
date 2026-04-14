@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireFinanceAccess } from "@/lib/finance-auth";
 import { parsePeriodFromURL } from "@/lib/finance-period";
 import { Prisma } from "@prisma/client";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ shops: result });
   } catch (error) {
-    console.error("Finance shops error:", error);
+    logger.error("GET /api/finance/shops", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

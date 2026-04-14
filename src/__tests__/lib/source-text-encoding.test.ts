@@ -1,11 +1,21 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+﻿import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 const SOURCE_ROOT = path.join(process.cwd(), "src");
-const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
+const DOCS_ROOT = path.join(process.cwd(), "docs");
+const PLAN_FILE = path.join(process.env.USERPROFILE ?? "C:\\Users\\Admin", ".claude", "plans", "virtual-stargazing-hinton.md");
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".md"]);
 const MOJIBAKE_FRAGMENTS = [
+  "TÃ",
+  "Tá»",
+  "Ä",
+  "Ä‘",
+  "ChÆ°a",
+  "NhÃ",
+  "há»‡",
+  "Lá»—i",
   "Ã¡",
   "Ã¢",
   "Ã£",
@@ -56,9 +66,17 @@ function collectSourceFiles(dirPath: string, files: string[] = []) {
   return files;
 }
 
+function collectFiles() {
+  return [
+    ...collectSourceFiles(SOURCE_ROOT),
+    ...collectSourceFiles(DOCS_ROOT),
+    PLAN_FILE,
+  ];
+}
+
 describe("source text encoding", () => {
-  it("keeps app source free from mojibake fragments", () => {
-    const offenders = collectSourceFiles(SOURCE_ROOT).filter((filePath) => {
+  it("keeps app source, docs, and the phase plan free from mojibake fragments", () => {
+    const offenders = collectFiles().filter((filePath) => {
       const content = readFileSync(filePath, "utf8");
       return MOJIBAKE_FRAGMENTS.some((fragment) => content.includes(fragment));
     });
@@ -66,3 +84,4 @@ describe("source text encoding", () => {
     expect(offenders).toEqual([]);
   });
 });
+

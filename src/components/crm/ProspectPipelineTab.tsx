@@ -1,12 +1,11 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import {
-  Target, Plus, CheckCircle, TrendingUp, Clock, Download,
-  Phone, User, Store, MoreHorizontal, Loader2, Search,
-  LayoutGrid, List, PackageX, RotateCcw, ExternalLink
+  Target, Plus, CheckCircle, TrendingUp, Clock,
+  Phone, User, Search, LayoutGrid, List, PackageX, RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProspectFormDialog } from "./ProspectFormDialog";
@@ -18,6 +17,8 @@ interface ProspectPipelineTabProps {
   userName: string;
   initialData?: any;
 }
+
+const EMPTY_PROSPECTS: Prospect[] = [];
 
 const STAGES = [
   { key: "DISCOVERED", label: "Mới phát hiện", color: "bg-slate-100 border-slate-300", headerColor: "bg-slate-500", emoji: "🔍" },
@@ -55,12 +56,11 @@ interface Prospect {
   createdAt: string;
 }
 
-export function ProspectPipelineTab({ userRole, userId, userName, initialData }: ProspectPipelineTabProps) {
+export function ProspectPipelineTab({ userId, userName, initialData }: ProspectPipelineTabProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
 
@@ -94,16 +94,19 @@ export function ProspectPipelineTab({ userRole, userId, userName, initialData }:
   });
 
   const stats = statsData?.data;
-  const allProspects: Prospect[] = prospectsData?.data?.prospects || [];
+  const allProspects = (prospectsData?.data?.prospects as Prospect[] | undefined) ?? EMPTY_PROSPECTS;
 
   // Group by stage for Kanban
-  const byStage: Record<StageKey, Prospect[]> = {
-    DISCOVERED: [], CONTACTED: [], NEGOTIATING: [], TRIAL: [], CONVERTED: []
-  };
-  for (const p of allProspects) {
-    if (p.isLost) continue;
-    if (byStage[p.stage]) byStage[p.stage].push(p);
-  }
+  const byStage = useMemo(() => {
+    const grouped: Record<StageKey, Prospect[]> = {
+      DISCOVERED: [], CONTACTED: [], NEGOTIATING: [], TRIAL: [], CONVERTED: []
+    };
+    for (const p of allProspects) {
+      if (p.isLost) continue;
+      if (grouped[p.stage]) grouped[p.stage].push(p);
+    }
+    return grouped;
+  }, [allProspects]);
 
   const handleDragEnd = useCallback(async (result: DropResult) => {
     const { draggableId, source, destination } = result;
@@ -160,7 +163,7 @@ export function ProspectPipelineTab({ userRole, userId, userName, initialData }:
 
     queryClient.invalidateQueries({ queryKey: ["crm-prospects"] });
     queryClient.invalidateQueries({ queryKey: ["crm-prospect-stats"] });
-  }, [allProspects, appliedSearch, queryClient, search]);
+  }, [appliedSearch, byStage, queryClient]);
 
   const handleMarkLost = async (id: string, reason: string) => {
     await fetch(`/api/crm/prospects/${id}/lost`, {

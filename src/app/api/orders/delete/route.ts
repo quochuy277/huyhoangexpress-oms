@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
 
@@ -47,7 +48,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, count: requestCodes.length });
   } catch (error) {
-    console.error("DELETE /api/orders error:", error);
+    logger.error("DELETE /api/orders/delete", "Error", error);
     return NextResponse.json(
       { error: "Lỗi hệ thống khi xóa đơn hàng" },
       { status: 500 }

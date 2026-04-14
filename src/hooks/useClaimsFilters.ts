@@ -86,10 +86,6 @@ export function useClaimsFilters() {
   const prevQueryRef = useRef("");
 
   useEffect(() => {
-    setSearchInput(filters.search);
-  }, [filters.search]);
-
-  useEffect(() => {
     const nextParams = applyClaimsFiltersToSearchParams(new URLSearchParams(searchParams.toString()), filters);
     const nextQuery = nextParams.toString();
 

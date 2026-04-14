@@ -4,6 +4,7 @@ import { getCrmShopsInitialData } from "@/lib/crm-page-data";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import { createServerTiming, mergeServerTimingValues } from "@/lib/server-timing";
+import { logger } from "@/lib/logger";
 
 
 export async function GET(request: NextRequest) {
@@ -286,7 +287,7 @@ export async function GET(request: NextRequest) {
       },
     }, { headers: timing.headers() });
   } catch (error) {
-    console.error("CRM Shops Error:", error);
+    logger.error("GET /api/crm/shops", "CRM Shops Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: timing.headers() });
   }
 }

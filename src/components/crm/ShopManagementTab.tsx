@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import {
   Store, Star, Sparkles, AlertTriangle, XCircle,
   Phone, MessageSquare, Mail, Handshake, Settings, FileText,
@@ -300,7 +300,7 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
                 }, i: number) => {
                   const cls = CLASS_CONFIG[shop.classification] || CLASS_CONFIG.NORMAL;
                   const contactAge = shop.lastContactDate
-                    ? Math.floor((Date.now() - new Date(shop.lastContactDate).getTime()) / (1000 * 60 * 60 * 24))
+                    ? Math.floor((new Date().getTime() - new Date(shop.lastContactDate).getTime()) / (1000 * 60 * 60 * 24))
                     : null;
 
                   return (

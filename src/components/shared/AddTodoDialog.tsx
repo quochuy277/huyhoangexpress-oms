@@ -83,7 +83,7 @@ export function AddTodoDialog({
         .then((data) => {
           if (data?.role) setResolvedRole(data.role);
         })
-        .catch(() => {});
+        .catch((err) => { console.warn("[AddTodoDialog] Failed to resolve user role:", err); });
     } else {
       setResolvedRole(userRole);
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { closeOrphanedSessions, parseDeviceType, getVietnamToday, isAfterTime, calculateLateMinutes, getAttendanceSettings } from "@/lib/attendance";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
           update: {}, // Don't overwrite if already exists
         });
       } catch (err) {
-        console.warn("[Heartbeat:Attendance]", err instanceof Error ? err.message : err);
+        logger.warn("POST /api/attendance/heartbeat", "Attendance upsert failed", err instanceof Error ? err.message : String(err));
       }
     }
 
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
       sessionCreated: !activeSession || closedCount > 0,
     });
   } catch (error) {
-    console.error("Heartbeat error:", error);
+    logger.error("POST /api/attendance/heartbeat", "Heartbeat error", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recalculateAttendance, getVietnamToday } from "@/lib/attendance";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/admin/force-logout
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     const { mode, userId } = body as { mode?: string; userId?: string };
     const now = new Date();
 
-    let whereClause: any = { logoutTime: null };
+    const whereClause: any = { logoutTime: null };
 
     if (userId) {
       // Force logout a specific user
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       try {
         await recalculateAttendance(uid, today);
       } catch (e) {
-        console.warn(`[ForceLogout] Failed to recalculate attendance for ${uid}:`, e);
+        logger.warn("POST /api/admin/force-logout", `Failed to recalculate attendance for ${uid}`, e);
       }
     }
 
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
       message: `Đã buộc đăng xuất ${activeSessions.length} phiên của ${affectedUserIds.length} người dùng`,
     });
   } catch (error) {
-    console.error("[ForceLogout] Error:", error);
+    logger.error("POST /api/admin/force-logout", "Error", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

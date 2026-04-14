@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // --- Rate limiting (in-memory) ---
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!assignee) {
-      console.error("Landing register: No ADMIN/MANAGER user found");
+      logger.error("POST /api/landing/register", "No ADMIN/MANAGER user found");
       return NextResponse.json(
         {
           error:
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
       prospectId: prospect.id,
     });
   } catch (error) {
-    console.error("Landing register error:", error);
+    logger.error("POST /api/landing/register", "Error", error);
     return NextResponse.json(
       {
         error:

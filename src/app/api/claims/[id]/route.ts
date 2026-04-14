@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -60,7 +61,7 @@ export async function GET(
 
     return NextResponse.json(claim);
   } catch (error) {
-    console.error("GET /api/claims/[id] error:", error);
+    logger.error("GET /api/claims/[id]", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -263,7 +264,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, claim: updated });
   } catch (error) {
-    console.error("PATCH /api/claims/[id] error:", error);
+    logger.error("PATCH /api/claims/[id]", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -306,7 +307,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/claims/[id] error:", error);
+    logger.error("DELETE /api/claims/[id]", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

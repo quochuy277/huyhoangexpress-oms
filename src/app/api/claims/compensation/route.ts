@@ -5,6 +5,7 @@ import { hasClaimsPermission } from "@/lib/claims-permissions";
 import { hasPermission } from "@/lib/route-permissions";
 import { prisma } from "@/lib/prisma";
 import { ISSUE_TYPE_CONFIG } from "@/lib/claims-config";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -184,7 +185,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ summary, shops, monthlyData, issueDistribution });
   } catch (error) {
-    console.error("Compensation error:", error);
+    logger.error("GET /api/claims/compensation", "Error", error);
     return NextResponse.json({ error: "Lỗi truy vấn" }, { status: 500 });
   }
 }

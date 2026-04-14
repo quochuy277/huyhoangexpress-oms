@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { buildOrderSearchFilters } from "@/lib/orders-search";
 
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("GET /api/claims/search-orders error:", error);
+    logger.error("GET /api/claims/search-orders", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

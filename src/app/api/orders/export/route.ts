@@ -7,6 +7,8 @@ import { mapStatusToVietnamese } from "@/lib/status-mapper";
 import { exportLimiter } from "@/lib/rate-limiter";
 import { requirePermission } from "@/lib/route-permissions";
 import { buildOrdersListQuery } from "@/lib/orders-list";
+import { createServerTiming } from "@/lib/server-timing";
+import { logger } from "@/lib/logger";
 
 type ExportType = "internal" | "customer";
 
@@ -153,81 +155,97 @@ const CUSTOMER_SELECT = {
 } as const;
 
 export async function GET(req: NextRequest) {
-  // Auth check
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const timing = createServerTiming();
+
+  try {
+    const session = await timing.measure("auth", () => auth());
+    if (!session?.user) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401, headers: timing.headers() });
+    }
+    const denied = requirePermission(session.user, "canExportOrders", "Bạn không có quyền xuất file");
+    if (denied) return denied;
+
+    const rateLimited = exportLimiter.check(session.user.id!);
+    if (rateLimited) return rateLimited;
+
+    const { searchParams } = new URL(req.url);
+    const exportType: ExportType = searchParams.get("type") === "customer" ? "customer" : "internal";
+
+    const query = await timing.measure("query-build", () =>
+      buildOrdersListQuery({
+        page: 1,
+        pageSize: MAX_EXPORT_ROWS,
+        search: searchParams.get("search") || undefined,
+        status: searchParams.get("status") || undefined,
+        fromDate: searchParams.get("fromDate") || undefined,
+        toDate: searchParams.get("toDate") || undefined,
+        dateField: searchParams.get("dateField") || undefined,
+        hasNotes: searchParams.get("hasNotes") || undefined,
+        shopName: searchParams.get("shopName") || undefined,
+        salesStaff: searchParams.get("salesStaff") || undefined,
+        partialOrderType: searchParams.get("partialOrderType") || undefined,
+        regionGroup: searchParams.get("regionGroup") || undefined,
+        valueField: searchParams.get("valueField") || undefined,
+        valueCondition: searchParams.get("valueCondition") || undefined,
+        valueAmount: searchParams.get("valueAmount") ? Number(searchParams.get("valueAmount")) : undefined,
+        sortBy: "createdTime",
+        sortOrder: "desc",
+      }),
+    );
+
+    const orders = await timing.measure("db", () =>
+      prisma.order.findMany({
+        where: query.where,
+        ...(exportType === "customer" ? { select: CUSTOMER_SELECT } : {}),
+        orderBy: { createdTime: "desc" },
+        take: MAX_EXPORT_ROWS,
+      }),
+    );
+
+    const rows = await timing.measure("transform", () =>
+      exportType === "internal"
+        ? orders.map((o, i) => buildInternalRow(o, i))
+        : orders.map((o) => buildCustomerRow(o as Parameters<typeof buildCustomerRow>[0])),
+    );
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: "Không có đơn hàng nào để xuất" },
+        { status: 404, headers: timing.headers() },
+      );
+    }
+
+    const buf = await timing.measure("workbook", () => {
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet["!cols"] = Object.keys(rows[0]).map((key) => ({
+        wch: Math.max(key.length + 2, 14),
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const sheetName = exportType === "internal" ? "Đơn Hàng (Nội Bộ)" : "Đơn Hàng";
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    });
+
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const prefix = exportType === "internal" ? "noi-bo" : "khach-hang";
+    const timingHeader = timing.headerValue();
+
+    logger.info("GET /api/orders/export", `Exported ${rows.length} ${exportType} rows`, {
+      timing: timingHeader,
+    });
+
+    return new NextResponse(buf, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${prefix}-${timestamp}.xlsx"`,
+        "Server-Timing": timingHeader,
+      },
+    });
+  } catch (error) {
+    logger.error("GET /api/orders/export", "Export error", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500, headers: timing.headers() });
   }
-  const denied = requirePermission(session.user, "canExportOrders", "Bạn không có quyền xuất file");
-  if (denied) return denied;
-
-  // Rate limit
-  const rateLimited = exportLimiter.check(session.user.id!);
-  if (rateLimited) return rateLimited;
-
-  const { searchParams } = new URL(req.url);
-  const exportType: ExportType = searchParams.get("type") === "customer" ? "customer" : "internal";
-
-  // Reuse the same filter logic as the orders list API (supports all filters)
-  const query = buildOrdersListQuery({
-    page: 1,
-    pageSize: MAX_EXPORT_ROWS,
-    search: searchParams.get("search") || undefined,
-    status: searchParams.get("status") || undefined,
-    fromDate: searchParams.get("fromDate") || undefined,
-    toDate: searchParams.get("toDate") || undefined,
-    dateField: searchParams.get("dateField") || undefined,
-    hasNotes: searchParams.get("hasNotes") || undefined,
-    shopName: searchParams.get("shopName") || undefined,
-    salesStaff: searchParams.get("salesStaff") || undefined,
-    partialOrderType: searchParams.get("partialOrderType") || undefined,
-    regionGroup: searchParams.get("regionGroup") || undefined,
-    valueField: searchParams.get("valueField") || undefined,
-    valueCondition: searchParams.get("valueCondition") || undefined,
-    valueAmount: searchParams.get("valueAmount") ? Number(searchParams.get("valueAmount")) : undefined,
-    sortBy: "createdTime",
-    sortOrder: "desc",
-  });
-
-  // Fetch orders with appropriate select based on export type
-  const orders = await prisma.order.findMany({
-    where: query.where,
-    ...(exportType === "customer" ? { select: CUSTOMER_SELECT } : {}),
-    orderBy: { createdTime: "desc" },
-    take: MAX_EXPORT_ROWS,
-  });
-
-  // Build Excel rows
-  const rows = exportType === "internal"
-    ? orders.map((o, i) => buildInternalRow(o, i))
-    : orders.map((o) => buildCustomerRow(o as Parameters<typeof buildCustomerRow>[0]));
-
-  if (rows.length === 0) {
-    return NextResponse.json({ error: "Không có đơn hàng nào để xuất" }, { status: 404 });
-  }
-
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-
-  // Auto-size columns
-  const colWidths = Object.keys(rows[0]).map((key) => ({
-    wch: Math.max(key.length + 2, 14),
-  }));
-  worksheet["!cols"] = colWidths;
-
-  const workbook = XLSX.utils.book_new();
-  const sheetName = exportType === "internal" ? "Đơn Hàng (Nội Bộ)" : "Đơn Hàng";
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-
-  const buf = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-
-  const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const prefix = exportType === "internal" ? "noi-bo" : "khach-hang";
-
-  return new NextResponse(buf, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${prefix}-${timestamp}.xlsx"`,
-    },
-  });
 }

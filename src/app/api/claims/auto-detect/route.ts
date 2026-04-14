@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { createAutoDetectedClaims } from "@/lib/claim-detector";
 import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
+import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
@@ -35,7 +36,7 @@ export async function POST() {
       message: messages.length > 0 ? messages.join(". ") : "Không phát hiện thay đổi mới",
     });
   } catch (error) {
-    console.error("POST /api/claims/auto-detect error:", error);
+    logger.error("POST /api/claims/auto-detect", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

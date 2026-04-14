@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   clearReturnsPaginationParams,
+  createReturnsTabRequestSignature,
   createEmptyReturnsTabData,
   fetchReturnsSummary,
   fetchReturnsTabData,
@@ -44,10 +45,28 @@ describe("returns tab data helpers", () => {
   it("does not refetch a tab when cached data already exists", () => {
     const state = createEmptyReturnsTabData();
     state.partial = [{ requestCode: "REQ-001" } as never];
+    const signature = createReturnsTabRequestSignature("partial", { page: 1, pageSize: 20 });
 
-    expect(shouldFetchReturnsTab(state, "partial")).toBe(false);
+    expect(
+      shouldFetchReturnsTab(state, "partial", false, {
+        currentSignature: signature,
+        lastLoadedSignature: signature,
+      }),
+    ).toBe(false);
     expect(shouldFetchReturnsTab(state, "warehouse")).toBe(true);
     expect(shouldFetchReturnsTab(state, "partial", true)).toBe(true);
+  });
+
+  it("refetches a tab when the request signature changes even if rows are cached", () => {
+    const state = createEmptyReturnsTabData();
+    state.partial = [{ requestCode: "REQ-001" } as never];
+
+    expect(
+      shouldFetchReturnsTab(state, "partial", false, {
+        currentSignature: createReturnsTabRequestSignature("partial", { page: 2, pageSize: 20 }),
+        lastLoadedSignature: createReturnsTabRequestSignature("partial", { page: 1, pageSize: 20 }),
+      }),
+    ).toBe(true);
   });
 
   it("invalidates only the tabs that need to refresh", () => {

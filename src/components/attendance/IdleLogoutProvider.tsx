@@ -32,13 +32,16 @@ const overlayStyle: React.CSSProperties = {
 export default function IdleLogoutProvider({ children }: { children: React.ReactNode }) {
   const [idleWarning, setIdleWarning] = useState<number | null>(null); // minutes left
   const [midnightWarning, setMidnightWarning] = useState(false);
-  const lastActivityRef = useRef(Date.now());
+  const [autoLogoutLabel, setAutoLogoutLabel] = useState(cachedSettings.autoLogout);
+  const lastActivityRef = useRef(0);
   const settingsRef = useRef({ idleTimeout: 60, autoLogout: "00:00" });
 
   // Fetch settings periodically
   const fetchSettings = useCallback(async () => {
     try {
-      settingsRef.current = await loadAttendanceSettings();
+      const nextSettings = await loadAttendanceSettings();
+      settingsRef.current = nextSettings;
+      setAutoLogoutLabel(nextSettings.autoLogout);
     } catch (err) {
       console.warn("[IdleLogoutProvider] Failed to fetch attendance settings:", err);
     }
@@ -130,8 +133,8 @@ export default function IdleLogoutProvider({ children }: { children: React.React
         setMidnightWarning(true);
       }
 
-      // At exact time (within 1 min window)
-      if (diff <= 0 && diff > -1) {
+      // At target time (2 min tolerance for interval drift)
+      if (diff <= 0 && diff > -2) {
         fetch("/api/auth/track-logout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -216,7 +219,7 @@ export default function IdleLogoutProvider({ children }: { children: React.React
               </button>
             </div>
             <p style={{ color: "#4b5563", fontSize: "14px", lineHeight: 1.6, margin: "0 0 8px" }}>
-              Hệ thống sẽ tự động đăng xuất lúc <strong>{settingsRef.current.autoLogout}</strong>.
+              Hệ thống sẽ tự động đăng xuất lúc <strong>{autoLogoutLabel}</strong>.
             </p>
             <p style={{ color: "#9ca3af", fontSize: "13px", margin: "0 0 20px" }}>
               Vui lòng lưu lại công việc.

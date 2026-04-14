@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { requirePermission } from "@/lib/route-permissions";
 
 export async function GET(
@@ -46,7 +47,7 @@ export async function GET(
     const text = await response.text();
 
     if (!response.ok) {
-      console.error(`[Tracking API] ${response.status} for ${requestCode}:`, text);
+      logger.error("GET /api/orders/[requestCode]/tracking", `${response.status} for ${requestCode}`, text);
       return NextResponse.json(
         { error: "Tracking API error", status: response.status, detail: text },
         { status: response.status }
@@ -57,14 +58,14 @@ export async function GET(
       const data = JSON.parse(text);
       return NextResponse.json(data);
     } catch {
-      console.error(`[Tracking API] Invalid JSON for ${requestCode}:`, text.substring(0, 200));
+      logger.error("GET /api/orders/[requestCode]/tracking", `Invalid JSON for ${requestCode}`, text.substring(0, 200));
       return NextResponse.json(
         { error: "Invalid response from tracking API" },
         { status: 502 }
       );
     }
   } catch (err) {
-    console.error(`[Tracking API] Fetch error for ${requestCode}:`, err);
+    logger.error("GET /api/orders/[requestCode]/tracking", `Fetch error for ${requestCode}`, err);
     return NextResponse.json(
       { error: "Failed to fetch tracking data" },
       { status: 500 }

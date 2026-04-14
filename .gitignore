@@ -41,6 +41,9 @@ errors.txt
 ts_errors.txt
 clear-db.ts
 repomix-output.xml
+eslint-lint-output.txt
+lint-phase5-hardening.txt
+lint-report.json
 
 # vercel
 .vercel

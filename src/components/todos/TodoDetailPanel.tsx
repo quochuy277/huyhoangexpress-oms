@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import { Check, ExternalLink, Loader2, Pencil, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { format } from "date-fns";
 
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
+const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 import { useTodoUsers } from "@/hooks/useTodoUsers";
 import type { TodoComment, TodoItemData } from "@/types/todo";
 
@@ -40,8 +41,6 @@ export function TodoDetailPanel({
   onClose,
   onUpdate,
   onDelete,
-  userId,
-  userName,
   userRole,
 }: TodoDetailPanelProps) {
   const canEditAssignee = userRole === "ADMIN" || userRole === "MANAGER";
@@ -85,7 +84,7 @@ export function TodoDetailPanel({
         setTitleInput(data.title);
       })
       .finally(() => setLoading(false));
-  }, [todo.id]);
+  }, [todo]);
 
   const saveField = async (field: string, value: unknown) => {
     setNotice(null);

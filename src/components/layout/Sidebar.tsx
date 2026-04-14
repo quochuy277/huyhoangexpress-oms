@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,6 @@ import {
   Clock,
   BarChart2,
   Users,
-  ChevronLeft,
   ChevronRight,
   Pin,
   PinOff,
@@ -53,22 +52,18 @@ interface SidebarProps {
 
 export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
 
   // pinned = user explicitly chose to keep sidebar expanded (persisted)
-  const [pinned, setPinned] = useState(false);
+  const [pinned, setPinned] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return localStorage.getItem("sidebar_pinned") === "true";
+  });
   // hovered = mouse is over the sidebar area (transient)
   const [hovered, setHovered] = useState(false);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem("sidebar_pinned");
-    if (saved === "true") {
-      setPinned(true);
-    }
-  }, []);
 
   // Close mobile sidebar on route change
   useEffect(() => {

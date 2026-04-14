@@ -71,7 +71,7 @@ export function AnnouncementSection() {
         const data = await res.json();
         setItems(data.announcements || []);
       }
-    } catch { } finally { setLoading(false); }
+    } catch (err) { console.warn("[AnnouncementSection] Failed to fetch announcements:", err); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
@@ -80,7 +80,7 @@ export function AnnouncementSection() {
     try {
       const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
       if (res.ok) { fetchItems(); setDeleteItem(null); }
-    } catch { }
+    } catch (err) { console.warn("[AnnouncementSection] Failed to delete announcement:", err); }
   };
 
   return (

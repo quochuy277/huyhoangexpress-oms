@@ -2,28 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { createServerTiming } from "@/lib/server-timing";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DeliveryStatus } from "@prisma/client";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  }
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
 
-  const denied = requirePermission(session.user, "canViewDashboard", "Không có quyền xem tổng quan");
-  if (denied) return denied;
+    const denied = requirePermission(session.user, "canViewDashboard", "Không có quyền xem tổng quan");
+    if (denied) return denied;
 
-  const { searchParams } = new URL(req.url);
-  const days = parseInt(searchParams.get("days") || "7", 10);
-  
+    const timing = createServerTiming();
+    const { searchParams } = new URL(req.url);
+    const days = parseInt(searchParams.get("days") || "7", 10);
+
   const endDate = endOfDay(new Date());
   const startDate = startOfDay(subDays(endDate, days - 1));
 
   // 1. Order Trend — SQL GROUP BY instead of fetching all records
   const currentMonthStart = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
-  const [trendRows, statusCounts] = await Promise.all([
+  const [trendRows, statusCounts] = await timing.measure("db_queries", () => Promise.all([
     prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
       SELECT DATE("createdTime") as date, COUNT(*)::bigint as count
       FROM "Order"
@@ -37,7 +41,7 @@ export async function GET(req: NextRequest) {
       _count: { id: true },
       where: { createdTime: { gte: currentMonthStart } },
     }),
-  ]);
+  ]));
 
   // Build trend map with zero-filled days
   const trendMap: Record<string, number> = {};
@@ -73,10 +77,14 @@ export async function GET(req: NextRequest) {
     group: statuses[st.deliveryStatus]?.group || "Other"
   })).sort((a, b) => b.count - a.count);
 
-  return NextResponse.json({
-    orderTrend,
-    statusDistribution
-  }, {
-    headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
-  });
+    return NextResponse.json({
+      orderTrend,
+      statusDistribution
+    }, {
+      headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60", ...timing.headers() },
+    });
+  } catch (error) {
+    logger.error("GET /api/dashboard/trend", "days=" + new URL(req.url).searchParams.get("days"), error);
+    return NextResponse.json({ error: "Không thể tải xu hướng đơn hàng" }, { status: 500 });
+  }
 }

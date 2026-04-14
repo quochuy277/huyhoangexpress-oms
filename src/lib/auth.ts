@@ -8,6 +8,7 @@ import { parseDeviceType, getVietnamToday, isAfterTime, calculateLateMinutes, ge
 import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
+import { logger } from "@/lib/logger";
 
 const PERMISSIONS_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30 for faster permission propagation)
 
@@ -42,8 +43,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ? extractPermissions(dbUser.permissionGroup as unknown as Record<string, unknown>)
             : getDefaultPermissions(dbUser.role);
           token.permissionsUpdatedAt = Date.now();
-        } catch {
-          // Silently fail — keep existing permissions
+        } catch (error) {
+          logger.warn("auth.jwt", "Failed to refresh permissions from database", { error });
         }
       }
 
@@ -99,7 +100,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               userAgent,
               deviceType,
             },
-          }).catch((err) => console.warn("[Auth:LoginHistory]", err?.message ?? err));
+          }).catch((error) =>
+            logger.warn("auth.authorize", "Failed to create login history", {
+              error,
+              userId: user.id,
+            })
+          );
 
           // Auto check-in attendance with late detection (non-blocking)
           const today = getVietnamToday();
@@ -118,8 +124,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 status: "ABSENT",
               },
               update: {},
-            }).catch((err) => console.warn("[Auth:Attendance]", err?.message ?? err));
-          }).catch((err) => console.warn("[Auth:AttendanceSettings]", err?.message ?? err));
+            }).catch((error) =>
+              logger.warn("auth.authorize", "Failed to upsert attendance", {
+                error,
+                userId: user.id,
+              })
+            );
+          }).catch((error) =>
+            logger.warn("auth.authorize", "Failed to load attendance settings", {
+              error,
+              userId: user.id,
+            })
+          );
 
           // Build permissions from permissionGroup or fallback to role
           const permissions = user.permissionGroup
@@ -134,7 +150,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             permissions,
           };
         } catch (error) {
-          console.error("Authorize Error:", error);
+          logger.error("auth.authorize", "Failed to authorize credentials", error, {
+            email: credentials.email as string,
+          });
           return null;
         }
       },

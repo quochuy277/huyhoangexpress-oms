@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { parseExcelBuffer, buildOrderData } from "@/lib/excel-parser";
 import { detectOrderChanges } from "@/lib/change-detector";
 import { createAutoDetectedClaims } from "@/lib/claim-detector";
+import { logger } from "@/lib/logger";
 import type { DetectedChange } from "@/lib/change-detector";
 import type { ParsedOrder } from "@/lib/excel-parser";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -335,9 +336,17 @@ export async function processOrderImport(opts: {
 
           if (lastRetryable && attempt < MAX_SUB_BATCH_ATTEMPTS) {
             const retryDelay = RETRY_BACKOFF_MS[attempt - 1] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1];
-            console.error(
-              `[orders-import] sub-batch retry ${batchIndex}:${subBatchIndex} attempt ${attempt}/${MAX_SUB_BATCH_ATTEMPTS} failed (${rowStart}-${rowEnd}, ${requestCodeStart}..${requestCodeEnd}): ${err instanceof Error ? err.message : String(err)}`,
-            );
+            logger.warn("orders-import", "Retrying failed sub-batch", {
+              batchIndex,
+              subBatchIndex,
+              attempt,
+              maxAttempts: MAX_SUB_BATCH_ATTEMPTS,
+              rowStart,
+              rowEnd,
+              requestCodeStart,
+              requestCodeEnd,
+              error: err,
+            });
             await sleep(retryDelay);
             continue;
           }
@@ -400,9 +409,16 @@ export async function processOrderImport(opts: {
         message: attemptsText,
       });
 
-      console.error(
-        `[orders-import] sub-batch failed ${batchIndex}:${subBatchIndex} (${rowStart}-${rowEnd}, ${requestCodeStart}..${requestCodeEnd}) after ${attempt} attempt(s): ${errorMessage}`,
-      );
+      logger.error("orders-import", "Sub-batch import failed", lastError, {
+        batchIndex,
+        subBatchIndex,
+        rowStart,
+        rowEnd,
+        requestCodeStart,
+        requestCodeEnd,
+        attempts: attempt,
+        errorMessage,
+      });
     }
   }
 
@@ -441,8 +457,11 @@ export async function processOrderImport(opts: {
       },
     });
     uploadHistoryId = uploadHistory.id;
-  } catch (err) {
-    console.error("Failed to create UploadHistory:", err);
+  } catch (error) {
+    logger.error("orders-import", "Failed to create upload history", error, {
+      fileName: opts.fileName,
+      uploadedById: opts.uploadedById,
+    });
   }
 
   // 4. Bulk insert change logs
@@ -463,15 +482,20 @@ export async function processOrderImport(opts: {
           })),
         });
       }
-    } catch (err) {
-      console.error("Failed to insert change logs:", err);
+    } catch (error) {
+      logger.error("orders-import", "Failed to insert change logs", error, {
+        uploadHistoryId,
+        totalChanges: allDetectedChanges.length,
+      });
     }
   }
 
   // 5. Auto-detect claims (non-blocking)
   if (newCount + updatedCount > 0) {
-    createAutoDetectedClaims(opts.uploadedById).catch((err) =>
-      console.error("Auto-detect claims after upload failed:", err)
+    createAutoDetectedClaims(opts.uploadedById).catch((error) =>
+      logger.error("orders-import", "Auto-detect claims after upload failed", error, {
+        uploadedById: opts.uploadedById,
+      })
     );
   }
 

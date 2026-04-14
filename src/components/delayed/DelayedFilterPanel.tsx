@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FileDown, Filter, RefreshCw, Search, X } from "lucide-react";
 
 import { getDelayedFilterSheetClassNames } from "@/components/delayed/delayedResponsive";
@@ -171,12 +171,6 @@ export function DelayedFilterPanel({
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileDraft, setMobileDraft] = useState(filters);
-
-  useEffect(() => {
-    if (!mobileOpen) {
-      setMobileDraft(filters);
-    }
-  }, [filters, mobileOpen]);
 
   const activeChips = useMemo(() => buildDelayedActiveChips(filters), [filters]);
 

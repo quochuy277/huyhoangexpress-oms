@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { getReturnsTabData } from "@/lib/returns-page-data";
+import { logger } from "@/lib/logger";
 import { requirePermission } from "@/lib/route-permissions";
 import { type ReturnsTab } from "@/lib/returns-queries";
 import { createServerTiming } from "@/lib/server-timing";
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
       { headers: { "Server-Timing": timing.headerValue() } },
     );
   } catch (error) {
-    console.error("GET /api/orders/returns error:", error);
+    logger.error("GET /api/orders/returns", "Error", error);
     return NextResponse.json(
       { error: "Không thể lấy dữ liệu đơn hoàn" },
       { status: 500 },

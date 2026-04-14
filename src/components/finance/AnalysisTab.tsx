@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { OrderDetailDialog } from "@/components/shared/OrderDetailDialog";
+import dynamic from "next/dynamic";
+
+const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { buildCarrierSummary, buildNegativeRevenueSummary, buildShopSummary } from "./financeResponsive";
 
@@ -21,7 +23,7 @@ export default function AnalysisTab({ initialData = null }: { initialData?: any 
   const router = useRouter();
   const viewParam = searchParams.get("view") || "carrier";
   const shopParam = searchParams.get("shop") || "";
-  const [view, setView] = useState(viewParam);
+  const view = viewParam;
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -37,14 +39,7 @@ export default function AnalysisTab({ initialData = null }: { initialData?: any 
   const [detailRequestCode, setDetailRequestCode] = useState<string | null>(null);
   const skipInitialFetchRef = useRef(Boolean(initialData));
 
-  useEffect(() => {
-    setView(viewParam);
-    setShopSearch(shopParam);
-    setShopSearchInput(shopParam);
-  }, [viewParam, shopParam]);
-
   const switchView = (v: string) => {
-    setView(v);
     const p = new URLSearchParams(searchParams.toString());
     p.set("view", v);
     if (v !== "shop") p.delete("shop");
@@ -98,9 +93,21 @@ export default function AnalysisTab({ initialData = null }: { initialData?: any 
       return;
     }
 
-    if (view === "carrier") fetchCarriers();
-    else if (view === "shop") fetchShops();
-    else fetchNeg();
+    const loadViewData = async () => {
+      if (view === "carrier") {
+        await fetchCarriers();
+        return;
+      }
+
+      if (view === "shop") {
+        await fetchShops();
+        return;
+      }
+
+      await fetchNeg();
+    };
+
+    void loadViewData();
   }, [view, fetchCarriers, fetchShops, fetchNeg]);
 
   const updateChart = async (shops: string[], gran: string) => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { logger } from "@/lib/logger";
 import { buildPnlLabel, getFinancePnlData, resolvePnlRange } from "@/lib/finance/landing";
 
 export async function GET(req: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("P&L error:", error);
+    logger.error("GET /api/finance/pnl", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { logger } from "@/lib/logger";
 
 export async function POST(
   request: NextRequest,
@@ -54,7 +55,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: log });
   } catch (error) {
-    console.error("CRM Prospect Contact Log Error:", error);
+    logger.error("POST /api/crm/prospects/[id]/contact", "CRM Prospect Contact Log Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

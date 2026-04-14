@@ -236,6 +236,7 @@ describe("orders API RBAC", () => {
 
     expect(response.status).toBe(200);
     expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalled();
+    expect(response.headers.get("Server-Timing")).toContain("total;dur=");
   });
 
   it("allows ADMIN to delete orders even when canDeleteOrders is false in the permission group", async () => {

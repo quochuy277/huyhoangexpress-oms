@@ -124,8 +124,9 @@ function extractReasonText(eventText: string) {
 const DELAY_QUICK_HINTS = /ho[aã]n giao h[aà]ng|x[aá]c nh[aậ]n ho[aà]n|delay giao h[aà]ng|Hoãn giao hàng|Xác nhận hoàn|Delay giao hàng/i;
 
 function scanDelayNote(note: string): DelayScanResult {
-  // Fast path: if no delay markers found, skip expensive parsing
-  if (!DELAY_QUICK_HINTS.test(note)) {
+  // Fast path: if no delay markers found (check both raw and repaired text), skip expensive parsing
+  const repairedNote = repairUtf8Mojibake(note);
+  if (!DELAY_QUICK_HINTS.test(note) && !DELAY_QUICK_HINTS.test(repairedNote)) {
     return {
       delayCount: 0,
       delays: [],

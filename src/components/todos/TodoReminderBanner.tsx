@@ -25,7 +25,7 @@ export function TodoReminderBanner({ onViewOverdue, initialReminder = null }: To
           setReminder(data);
         }
       })
-      .catch(() => {});
+      .catch((err) => { console.warn("[TodoReminderBanner] Failed to fetch reminders:", err); });
   }, []);
 
   if (!reminder || dismissed) return null;

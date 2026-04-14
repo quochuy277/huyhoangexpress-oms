@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { clearClaimsFilterOptionsCache } from "@/lib/claims-filter-options-cache";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: NextRequest) {
@@ -61,7 +62,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: true, count: ids.length });
   } catch (error) {
-    console.error("PATCH /api/claims/bulk error:", error);
+    logger.error("PATCH /api/claims/bulk", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -105,7 +106,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, count: ids.length });
   } catch (error) {
-    console.error("DELETE /api/claims/bulk error:", error);
+    logger.error("DELETE /api/claims/bulk", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

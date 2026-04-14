@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import {
   X,
   Loader2,
@@ -18,11 +19,13 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { ClaimDetailDrawer, type ClaimDetailData } from "@/components/claims/ClaimDetailDrawer";
-import { AddTodoDialog } from "@/components/shared/AddTodoDialog";
-import { AddClaimFromPageDialog } from "@/components/shared/AddClaimFromPageDialog";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { TrackingPopup } from "@/components/tracking/TrackingPopup";
+import type { ClaimDetailData } from "@/components/claims/ClaimDetailDrawer";
+
+const ClaimDetailDrawer = dynamic(() => import("@/components/claims/ClaimDetailDrawer").then((m) => ({ default: m.ClaimDetailDrawer })), { loading: () => null });
+const AddTodoDialog = dynamic(() => import("@/components/shared/AddTodoDialog").then((m) => ({ default: m.AddTodoDialog })), { loading: () => null });
+const AddClaimFromPageDialog = dynamic(() => import("@/components/shared/AddClaimFromPageDialog").then((m) => ({ default: m.AddClaimFromPageDialog })), { loading: () => null });
+const ConfirmDialog = dynamic(() => import("@/components/shared/ConfirmDialog").then((m) => ({ default: m.ConfirmDialog })), { loading: () => null });
+const TrackingPopup = dynamic(() => import("@/components/tracking/TrackingPopup").then((m) => ({ default: m.TrackingPopup })), { loading: () => null });
 import {
   getClaimCompleteDialogCopy,
   getClaimDeleteDialogCopy,
@@ -152,7 +155,11 @@ function renderFieldValue(value: ReactNode) {
   return value;
 }
 
-export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZIndex = 9998 }: Props) {
+// Simple in-memory cache for order detail data, keyed by requestCode
+const orderDetailCache = new Map<string, { data: any; ts: number }>();
+const CACHE_TTL = 60_000; // 1 minute
+
+function OrderDetailDialogInner({ requestCode, open, onClose, userRole, baseZIndex = 9998 }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -172,8 +179,17 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
   const TRACKING_POPUP_Z_INDEX = baseZIndex + 40;
   const isStaffOrViewer = userRole === "STAFF" || userRole === "VIEWER";
 
-  const fetchOrder = useCallback(async () => {
+  const fetchOrder = useCallback(async (skipCache = false) => {
     if (!requestCode) return;
+
+    // Check cache first
+    if (!skipCache) {
+      const cached = orderDetailCache.get(requestCode);
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        setData(cached.data);
+        return;
+      }
+    }
 
     setLoading(true);
     setError("");
@@ -184,6 +200,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
       }
 
       const json = await response.json();
+      orderDetailCache.set(requestCode, { data: json, ts: Date.now() });
       setData(json);
     } catch (cause: any) {
       setError(cause.message || "Lỗi tải dữ liệu");
@@ -249,7 +266,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
 
       setCompleteConfirm(null);
       setClaimRefreshToken((previous) => previous + 1);
-      fetchOrder();
+      fetchOrder(true);
     } catch {
       setCompleteConfirm((previous) => (previous ? { ...previous, loading: false } : previous));
     }
@@ -273,7 +290,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
 
       setReopenConfirm(null);
       setClaimRefreshToken((previous) => previous + 1);
-      fetchOrder();
+      fetchOrder(true);
     } catch {
       setReopenConfirm((previous) => (previous ? { ...previous, loading: false } : previous));
     }
@@ -292,13 +309,11 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
 
       setDeleteConfirm(null);
       setActiveClaimId(null);
-      fetchOrder();
+      fetchOrder(true);
     } catch {
       setDeleteConfirm((previous) => (previous ? { ...previous, loading: false } : previous));
     }
   };
-
-  if (!open || !requestCode) return null;
 
   const order = data;
   const statusColor = order ? (STATUS_COLORS[order.deliveryStatus] || "bg-gray-100 text-gray-700") : "";
@@ -306,7 +321,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
   const issueTypeConfig = order?.claimOrder
     ? ISSUE_TYPE_CONFIG[order.claimOrder.issueType as keyof typeof ISSUE_TYPE_CONFIG] || ISSUE_TYPE_CONFIG[DEFAULT_ISSUE_TYPE]
     : null;
-  const sections: Section[] = order ? [
+  const sections: Section[] = useMemo(() => order ? [
     {
       title: "Thông Tin Đơn Hàng",
       icon: Package,
@@ -422,10 +437,12 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         { label: "Tỉnh/TP", value: order.receiverProvince },
       ],
     },
-  ] : [];
-  const completeDialogCopy = getClaimCompleteDialogCopy(completeConfirm?.requestCode || "");
-  const reopenDialogCopy = getClaimReopenDialogCopy(reopenConfirm?.requestCode || "");
-  const deleteDialogCopy = getClaimDeleteDialogCopy(deleteConfirm?.requestCode || "");
+  ] : [], [order, isStaffOrViewer, issueTypeConfig]);
+  const completeDialogCopy = useMemo(() => getClaimCompleteDialogCopy(completeConfirm?.requestCode || ""), [completeConfirm?.requestCode]);
+  const reopenDialogCopy = useMemo(() => getClaimReopenDialogCopy(reopenConfirm?.requestCode || ""), [reopenConfirm?.requestCode]);
+  const deleteDialogCopy = useMemo(() => getClaimDeleteDialogCopy(deleteConfirm?.requestCode || ""), [deleteConfirm?.requestCode]);
+
+  if (!open || !requestCode) return null;
 
   return createPortal(
     <>
@@ -628,7 +645,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         <AddClaimFromPageDialog
           open={showClaim}
           onClose={() => setShowClaim(false)}
-          onSuccess={fetchOrder}
+          onSuccess={() => fetchOrder(true)}
           order={{
             id: order.id,
             requestCode: order.requestCode,
@@ -659,7 +676,7 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
         claimId={activeClaimId || ""}
         open={Boolean(activeClaimId)}
         onClose={() => setActiveClaimId(null)}
-        onUpdate={fetchOrder}
+        onUpdate={() => fetchOrder(true)}
         onAddTodo={setClaimTodo}
         onCompleteToggle={handleClaimCompleteToggle}
         onDelete={(id, claimRequestCode) => setDeleteConfirm({ id, requestCode: claimRequestCode, loading: false })}
@@ -766,6 +783,8 @@ export function OrderDetailDialog({ requestCode, open, onClose, userRole, baseZI
     document.body
   );
 }
+
+export const OrderDetailDialog = memo(OrderDetailDialogInner);
 
 function NoteBlock({ label, value, bg }: { label: string; value: string | null; bg: string }) {
   return (

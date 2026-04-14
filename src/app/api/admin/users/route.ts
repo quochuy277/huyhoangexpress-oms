@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
+import { logger } from "@/lib/logger";
 
 // GET /api/admin/users — list all users
 export async function GET() {
@@ -41,7 +42,7 @@ export async function GET() {
 
     return NextResponse.json(users);
   } catch (error) {
-    console.error("List users error:", error);
+    logger.error("GET /api/admin/users", "List users error", error);
     return NextResponse.json({ error: "Lỗi khi lấy danh sách nhân viên" }, { status: 500 });
   }
 }
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    console.error("Create user error:", error);
+    logger.error("POST /api/admin/users", "Create user error", error);
     return NextResponse.json({ error: "Lỗi khi tạo nhân viên" }, { status: 500 });
   }
 }

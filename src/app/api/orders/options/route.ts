@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
 
@@ -41,7 +42,7 @@ export async function GET() {
       regionGroups: regions.map(s => s.regionGroup).filter(Boolean)
     });
   } catch (error) {
-    console.error("GET /api/orders/options error:", error);
+    logger.error("GET /api/orders/options", "Error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import type { OrderChangeType, Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/route-permissions";
@@ -126,7 +127,7 @@ export async function GET(req: Request) {
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    console.error("GET /api/orders/changes error:", error);
+    logger.error("GET /api/orders/changes", "Error", error);
     return NextResponse.json(
       { error: "Lỗi hệ thống khi tải danh sách biến động" },
       { status: 500 }

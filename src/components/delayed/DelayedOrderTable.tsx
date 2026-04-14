@@ -54,6 +54,32 @@ const TrackingPopup = dynamic(
   { loading: () => null },
 );
 
+function DelayedHeaderCell({
+  label,
+  sortName,
+  width,
+  activeSortKey,
+  sortDir,
+  onSortChange,
+}: {
+  label: string;
+  sortName: DelayedSortableKey;
+  width?: string;
+  activeSortKey: DelayedSortableKey;
+  sortDir: "asc" | "desc";
+  onSortChange: (key: DelayedSortableKey) => void;
+}) {
+  return (
+    <TableHead
+      className="cursor-pointer whitespace-nowrap px-2 text-[11px] font-medium uppercase text-slate-500 transition-colors hover:bg-slate-100"
+      style={width ? { width, minWidth: width } : undefined}
+      onClick={() => onSortChange(sortName)}
+    >
+      {label} {activeSortKey === sortName && (sortDir === "asc" ? "↑" : "↓")}
+    </TableHead>
+  );
+}
+
 function DelayedOrderTableInner({
   data,
   userRole,
@@ -90,24 +116,6 @@ function DelayedOrderTableInner({
     return "Thấp";
   };
 
-  const HeaderCell = ({
-    label,
-    sortName,
-    width,
-  }: {
-    label: string;
-    sortName: DelayedSortableKey;
-    width?: string;
-  }) => (
-    <TableHead
-      className="cursor-pointer whitespace-nowrap px-2 text-[11px] font-medium uppercase text-slate-500 transition-colors hover:bg-slate-100"
-      style={width ? { width, minWidth: width } : undefined}
-      onClick={() => onSortChange(sortName)}
-    >
-      {label} {sortKey === sortName && (sortDir === "asc" ? "↑" : "↓")}
-    </TableHead>
-  );
-
   return (
     <div className="relative rounded-xl border border-slate-200 bg-white shadow-sm">
       {isRefreshing && (
@@ -126,25 +134,74 @@ function DelayedOrderTableInner({
               >
                 STT
               </TableHead>
-              <HeaderCell label="Mã Yêu Cầu" sortName="requestCode" width="130px" />
-              <HeaderCell label="Cửa Hàng" sortName="shopName" width="120px" />
+              <DelayedHeaderCell
+                label="Mã Yêu Cầu"
+                sortName="requestCode"
+                width="130px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+              <DelayedHeaderCell
+                label="Cửa Hàng"
+                sortName="shopName"
+                width="120px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
               <TableHead
                 className="px-2 text-[11px] font-medium uppercase text-slate-500"
                 style={{ width: "210px" }}
               >
                 Thông Tin Đơn
               </TableHead>
-              <HeaderCell label="Trạng Thái" sortName="status" width="110px" />
-              <HeaderCell label="Hoãn" sortName="delayCount" width="58px" />
-              <HeaderCell label="Ngày Tạo" sortName="createdTime" width="90px" />
+              <DelayedHeaderCell
+                label="Trạng Thái"
+                sortName="status"
+                width="110px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+              <DelayedHeaderCell
+                label="Hoãn"
+                sortName="delayCount"
+                width="58px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+              <DelayedHeaderCell
+                label="Ngày Tạo"
+                sortName="createdTime"
+                width="90px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
               <TableHead
                 className="px-2 text-[11px] font-medium uppercase text-slate-500"
                 style={{ width: "220px" }}
               >
                 Chi Tiết Hoãn
               </TableHead>
-              <HeaderCell label="Nguy Cơ" sortName="riskScore" width="82px" />
-              <HeaderCell label="Thu Hộ" sortName="codAmount" width="95px" />
+              <DelayedHeaderCell
+                label="Nguy Cơ"
+                sortName="riskScore"
+                width="82px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+              <DelayedHeaderCell
+                label="Thu Hộ"
+                sortName="codAmount"
+                width="95px"
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
               <TableHead
                 className="px-1 text-center text-[11px] font-medium uppercase text-slate-500"
                 style={{ width: "120px" }}

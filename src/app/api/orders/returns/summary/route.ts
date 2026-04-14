@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { getReturnsSummaryData } from "@/lib/returns-page-data";
 import { requirePermission } from "@/lib/route-permissions";
 
@@ -23,7 +24,7 @@ export async function GET() {
       data: await getReturnsSummaryData(),
     });
   } catch (error) {
-    console.error("GET /api/orders/returns/summary error:", error);
+    logger.error("GET /api/orders/returns/summary", "Error", error);
     return NextResponse.json(
       { error: "Không thể lấy thống kê đơn hoàn" },
       { status: 500 },

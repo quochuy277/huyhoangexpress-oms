@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // GET — attendance settings (public for logged-in users)
 export async function GET() {
@@ -16,7 +17,7 @@ export async function GET() {
 
     return NextResponse.json(settings);
   } catch (error) {
-    console.error("GET settings error:", error);
+    logger.error("GET /api/settings/attendance", "GET settings error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -50,7 +51,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PUT settings error:", error);
+    logger.error("PUT /api/settings/attendance", "PUT settings error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
