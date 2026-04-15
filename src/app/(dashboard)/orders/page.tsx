@@ -25,6 +25,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const canEditStaffNotes = hasPermission(session.user, "canEditStaffNotes");
   const canUseAdvancedFilters = hasPermission(session.user, "canUseAdvancedFilters");
+  const canExportOrdersCustomer = hasPermission(session.user, "canExportOrdersCustomer");
+  const canExportOrdersInternal = hasPermission(session.user, "canExportOrdersInternal");
   const resolvedSearchParams = await searchParams;
   const rawParams = Object.entries(resolvedSearchParams).reduce<Record<string, string>>(
     (accumulator, [key, value]) => {
@@ -53,6 +55,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       userRole={userRole}
       canEditStaffNotes={canEditStaffNotes}
       canUseAdvancedFilters={canUseAdvancedFilters}
+      canExportOrdersCustomer={canExportOrdersCustomer}
+      canExportOrdersInternal={canExportOrdersInternal}
       initialOrdersData={initialOrdersData}
     />
   );

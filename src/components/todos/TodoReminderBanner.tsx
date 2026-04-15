@@ -3,17 +3,21 @@
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, X, ChevronRight } from "lucide-react";
 import type { TodoReminder } from "@/types/todo";
-import { shouldFetchTodoBootstrap } from "@/lib/todo-bootstrap-state";
 
 interface TodoReminderBannerProps {
   onViewOverdue: () => void;
   initialReminder?: TodoReminder | null;
 }
 
+function hasReminderContent(reminder: TodoReminder | null | undefined) {
+  return (reminder?.overdue?.count || 0) > 0 || (reminder?.dueToday?.count || 0) > 0;
+}
+
 export function TodoReminderBanner({ onViewOverdue, initialReminder = null }: TodoReminderBannerProps) {
-  const [reminder, setReminder] = useState<TodoReminder | null>(initialReminder);
+  const normalizedInitialReminder = hasReminderContent(initialReminder) ? initialReminder : null;
+  const [reminder, setReminder] = useState<TodoReminder | null>(normalizedInitialReminder);
   const [dismissed, setDismissed] = useState(false);
-  const fetched = useRef(!shouldFetchTodoBootstrap(initialReminder ? { todos: [] } : null));
+  const fetched = useRef(normalizedInitialReminder !== null);
 
   useEffect(() => {
     if (fetched.current) return;
@@ -21,17 +25,17 @@ export function TodoReminderBanner({ onViewOverdue, initialReminder = null }: To
     fetch("/api/todos/reminders")
       .then((r) => r.json())
       .then((data: TodoReminder) => {
-        if ((data.overdue?.count || 0) > 0 || (data.dueToday?.count || 0) > 0) {
+        if (hasReminderContent(data)) {
           setReminder(data);
         }
       })
       .catch((err) => { console.warn("[TodoReminderBanner] Failed to fetch reminders:", err); });
   }, []);
 
-  if (!reminder || dismissed) return null;
+  const overdueCount = reminder?.overdue?.count || 0;
+  const todayCount = reminder?.dueToday?.count || 0;
 
-  const overdueCount = reminder.overdue?.count || 0;
-  const todayCount = reminder.dueToday?.count || 0;
+  if (!hasReminderContent(reminder) || dismissed) return null;
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm animate-[slideDown_0.3s_ease-out]">

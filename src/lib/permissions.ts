@@ -9,7 +9,8 @@ export interface PermissionSet {
   canUploadExcel: boolean;
   canDeleteOrders: boolean;
   canEditStaffNotes: boolean;
-  canExportOrders: boolean;
+  canExportOrdersCustomer: boolean;
+  canExportOrdersInternal: boolean;
   canUseAdvancedFilters: boolean;
   // Finance
   canViewRevenue: boolean;
@@ -56,7 +57,7 @@ export interface PermissionSet {
 /** All permission keys */
 export const PERMISSION_KEYS: (keyof PermissionSet)[] = [
   "canViewDashboard",
-  "canViewOrders", "canUploadExcel", "canDeleteOrders", "canEditStaffNotes", "canExportOrders", "canUseAdvancedFilters",
+  "canViewOrders", "canUploadExcel", "canDeleteOrders", "canEditStaffNotes", "canExportOrdersCustomer", "canExportOrdersInternal", "canUseAdvancedFilters",
   "canViewRevenue", "canViewCarrierFee", "canViewFinancePage", "canViewDashboardFinance",
   "canManageExpenses", "canUploadCashbook", "canManageBudgets",
   "canViewDelayed",
@@ -90,6 +91,7 @@ export function getDefaultPermissions(role: Role): PermissionSet {
         canViewOrders: true,
         canUploadExcel: true,
         canEditStaffNotes: true,
+        canExportOrdersCustomer: true,
         canUseAdvancedFilters: true,
         canViewDelayed: true,
         canViewReturns: true,
@@ -139,7 +141,8 @@ export const PERMISSION_CATEGORIES = [
       { key: "canUploadExcel" as const, label: "Tải lên file Excel" },
       { key: "canDeleteOrders" as const, label: "Xóa đơn hàng" },
       { key: "canEditStaffNotes" as const, label: "Sửa ghi chú" },
-      { key: "canExportOrders" as const, label: "Xuất file Excel" },
+      { key: "canExportOrdersCustomer" as const, label: "Xuất Excel cho khách hàng" },
+      { key: "canExportOrdersInternal" as const, label: "Xuất Excel nội bộ" },
       { key: "canUseAdvancedFilters" as const, label: "Sử dụng bộ lọc nâng cao" },
     ],
   },

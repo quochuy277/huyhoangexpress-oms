@@ -100,11 +100,13 @@ const DRAFT_DEFAULTS: DraftFilters = {
 };
 
 interface OrderFiltersProps {
-  hideExport?: boolean;
+  canExportCustomer?: boolean;
+  canExportInternal?: boolean;
   hideAdvanced?: boolean;
 }
 
-function OrderFiltersInner({ hideExport, hideAdvanced }: OrderFiltersProps) {
+function OrderFiltersInner({ canExportCustomer, canExportInternal, hideAdvanced }: OrderFiltersProps) {
+  const canExportAny = Boolean(canExportCustomer || canExportInternal);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -371,7 +373,7 @@ function OrderFiltersInner({ hideExport, hideAdvanced }: OrderFiltersProps) {
             </button>
           )}
 
-          {!hideExport && (
+          {canExportAny && (
             <div className="relative" ref={exportMenuRef}>
               <button
                 type="button"
@@ -387,29 +389,35 @@ function OrderFiltersInner({ hideExport, hideAdvanced }: OrderFiltersProps) {
 
               {showExportMenu && (
                 <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
-                  <button
-                    type="button"
-                    onClick={() => handleExport("internal")}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:bg-emerald-50"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    <div>
-                      <div className="font-medium">Xuất nội bộ</div>
-                      <div className="text-[11px] text-slate-400">Đầy đủ cột + Doanh thu</div>
-                    </div>
-                  </button>
-                  <div className="border-t border-slate-100" />
-                  <button
-                    type="button"
-                    onClick={() => handleExport("customer")}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
-                  >
-                    <Users className="h-4 w-4 text-blue-600" />
-                    <div>
-                      <div className="font-medium">Xuất cho khách hàng</div>
-                      <div className="text-[11px] text-slate-400">Chỉ các cột hiển thị</div>
-                    </div>
-                  </button>
+                  {canExportInternal && (
+                    <button
+                      type="button"
+                      onClick={() => handleExport("internal")}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:bg-emerald-50"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      <div>
+                        <div className="font-medium">Xuất nội bộ</div>
+                        <div className="text-[11px] text-slate-400">Đầy đủ cột + Doanh thu</div>
+                      </div>
+                    </button>
+                  )}
+                  {canExportInternal && canExportCustomer && (
+                    <div className="border-t border-slate-100" />
+                  )}
+                  {canExportCustomer && (
+                    <button
+                      type="button"
+                      onClick={() => handleExport("customer")}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
+                    >
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <div className="font-medium">Xuất cho khách hàng</div>
+                        <div className="text-[11px] text-slate-400">Chỉ các cột hiển thị</div>
+                      </div>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

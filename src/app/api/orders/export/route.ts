@@ -162,14 +162,14 @@ export async function GET(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401, headers: timing.headers() });
     }
-    const denied = requirePermission(session.user, "canExportOrders", "Bạn không có quyền xuất file");
+    const { searchParams } = new URL(req.url);
+    const exportType: ExportType = searchParams.get("type") === "customer" ? "customer" : "internal";
+    const permKey = exportType === "customer" ? "canExportOrdersCustomer" : "canExportOrdersInternal";
+    const denied = requirePermission(session.user, permKey, "Bạn không có quyền xuất file");
     if (denied) return denied;
 
     const rateLimited = exportLimiter.check(session.user.id!);
     if (rateLimited) return rateLimited;
-
-    const { searchParams } = new URL(req.url);
-    const exportType: ExportType = searchParams.get("type") === "customer" ? "customer" : "internal";
 
     const query = await timing.measure("query-build", () =>
       buildOrdersListQuery({

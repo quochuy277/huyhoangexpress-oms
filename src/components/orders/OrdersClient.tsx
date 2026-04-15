@@ -26,6 +26,8 @@ interface OrdersClientProps {
   userRole: string;
   canEditStaffNotes: boolean;
   canUseAdvancedFilters: boolean;
+  canExportOrdersCustomer: boolean;
+  canExportOrdersInternal: boolean;
   initialOrdersData: OrdersApiResponse | null;
 }
 
@@ -49,6 +51,8 @@ export function OrdersClient({
   userRole,
   canEditStaffNotes,
   canUseAdvancedFilters,
+  canExportOrdersCustomer,
+  canExportOrdersInternal,
   initialOrdersData,
 }: OrdersClientProps) {
   const queryClient = useQueryClient();
@@ -245,7 +249,11 @@ export function OrdersClient({
         <>
           <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <Suspense fallback={null}>
-              <OrderFilters hideExport={isViewer} hideAdvanced={!canUseAdvancedFilters} />
+              <OrderFilters
+                canExportCustomer={canExportOrdersCustomer}
+                canExportInternal={canExportOrdersInternal}
+                hideAdvanced={!canUseAdvancedFilters}
+              />
             </Suspense>
           </div>
 

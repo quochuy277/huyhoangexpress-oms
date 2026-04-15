@@ -64,7 +64,8 @@ function makeAdminSession(overrides: Record<string, unknown> = {}) {
         canViewReturns: false,
         canConfirmReturn: false,
         canViewDelayed: false,
-        canExportOrders: false,
+        canExportOrdersCustomer: false,
+        canExportOrdersInternal: false,
         canUploadExcel: false,
         ...overrides,
       },
@@ -219,9 +220,9 @@ describe("orders API RBAC", () => {
     expect(vi.mocked(processOrderImport)).toHaveBeenCalled();
   });
 
-  it("allows ADMIN to export orders even when canExportOrders is false in the permission group", async () => {
+  it("allows ADMIN to export orders (both types) even when export permissions are false in the permission group", async () => {
     vi.mocked(auth).mockResolvedValue(makeAdminSession() as never);
-    vi.mocked(prisma.order.findMany).mockResolvedValueOnce([
+    vi.mocked(prisma.order.findMany).mockResolvedValue([
       {
         requestCode: "REQ-001",
         createdTime: new Date("2026-04-12T00:00:00.000Z"),
@@ -232,11 +233,59 @@ describe("orders API RBAC", () => {
     ] as never);
 
     const { GET } = await import("@/app/api/orders/export/route");
-    const response = await GET(new NextRequest("http://localhost/api/orders/export"));
 
-    expect(response.status).toBe(200);
-    expect(vi.mocked(prisma.order.findMany)).toHaveBeenCalled();
-    expect(response.headers.get("Server-Timing")).toContain("total;dur=");
+    const internalResponse = await GET(new NextRequest("http://localhost/api/orders/export?type=internal"));
+    expect(internalResponse.status).toBe(200);
+    expect(internalResponse.headers.get("Server-Timing")).toContain("total;dur=");
+
+    const customerResponse = await GET(new NextRequest("http://localhost/api/orders/export?type=customer"));
+    expect(customerResponse.status).toBe(200);
+  });
+
+  it("allows STAFF with only canExportOrdersCustomer to export customer file but not internal", async () => {
+    vi.mocked(auth).mockResolvedValue(
+      makeSession({ canExportOrdersCustomer: true, canExportOrdersInternal: false }) as never,
+    );
+    vi.mocked(prisma.order.findMany).mockResolvedValue([
+      {
+        requestCode: "REQ-002",
+        createdTime: new Date("2026-04-12T00:00:00.000Z"),
+        deliveryStatus: "DELIVERED",
+        codAmount: 100000,
+        totalFee: 25000,
+      },
+    ] as never);
+
+    const { GET } = await import("@/app/api/orders/export/route");
+
+    const customerResponse = await GET(new NextRequest("http://localhost/api/orders/export?type=customer"));
+    expect(customerResponse.status).toBe(200);
+
+    const internalResponse = await GET(new NextRequest("http://localhost/api/orders/export?type=internal"));
+    expect(internalResponse.status).toBe(403);
+  });
+
+  it("allows STAFF with only canExportOrdersInternal to export internal file but not customer", async () => {
+    vi.mocked(auth).mockResolvedValue(
+      makeSession({ canExportOrdersCustomer: false, canExportOrdersInternal: true }) as never,
+    );
+    vi.mocked(prisma.order.findMany).mockResolvedValue([
+      {
+        requestCode: "REQ-003",
+        createdTime: new Date("2026-04-12T00:00:00.000Z"),
+        deliveryStatus: "DELIVERED",
+        codAmount: 100000,
+        totalFee: 25000,
+      },
+    ] as never);
+
+    const { GET } = await import("@/app/api/orders/export/route");
+
+    const internalResponse = await GET(new NextRequest("http://localhost/api/orders/export?type=internal"));
+    expect(internalResponse.status).toBe(200);
+
+    const customerResponse = await GET(new NextRequest("http://localhost/api/orders/export?type=customer"));
+    expect(customerResponse.status).toBe(403);
   });
 
   it("allows ADMIN to delete orders even when canDeleteOrders is false in the permission group", async () => {

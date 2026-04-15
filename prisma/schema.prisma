@@ -72,7 +72,8 @@ model PermissionGroup {
   canUploadExcel          Boolean @default(true)
   canDeleteOrders         Boolean @default(false)
   canEditStaffNotes       Boolean @default(true)
-  canExportOrders         Boolean @default(false)
+  canExportOrdersCustomer Boolean @default(false)
+  canExportOrdersInternal Boolean @default(false)
   canUseAdvancedFilters   Boolean @default(true)
 
   // === Tài chính ===

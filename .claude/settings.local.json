@@ -63,7 +63,8 @@
       "Bash(npm uninstall:*)",
       "Bash(grep -r \"U00\\\\|\\\\\\\\\\\\\\\\u\\\\|unicode\\\\|encoding\" /d/CODE_APP/HuyHoang_OMS/src --include=\"*.tsx\" --include=\"*.ts\")",
       "Bash(node -e ':*)",
-      "Bash(node fix-unicode.js)"
+      "Bash(node fix-unicode.js)",
+      "Bash(npx eslint:*)"
     ]
   }
 }
