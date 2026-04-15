@@ -57,7 +57,7 @@ export default function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-gray-500">{users.length} nh\u00e2n vi\u00ean</p>
+        <p className="text-[13px] text-gray-500">{users.length} nhân viên</p>
         <div className="flex gap-2 items-center">
           {/* Force Logout Dropdown */}
           <div className="relative">
@@ -67,7 +67,7 @@ export default function UsersTab() {
               onMouseEnter={e => e.currentTarget.style.background = "#b91c1c"}
               onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
             >
-              <LogOut className="w-4 h-4" /> Bu\u1ed9c \u0111\u0103ng xu\u1ea5t <ChevronDown className="w-3 h-3" />
+              <LogOut className="w-4 h-4" /> Buộc đăng xuất <ChevronDown className="w-3 h-3" />
             </button>
             {showLogoutMenu && (
               <>
@@ -79,7 +79,7 @@ export default function UsersTab() {
                     onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
-                    <LogOut className="w-4 h-4" /> T\u1ea5t c\u1ea3 ng\u01b0\u1eddi d\u00f9ng
+                    <LogOut className="w-4 h-4" /> Tất cả người dùng
                   </button>
                   <div className="h-px bg-gray-100" />
                   <button
@@ -88,7 +88,7 @@ export default function UsersTab() {
                     onMouseEnter={e => e.currentTarget.style.background = "#fffbeb"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
-                    <LogOut className="w-4 h-4" /> T\u1ea5t c\u1ea3 tr\u1eeb Admin
+                    <LogOut className="w-4 h-4" /> Tất cả trừ Admin
                   </button>
                 </div>
               </>
@@ -100,7 +100,7 @@ export default function UsersTab() {
             onMouseEnter={(e) => e.currentTarget.style.background = "#1d4ed8"}
             onMouseLeave={(e) => e.currentTarget.style.background = "#2563EB"}
           >
-            <Plus className="w-4 h-4" /> Th\u00eam nh\u00e2n vi\u00ean
+            <Plus className="w-4 h-4" /> Thêm nhân viên
           </button>
         </div>
       </div>
@@ -110,29 +110,29 @@ export default function UsersTab() {
           <TableHeader>
             <TableRow style={{ background: "#f9fafb" }}>
               <TableHead className="w-[50px] text-center text-xs">STT</TableHead>
-              <TableHead className="text-xs">H\u1ecd t\u00ean</TableHead>
-              <TableHead className="text-xs">Ng\u00e0y sinh</TableHead>
-              <TableHead className="text-xs">S\u0110T</TableHead>
+              <TableHead className="text-xs">Họ tên</TableHead>
+              <TableHead className="text-xs">Ngày sinh</TableHead>
+              <TableHead className="text-xs">SĐT</TableHead>
               <TableHead className="text-xs">Email</TableHead>
-              <TableHead className="text-xs">Nh\u00f3m quy\u1ec1n</TableHead>
-              <TableHead className="text-xs">Tr\u1ea1ng th\u00e1i</TableHead>
-              <TableHead className="text-xs w-[120px]">Thao t\u00e1c</TableHead>
+              <TableHead className="text-xs">Nhóm quyền</TableHead>
+              <TableHead className="text-xs">Trạng thái</TableHead>
+              <TableHead className="text-xs w-[120px]">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={8} className="h-32 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "#9ca3af" }} /></TableCell></TableRow>
             ) : users.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="h-32 text-center" style={{ color: "#9ca3af" }}>Ch\u01b0a c\u00f3 nh\u00e2n vi\u00ean</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="h-32 text-center" style={{ color: "#9ca3af" }}>Chưa có nhân viên</TableCell></TableRow>
             ) : (
               users.map((u, i) => (
                 <TableRow key={u.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                   <TableCell className="text-center" style={{ fontSize: "12px", color: "#6b7280" }}>{i + 1}</TableCell>
                   <TableCell style={{ fontSize: "13px", fontWeight: 500, color: "#1a1a1a" }}>{u.name}</TableCell>
                   <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>
-                    {u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("vi-VN") : "\u2014"}
+                    {u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("vi-VN") : "—"}
                   </TableCell>
-                  <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>{u.phone || "\u2014"}</TableCell>
+                  <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>{u.phone || "—"}</TableCell>
                   <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>{u.email}</TableCell>
                   <TableCell>
                     <span style={{ padding: "2px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 500, background: "#eff6ff", color: "#2563EB", border: "1px solid #bfdbfe" }}>
@@ -141,26 +141,26 @@ export default function UsersTab() {
                   </TableCell>
                   <TableCell>
                     {u.isActive ? (
-                      <span style={{ padding: "2px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 500, background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}>\u0110ang ho\u1ea1t \u0111\u1ed9ng</span>
+                      <span style={{ padding: "2px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 500, background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}>Đang hoạt động</span>
                     ) : (
-                      <span style={{ padding: "2px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 500, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>\u0110\u00e3 kh\u00f3a</span>
+                      <span style={{ padding: "2px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 500, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>Đã khóa</span>
                     )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setEditUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#2563EB", transition: "background 0.2s" }} title="S\u1eeda"
+                      <button onClick={() => setEditUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#2563EB", transition: "background 0.2s" }} title="Sửa"
                         onMouseEnter={e => e.currentTarget.style.background = "#eff6ff"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       ><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setPasswordUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#d97706", transition: "background 0.2s" }} title="\u0110\u1ed5i m\u1eadt kh\u1ea9u"
+                      <button onClick={() => setPasswordUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#d97706", transition: "background 0.2s" }} title="Đổi mật khẩu"
                         onMouseEnter={e => e.currentTarget.style.background = "#fffbeb"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       ><Key className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setForceLogoutTarget({ mode: "user", user: u })} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#7c3aed", transition: "background 0.2s" }} title="Bu\u1ed9c \u0111\u0103ng xu\u1ea5t"
+                      <button onClick={() => setForceLogoutTarget({ mode: "user", user: u })} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#7c3aed", transition: "background 0.2s" }} title="Buộc đăng xuất"
                         onMouseEnter={e => e.currentTarget.style.background = "#f5f3ff"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       ><LogOut className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setDeleteUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#dc2626", transition: "background 0.2s" }} title="Kh\u00f3a t\u00e0i kho\u1ea3n"
+                      <button onClick={() => setDeleteUser(u)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#dc2626", transition: "background 0.2s" }} title="Khóa tài khoản"
                         onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       ><Trash2 className="w-3.5 h-3.5" /></button>
@@ -209,8 +209,8 @@ function UserFormDialog({ user, groups, onClose, onSaved }: {
   const [showPw, setShowPw] = useState(false);
 
   const handleSubmit = async () => {
-    if (!form.name.trim() || !form.email.trim() || !form.permissionGroupId) { setError("Vui l\u00f2ng \u0111i\u1ec1n \u0111\u1ea7y \u0111\u1ee7 th\u00f4ng tin b\u1eaft bu\u1ed9c"); return; }
-    if (!isEdit && (!form.password || form.password.length < 6)) { setError("M\u1eadt kh\u1ea9u ph\u1ea3i \u00edt nh\u1ea5t 6 k\u00fd t\u1ef1"); return; }
+    if (!form.name.trim() || !form.email.trim() || !form.permissionGroupId) { setError("Vui lòng điền đầy đủ thông tin bắt buộc"); return; }
+    if (!isEdit && (!form.password || form.password.length < 6)) { setError("Mật khẩu phải ít nhất 6 ký tự"); return; }
     setSaving(true); setError("");
     try {
       const url = isEdit ? `/api/admin/users/${user!.id}` : "/api/admin/users";
@@ -220,8 +220,8 @@ function UserFormDialog({ user, groups, onClose, onSaved }: {
       if (!body.dateOfBirth) body.dateOfBirth = null;
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) { onSaved(); onClose(); }
-      else { const d = await res.json().catch(() => ({})); setError(d.error || "C\u00f3 l\u1ed7i x\u1ea3y ra"); }
-    } catch { setError("L\u1ed7i k\u1ebft n\u1ed1i"); }
+      else { const d = await res.json().catch(() => ({})); setError(d.error || "Có lỗi xảy ra"); }
+    } catch { setError("Lỗi kết nối"); }
     finally { setSaving(false); }
   };
 
@@ -230,69 +230,69 @@ function UserFormDialog({ user, groups, onClose, onSaved }: {
       <div onClick={onClose} style={overlayStyle} />
       <div style={{ ...dialogBase, width: "600px", maxHeight: "85vh" }}>
         <div style={headerStyle}>
-          <span style={titleStyle}>{isEdit ? "S\u1eeda th\u00f4ng tin nh\u00e2n vi\u00ean" : "Th\u00eam nh\u00e2n vi\u00ean m\u1edbi"}</span>
+          <span style={titleStyle}>{isEdit ? "Sửa thông tin nhân viên" : "Thêm nhân viên mới"}</span>
           <button onClick={onClose} style={closeBtnBase} onMouseEnter={closeHoverIn} onMouseLeave={closeHoverOut}>
             <X style={{ width: "18px", height: "18px" }} />
           </button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", flex: 1, maxHeight: "calc(85vh - 180px)", paddingRight: "4px" }}>
-          <Field label="H\u1ecd t\u00ean" required>
+          <Field label="Họ tên" required>
             <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
           </Field>
           <Field label="Email" required>
             <input type="email" style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </Field>
           {!isEdit && (
-            <Field label="M\u1eadt kh\u1ea9u" required>
+            <Field label="Mật khẩu" required>
               <div style={{ position: "relative" }}>
-                <input type={showPw ? "text" : "password"} style={{ ...inputStyle, paddingRight: "40px" }} onFocus={iFocus} onBlur={iBlur} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="T\u1ed1i thi\u1ec3u 6 k\u00fd t\u1ef1" />
-                <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#6b7280", display: "flex", alignItems: "center" }} title={showPw ? "\u1ea8n m\u1eadt kh\u1ea9u" : "Hi\u1ec7n m\u1eadt kh\u1ea9u"}>
+                <input type={showPw ? "text" : "password"} style={{ ...inputStyle, paddingRight: "40px" }} onFocus={iFocus} onBlur={iBlur} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Tối thiểu 6 ký tự" />
+                <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#6b7280", display: "flex", alignItems: "center" }} title={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </Field>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <Field label="Ng\u00e0y sinh">
+            <Field label="Ngày sinh">
               <input type="date" style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.dateOfBirth} onChange={e => setForm({ ...form, dateOfBirth: e.target.value })} />
             </Field>
-            <Field label="S\u1ed1 \u0111i\u1ec7n tho\u1ea1i">
+            <Field label="Số điện thoại">
               <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
             </Field>
           </div>
-          <Field label="Qu\u00ea qu\u00e1n">
+          <Field label="Quê quán">
             <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.hometown} onChange={e => setForm({ ...form, hometown: e.target.value })} />
           </Field>
-          <Field label="N\u01a1i \u0111\u0103ng k\u00fd HKTT">
+          <Field label="Nơi đăng ký HKTT">
             <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.permanentAddress} onChange={e => setForm({ ...form, permanentAddress: e.target.value })} />
           </Field>
-          <Field label="N\u01a1i \u1edf hi\u1ec7n nay">
+          <Field label="Nơi ở hiện nay">
             <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.currentAddress} onChange={e => setForm({ ...form, currentAddress: e.target.value })} />
           </Field>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <Field label="S\u1ed1 CCCD">
+            <Field label="Số CCCD">
               <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.citizenId} onChange={e => setForm({ ...form, citizenId: e.target.value })} />
             </Field>
-            <Field label="Link m\u1ea1ng x\u00e3 h\u1ed9i">
+            <Field label="Link mạng xã hội">
               <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={form.socialLink} onChange={e => setForm({ ...form, socialLink: e.target.value })} />
             </Field>
           </div>
-          <Field label="Nh\u00f3m quy\u1ec1n" required>
+          <Field label="Nhóm quyền" required>
             <select style={{ ...inputStyle, cursor: "pointer", appearance: "auto" as any }} onFocus={iFocus} onBlur={iBlur} value={form.permissionGroupId} onChange={e => setForm({ ...form, permissionGroupId: e.target.value })}>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name} {g.description ? `\u2014 ${g.description}` : ""}</option>)}
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name} {g.description ? `— ${g.description}` : ""}</option>)}
             </select>
           </Field>
           {error && <p style={{ fontSize: "13px", color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "10px 14px" }}>{error}</p>}
         </div>
 
         <div style={footerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>H\u1ee7y</button>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
           <button onClick={handleSubmit} disabled={saving} style={{ ...primaryBtnStyle, opacity: saving ? 0.6 : 1, cursor: saving ? "not-allowed" : "pointer" }}
             onMouseEnter={e => { if (!saving) e.currentTarget.style.background = "#1d4ed8"; }}
             onMouseLeave={e => e.currentTarget.style.background = "#2563EB"}
           >
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {saving ? "\u0110ang l\u01b0u..." : "L\u01b0u"}
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {saving ? "Đang lưu..." : "Lưu"}
           </button>
         </div>
       </div>
@@ -311,13 +311,13 @@ function PasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void 
   const [showPw, setShowPw] = useState(false);
 
   const handleSave = async () => {
-    if (pw.length < 6) { setMsg({ type: "err", text: "M\u1eadt kh\u1ea9u m\u1edbi ph\u1ea3i \u00edt nh\u1ea5t 6 k\u00fd t\u1ef1" }); return; }
+    if (pw.length < 6) { setMsg({ type: "err", text: "Mật khẩu mới phải ít nhất 6 ký tự" }); return; }
     setSaving(true); setMsg(null);
     try {
       const res = await fetch(`/api/admin/users/${user.id}/password`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPassword: pw }) });
-      if (res.ok) { setMsg({ type: "ok", text: "\u0110\u1ed5i m\u1eadt kh\u1ea9u th\u00e0nh c\u00f4ng!" }); setTimeout(onClose, 1200); }
-      else { const d = await res.json().catch(() => ({})); setMsg({ type: "err", text: d.error || "L\u1ed7i" }); }
-    } catch { setMsg({ type: "err", text: "L\u1ed7i k\u1ebft n\u1ed1i" }); }
+      if (res.ok) { setMsg({ type: "ok", text: "Đổi mật khẩu thành công!" }); setTimeout(onClose, 1200); }
+      else { const d = await res.json().catch(() => ({})); setMsg({ type: "err", text: d.error || "Lỗi" }); }
+    } catch { setMsg({ type: "err", text: "Lỗi kết nối" }); }
     finally { setSaving(false); }
   };
 
@@ -326,17 +326,17 @@ function PasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void 
       <div onClick={onClose} style={overlayStyle} />
       <div style={{ ...dialogBase, width: "420px" }}>
         <div style={headerStyle}>
-          <span style={titleStyle}>\u0110\u1ed5i m\u1eadt kh\u1ea9u \u2014 {user.name}</span>
+          <span style={titleStyle}>Đổi mật khẩu — {user.name}</span>
           <button onClick={onClose} style={closeBtnBase} onMouseEnter={closeHoverIn} onMouseLeave={closeHoverOut}>
             <X style={{ width: "18px", height: "18px" }} />
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
-            <label style={labelStyle}>M\u1eadt kh\u1ea9u m\u1edbi <span style={{ color: "#ef4444" }}>*</span></label>
+            <label style={labelStyle}>Mật khẩu mới <span style={{ color: "#ef4444" }}>*</span></label>
             <div style={{ position: "relative" }}>
-              <input type={showPw ? "text" : "password"} placeholder="T\u1ed1i thi\u1ec3u 6 k\u00fd t\u1ef1" value={pw} onChange={e => setPw(e.target.value)} style={{ ...inputStyle, paddingRight: "40px" }} onFocus={iFocus} onBlur={iBlur} />
-              <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#6b7280", display: "flex", alignItems: "center" }} title={showPw ? "\u1ea8n m\u1eadt kh\u1ea9u" : "Hi\u1ec7n m\u1eadt kh\u1ea9u"}>
+              <input type={showPw ? "text" : "password"} placeholder="Tối thiểu 6 ký tự" value={pw} onChange={e => setPw(e.target.value)} style={{ ...inputStyle, paddingRight: "40px" }} onFocus={iFocus} onBlur={iBlur} />
+              <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#6b7280", display: "flex", alignItems: "center" }} title={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
                 {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
@@ -344,11 +344,11 @@ function PasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void 
           {msg && <p style={{ fontSize: "13px", padding: "10px 14px", borderRadius: "8px", background: msg.type === "ok" ? "#f0fdf4" : "#fef2f2", color: msg.type === "ok" ? "#16a34a" : "#dc2626", border: `1px solid ${msg.type === "ok" ? "#bbf7d0" : "#fecaca"}` }}>{msg.text}</p>}
         </div>
         <div style={footerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>H\u1ee7y</button>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
           <button onClick={handleSave} disabled={saving} style={{ ...primaryBtnStyle, opacity: saving ? 0.6 : 1, cursor: saving ? "not-allowed" : "pointer" }}
             onMouseEnter={e => { if (!saving) e.currentTarget.style.background = "#1d4ed8"; }}
             onMouseLeave={e => e.currentTarget.style.background = "#2563EB"}
-          >{saving ? "\u0110ang l\u01b0u..." : "\u0110\u1ed5i m\u1eadt kh\u1ea9u"}</button>
+          >{saving ? "Đang lưu..." : "Đổi mật khẩu"}</button>
         </div>
       </div>
     </>,
@@ -367,8 +367,8 @@ function DeleteUserDialog({ user, onClose, onDeleted }: { user: UserRow; onClose
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
       if (res.ok) { onDeleted(); onClose(); }
-      else { alert("L\u1ed7i khi kh\u00f3a t\u00e0i kho\u1ea3n"); }
-    } catch { alert("L\u1ed7i k\u1ebft n\u1ed1i"); }
+      else { alert("Lỗi khi khóa tài khoản"); }
+    } catch { alert("Lỗi kết nối"); }
     finally { setDeleting(false); }
   };
 
@@ -377,20 +377,20 @@ function DeleteUserDialog({ user, onClose, onDeleted }: { user: UserRow; onClose
       <div onClick={onClose} style={overlayStyle} />
       <div style={{ ...dialogBase, width: "420px" }}>
         <div style={headerStyle}>
-          <span style={{ ...titleStyle, color: "#dc2626" }}>Kh\u00f3a t\u00e0i kho\u1ea3n</span>
+          <span style={{ ...titleStyle, color: "#dc2626" }}>Khóa tài khoản</span>
           <button onClick={onClose} style={closeBtnBase} onMouseEnter={closeHoverIn} onMouseLeave={closeHoverOut}>
             <X style={{ width: "18px", height: "18px" }} />
           </button>
         </div>
         <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.6 }}>
-          B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n kh\u00f3a t\u00e0i kho\u1ea3n <b style={{ color: "#1a1a1a" }}>{user.name}</b>? Nh\u00e2n vi\u00ean s\u1ebd kh\u00f4ng th\u1ec3 \u0111\u0103ng nh\u1eadp nh\u01b0ng d\u1eef li\u1ec7u v\u1eabn \u0111\u01b0\u1ee3c gi\u1eef.
+          Bạn có chắc muốn khóa tài khoản <b style={{ color: "#1a1a1a" }}>{user.name}</b>? Nhân viên sẽ không thể đăng nhập nhưng dữ liệu vẫn được giữ.
         </p>
         <div style={footerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>H\u1ee7y</button>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
           <button onClick={handleDelete} disabled={deleting} style={{ ...dangerBtnStyle, opacity: deleting ? 0.6 : 1, cursor: deleting ? "not-allowed" : "pointer" }}
             onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = "#b91c1c"; }}
             onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
-          >{deleting ? "\u0110ang x\u1eed l\u00fd..." : "Kh\u00f3a t\u00e0i kho\u1ea3n"}</button>
+          >{deleting ? "Đang xử lý..." : "Khóa tài khoản"}</button>
         </div>
       </div>
     </>,
@@ -409,15 +409,15 @@ function ForceLogoutDialog({ target, onClose }: {
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const getTitle = () => {
-    if (target.mode === "user") return `Bu\u1ed9c \u0111\u0103ng xu\u1ea5t \u2014 ${target.user?.name}`;
-    if (target.mode === "except_admin") return "Bu\u1ed9c \u0111\u0103ng xu\u1ea5t (tr\u1eeb Admin)";
-    return "Bu\u1ed9c \u0111\u0103ng xu\u1ea5t t\u1ea5t c\u1ea3";
+    if (target.mode === "user") return `Buộc đăng xuất — ${target.user?.name}`;
+    if (target.mode === "except_admin") return "Buộc đăng xuất (trừ Admin)";
+    return "Buộc đăng xuất tất cả";
   };
 
   const getMessage = () => {
-    if (target.mode === "user") return <>B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n bu\u1ed9c \u0111\u0103ng xu\u1ea5t <b style={{ color: "#1a1a1a" }}>{target.user?.name}</b>? Phi\u00ean \u0111\u0103ng nh\u1eadp hi\u1ec7n t\u1ea1i c\u1ee7a nh\u00e2n vi\u00ean n\u00e0y s\u1ebd b\u1ecb \u0111\u00f3ng.</>;
-    if (target.mode === "except_admin") return <>T\u1ea5t c\u1ea3 nh\u00e2n vi\u00ean (tr\u1eeb t\u00e0i kho\u1ea3n Admin hi\u1ec7n t\u1ea1i) s\u1ebd b\u1ecb \u0111\u0103ng xu\u1ea5t. M\u1ecdi phi\u00ean \u0111\u0103ng nh\u1eadp \u0111ang ho\u1ea1t \u0111\u1ed9ng s\u1ebd b\u1ecb \u0111\u00f3ng.</>;
-    return <><b style={{ color: "#dc2626" }}>C\u1ea3nh b\u00e1o:</b> T\u1ea5t c\u1ea3 m\u1ecdi ng\u01b0\u1eddi (bao g\u1ed3m c\u1ea3 b\u1ea1n) s\u1ebd b\u1ecb \u0111\u0103ng xu\u1ea5t. B\u1ea1n s\u1ebd c\u1ea7n \u0111\u0103ng nh\u1eadp l\u1ea1i.</>;
+    if (target.mode === "user") return <>Bạn có chắc muốn buộc đăng xuất <b style={{ color: "#1a1a1a" }}>{target.user?.name}</b>? Phiên đăng nhập hiện tại của nhân viên này sẽ bị đóng.</>;
+    if (target.mode === "except_admin") return <>Tất cả nhân viên (trừ tài khoản Admin hiện tại) sẽ bị đăng xuất. Mọi phiên đăng nhập đang hoạt động sẽ bị đóng.</>;
+    return <><b style={{ color: "#dc2626" }}>Cảnh báo:</b> Tất cả mọi người (bao gồm cả bạn) sẽ bị đăng xuất. Bạn sẽ cần đăng nhập lại.</>;
   };
 
   const handleForceLogout = async () => {
@@ -439,13 +439,13 @@ function ForceLogoutDialog({ target, onClose }: {
 
       const data = await res.json();
       if (res.ok) {
-        setResult({ ok: true, message: data.message || `\u0110\u00e3 \u0111\u0103ng xu\u1ea5t ${data.count} phi\u00ean` });
+        setResult({ ok: true, message: data.message || `Đã đăng xuất ${data.count} phiên` });
         setTimeout(onClose, 2000);
       } else {
-        setResult({ ok: false, message: data.error || "C\u00f3 l\u1ed7i x\u1ea3y ra" });
+        setResult({ ok: false, message: data.error || "Có lỗi xảy ra" });
       }
     } catch {
-      setResult({ ok: false, message: "L\u1ed7i k\u1ebft n\u1ed1i" });
+      setResult({ ok: false, message: "Lỗi kết nối" });
     } finally {
       setProcessing(false);
     }
@@ -467,7 +467,7 @@ function ForceLogoutDialog({ target, onClose }: {
 
           {target.mode === "all" && (
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#fef2f2", border: "1px solid #fecaca", fontSize: "12px", color: "#dc2626" }}>
-              \u26a0 L\u01b0u \u00fd: B\u1ea1n c\u0169ng s\u1ebd b\u1ecb \u0111\u0103ng xu\u1ea5t v\u00e0 c\u1ea7n \u0111\u0103ng nh\u1eadp l\u1ea1i.
+              ⚠ Lưu ý: Bạn cũng sẽ bị đăng xuất và cần đăng nhập lại.
             </div>
           )}
 
@@ -484,7 +484,7 @@ function ForceLogoutDialog({ target, onClose }: {
         </div>
 
         <div style={footerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>H\u1ee7y</button>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
           <button
             onClick={handleForceLogout}
             disabled={processing || result?.ok === true}
@@ -497,7 +497,7 @@ function ForceLogoutDialog({ target, onClose }: {
             onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
           >
             {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-            {processing ? "\u0110ang x\u1eed l\u00fd..." : "X\u00e1c nh\u1eadn \u0111\u0103ng xu\u1ea5t"}
+            {processing ? "Đang xử lý..." : "Xác nhận đăng xuất"}
           </button>
         </div>
       </div>

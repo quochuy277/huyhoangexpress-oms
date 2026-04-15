@@ -45,16 +45,16 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a1a" }}>Qu{"\u1EA3"}n L{"\u00FD"} Nh{"\u00E2"}n Vi{"\u00EA"}n</h1>
-        <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>Qu{"\u1EA3"}n l{"\u00FD"} nh{"\u00E2"}n vi{"\u00EA"}n, ph{"\u00E2"}n quy{"\u1EC1"}n, th{"\u00F4"}ng b{"\u00E1"}o v{"\u00E0"} g{"\u00F3"}p {"\u00FD"}</p>
+        <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#1a1a1a" }}>Quản Lý Nhân Viên</h1>
+        <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>Quản lý nhân viên, phân quyền, thông báo và góp ý</p>
       </div>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: "4px", background: "#f3f4f6", borderRadius: "8px", padding: "4px", width: "fit-content", flexWrap: "wrap" }}>
-        <TabButton active={activeTab === "users"} icon={Users} label={`Nh\u00E2n vi\u00EAn`} onClick={() => setActiveTab("users")} />
-        <TabButton active={activeTab === "permissions"} icon={Shield} label={`Nh\u00F3m quy\u1EC1n`} onClick={() => setActiveTab("permissions")} />
-        <TabButton active={activeTab === "announcements"} icon={Megaphone} label={`Th\u00F4ng b\u00E1o`} onClick={() => setActiveTab("announcements")} />
-        <TabButton active={activeTab === "requests"} icon={FileText} label={`Y\u00EAu c\u1EA7u & G\u00F3p \u00FD`} onClick={() => setActiveTab("requests")} />
+        <TabButton active={activeTab === "users"} icon={Users} label={`Nhân viên`} onClick={() => setActiveTab("users")} />
+        <TabButton active={activeTab === "permissions"} icon={Shield} label={`Nhóm quyền`} onClick={() => setActiveTab("permissions")} />
+        <TabButton active={activeTab === "announcements"} icon={Megaphone} label={`Thông báo`} onClick={() => setActiveTab("announcements")} />
+        <TabButton active={activeTab === "requests"} icon={FileText} label={`Yêu cầu & Góp ý`} onClick={() => setActiveTab("requests")} />
       </div>
 
       {activeTab === "users" && <UsersTab />}

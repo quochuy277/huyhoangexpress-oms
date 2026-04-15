@@ -37,12 +37,12 @@ export default function PermissionsTab() {
   return (
     <div className="space-y-4">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <p style={{ fontSize: "13px", color: "#6b7280" }}>{groups.length} nh\u00f3m quy\u1ec1n</p>
+        <p style={{ fontSize: "13px", color: "#6b7280" }}>{groups.length} nhóm quyền</p>
         <button onClick={() => setShowAdd(true)} style={{ ...primaryBtnStyle, padding: "8px 18px" }}
           onMouseEnter={(e) => e.currentTarget.style.background = "#1d4ed8"}
           onMouseLeave={(e) => e.currentTarget.style.background = "#2563EB"}
         >
-          <Plus className="w-4 h-4" /> Th\u00eam nh\u00f3m quy\u1ec1n
+          <Plus className="w-4 h-4" /> Thêm nhóm quyền
         </button>
       </div>
 
@@ -50,29 +50,29 @@ export default function PermissionsTab() {
         <Table>
           <TableHeader>
             <TableRow style={{ background: "#f9fafb" }}>
-              <TableHead className="text-xs">T\u00ean nh\u00f3m</TableHead>
-              <TableHead className="text-xs">M\u00f4 t\u1ea3</TableHead>
-              <TableHead className="text-xs w-[100px] text-center">S\u1ed1 nh\u00e2n vi\u00ean</TableHead>
-              <TableHead className="text-xs w-[100px]">Thao t\u00e1c</TableHead>
+              <TableHead className="text-xs">Tên nhóm</TableHead>
+              <TableHead className="text-xs">Mô tả</TableHead>
+              <TableHead className="text-xs w-[100px] text-center">Số nhân viên</TableHead>
+              <TableHead className="text-xs w-[100px]">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={4} className="h-32 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "#9ca3af" }} /></TableCell></TableRow>
             ) : groups.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="h-32 text-center" style={{ color: "#9ca3af" }}>Ch\u01b0a c\u00f3 nh\u00f3m quy\u1ec1n</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="h-32 text-center" style={{ color: "#9ca3af" }}>Chưa có nhóm quyền</TableCell></TableRow>
             ) : (
               groups.map(g => (
                 <TableRow key={g.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                   <TableCell style={{ fontSize: "13px", fontWeight: 500, color: "#1a1a1a" }}>
                     {g.name}
-                    {g.isSystemGroup && <span style={{ marginLeft: "8px", fontSize: "10px", padding: "2px 6px", background: "#f3f4f6", color: "#6b7280", borderRadius: "4px" }}>H\u1ec7 th\u1ed1ng</span>}
+                    {g.isSystemGroup && <span style={{ marginLeft: "8px", fontSize: "10px", padding: "2px 6px", background: "#f3f4f6", color: "#6b7280", borderRadius: "4px" }}>Hệ thống</span>}
                   </TableCell>
-                  <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>{g.description || "\u2014"}</TableCell>
+                  <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>{g.description || "—"}</TableCell>
                   <TableCell className="text-center" style={{ fontSize: "13px", fontWeight: 500, color: "#1a1a1a" }}>{g._count.users}</TableCell>
                   <TableCell>
                     <div style={{ display: "flex", gap: "4px" }}>
-                      <button onClick={() => setEditGroup(g)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#2563EB", transition: "background 0.2s" }} title="S\u1eeda"
+                      <button onClick={() => setEditGroup(g)} style={{ padding: "5px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "#2563EB", transition: "background 0.2s" }} title="Sửa"
                         onMouseEnter={e => e.currentTarget.style.background = "#eff6ff"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       ><Pencil className="w-3.5 h-3.5" /></button>
@@ -85,7 +85,7 @@ export default function PermissionsTab() {
                           color: g.isSystemGroup || g._count.users > 0 ? "#d1d5db" : "#dc2626",
                           opacity: g.isSystemGroup || g._count.users > 0 ? 0.5 : 1,
                         }}
-                        title={g.isSystemGroup ? "Kh\u00f4ng th\u1ec3 x\u00f3a nh\u00f3m h\u1ec7 th\u1ed1ng" : g._count.users > 0 ? `\u0110ang c\u00f3 ${g._count.users} nh\u00e2n vi\u00ean` : "X\u00f3a"}
+                        title={g.isSystemGroup ? "Không thể xóa nhóm hệ thống" : g._count.users > 0 ? `Đang có ${g._count.users} nhân viên` : "Xóa"}
                       ><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </TableCell>
@@ -124,15 +124,15 @@ function PermGroupFormDialog({ group, onClose, onSaved }: {
   const togglePerm = (key: string) => setPerms(prev => ({ ...prev, [key]: !prev[key] }));
 
   const handleSubmit = async () => {
-    if (!name.trim()) { setError("T\u00ean nh\u00f3m quy\u1ec1n kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ec3 tr\u1ed1ng"); return; }
+    if (!name.trim()) { setError("Tên nhóm quyền không được để trống"); return; }
     setSaving(true); setError("");
     try {
       const url = isEdit ? `/api/admin/permission-groups/${group!.id}` : "/api/admin/permission-groups";
       const method = isEdit ? "PATCH" : "POST";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), description: description.trim(), ...perms }) });
       if (res.ok) { onSaved(); onClose(); }
-      else { const d = await res.json().catch(() => ({})); setError(d.error || "C\u00f3 l\u1ed7i x\u1ea3y ra"); }
-    } catch { setError("L\u1ed7i k\u1ebft n\u1ed1i"); }
+      else { const d = await res.json().catch(() => ({})); setError(d.error || "Có lỗi xảy ra"); }
+    } catch { setError("Lỗi kết nối"); }
     finally { setSaving(false); }
   };
 
@@ -141,7 +141,7 @@ function PermGroupFormDialog({ group, onClose, onSaved }: {
       <div onClick={onClose} style={overlayStyle} />
       <div style={{ ...dialogBase, width: "640px", maxHeight: "85vh" }}>
         <div style={headerStyle}>
-          <span style={titleStyle}>{isEdit ? `S\u1eeda nh\u00f3m quy\u1ec1n \u2014 ${group!.name}` : "Th\u00eam nh\u00f3m quy\u1ec1n m\u1edbi"}</span>
+          <span style={titleStyle}>{isEdit ? `Sửa nhóm quyền — ${group!.name}` : "Thêm nhóm quyền mới"}</span>
           <button onClick={onClose} style={closeBtnBase} onMouseEnter={closeHoverIn} onMouseLeave={closeHoverOut}>
             <X style={{ width: "18px", height: "18px" }} />
           </button>
@@ -149,11 +149,11 @@ function PermGroupFormDialog({ group, onClose, onSaved }: {
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", flex: 1, maxHeight: "calc(85vh - 180px)", paddingRight: "4px" }}>
           <div>
-            <label style={labelStyle}>T\u00ean nh\u00f3m quy\u1ec1n <span style={{ color: "#ef4444" }}>*</span></label>
+            <label style={labelStyle}>Tên nhóm quyền <span style={{ color: "#ef4444" }}>*</span></label>
             <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
-            <label style={labelStyle}>M\u00f4 t\u1ea3</label>
+            <label style={labelStyle}>Mô tả</label>
             <input style={inputStyle} onFocus={iFocus} onBlur={iBlur} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
 
@@ -236,12 +236,12 @@ function PermGroupFormDialog({ group, onClose, onSaved }: {
         </div>
 
         <div style={footerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>H\u1ee7y</button>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
           <button onClick={handleSubmit} disabled={saving} style={{ ...primaryBtnStyle, opacity: saving ? 0.6 : 1, cursor: saving ? "not-allowed" : "pointer" }}
             onMouseEnter={e => { if (!saving) e.currentTarget.style.background = "#1d4ed8"; }}
             onMouseLeave={e => e.currentTarget.style.background = "#2563EB"}
           >
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {saving ? "\u0110ang l\u01b0u..." : "L\u01b0u"}
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {saving ? "Đang lưu..." : "Lưu"}
           </button>
         </div>
       </div>
@@ -261,8 +261,8 @@ function DeleteGroupDialog({ group, onClose, onDeleted }: { group: PermGroupRow;
     try {
       const res = await fetch(`/api/admin/permission-groups/${group.id}`, { method: "DELETE" });
       if (res.ok) { onDeleted(); onClose(); }
-      else { const d = await res.json().catch(() => ({})); alert(d.error || "L\u1ed7i"); }
-    } catch { alert("L\u1ed7i k\u1ebft n\u1ed1i"); }
+      else { const d = await res.json().catch(() => ({})); alert(d.error || "Lỗi"); }
+    } catch { alert("Lỗi kết nối"); }
     finally { setDeleting(false); }
   };
 
@@ -271,20 +271,20 @@ function DeleteGroupDialog({ group, onClose, onDeleted }: { group: PermGroupRow;
       <div onClick={onClose} style={overlayStyle} />
       <div style={{ ...dialogBase, width: "420px" }}>
         <div style={headerStyle}>
-          <span style={{ ...titleStyle, color: "#dc2626" }}>X\u00f3a nh\u00f3m quy\u1ec1n</span>
+          <span style={{ ...titleStyle, color: "#dc2626" }}>Xóa nhóm quyền</span>
           <button onClick={onClose} style={closeBtnBase} onMouseEnter={closeHoverIn} onMouseLeave={closeHoverOut}>
             <X style={{ width: "18px", height: "18px" }} />
           </button>
         </div>
         <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.6 }}>
-          B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n x\u00f3a nh\u00f3m quy\u1ec1n <b style={{ color: "#1a1a1a" }}>{group.name}</b>?
+          Bạn có chắc muốn xóa nhóm quyền <b style={{ color: "#1a1a1a" }}>{group.name}</b>?
         </p>
         <div style={footerStyle}>
-          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>H\u1ee7y</button>
+          <button onClick={onClose} style={cancelBtnStyle} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Hủy</button>
           <button onClick={handleDelete} disabled={deleting} style={{ ...dangerBtnStyle, opacity: deleting ? 0.6 : 1, cursor: deleting ? "not-allowed" : "pointer" }}
             onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = "#b91c1c"; }}
             onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
-          >{deleting ? "\u0110ang x\u00f3a..." : "X\u00f3a"}</button>
+          >{deleting ? "Đang xóa..." : "Xóa"}</button>
         </div>
       </div>
     </>,

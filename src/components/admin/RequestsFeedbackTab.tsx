@@ -42,9 +42,9 @@ export default function RequestsFeedbackTab() {
   };
 
   const STATUS_STYLES: Record<string, { bg: string; color: string; border: string; label: string }> = {
-    PENDING: { bg: "#fffbeb", color: "#d97706", border: "#fcd34d", label: "Ch\u1edd duy\u1ec7t" },
-    APPROVED: { bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0", label: "\u0110\u00e3 duy\u1ec7t" },
-    REJECTED: { bg: "#fef2f2", color: "#dc2626", border: "#fecaca", label: "T\u1eeb ch\u1ed1i" },
+    PENDING: { bg: "#fffbeb", color: "#d97706", border: "#fcd34d", label: "Chờ duyệt" },
+    APPROVED: { bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0", label: "Đã duyệt" },
+    REJECTED: { bg: "#fef2f2", color: "#dc2626", border: "#fecaca", label: "Từ chối" },
   };
 
   return (
@@ -58,7 +58,7 @@ export default function RequestsFeedbackTab() {
             background: subTab === t ? "#2563EB" : "#f3f4f6",
             color: subTab === t ? "#fff" : "#6b7280",
           }}>
-            {t === "requests" ? `Y\u00eau c\u1ea7u thay \u0111\u1ed5i (${requests.filter(r => r.status === "PENDING").length})` : `G\u00f3p \u00fd (${feedbacks.filter(f => !f.isRead).length})`}
+            {t === "requests" ? `Yêu cầu thay đổi (${requests.filter(r => r.status === "PENDING").length})` : `Góp ý (${feedbacks.filter(f => !f.isRead).length})`}
           </button>
         ))}
       </div>
@@ -71,18 +71,18 @@ export default function RequestsFeedbackTab() {
         /* Change Requests */
         <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
           {requests.length === 0 ? (
-            <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>Ch\u01b0a c\u00f3 y\u00eau c\u1ea7u n\u00e0o</div>
+            <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>Chưa có yêu cầu nào</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow style={{ background: "#f9fafb" }}>
-                  <TableHead className="text-xs">Nh\u00e2n vi\u00ean</TableHead>
-                  <TableHead className="text-xs">Th\u00f4ng tin</TableHead>
-                  <TableHead className="text-xs">Gi\u00e1 tr\u1ecb c\u0169</TableHead>
-                  <TableHead className="text-xs">Gi\u00e1 tr\u1ecb m\u1edbi</TableHead>
-                  <TableHead className="text-xs">Tr\u1ea1ng th\u00e1i</TableHead>
-                  <TableHead className="text-xs">Ng\u00e0y g\u1eedi</TableHead>
-                  <TableHead className="text-xs w-[100px]">Thao t\u00e1c</TableHead>
+                  <TableHead className="text-xs">Nhân viên</TableHead>
+                  <TableHead className="text-xs">Thông tin</TableHead>
+                  <TableHead className="text-xs">Giá trị cũ</TableHead>
+                  <TableHead className="text-xs">Giá trị mới</TableHead>
+                  <TableHead className="text-xs">Trạng thái</TableHead>
+                  <TableHead className="text-xs">Ngày gửi</TableHead>
+                  <TableHead className="text-xs w-[100px]">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -92,7 +92,7 @@ export default function RequestsFeedbackTab() {
                     <TableRow key={r.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                       <TableCell style={{ fontSize: "13px", fontWeight: 500 }}>{r.user.name}</TableCell>
                       <TableCell style={{ fontSize: "12px", color: "#6b7280" }}>{r.fieldLabel}</TableCell>
-                      <TableCell style={{ fontSize: "12px", color: "#9ca3af" }}>{r.oldValue || "\u2014"}</TableCell>
+                      <TableCell style={{ fontSize: "12px", color: "#9ca3af" }}>{r.oldValue || "—"}</TableCell>
                       <TableCell style={{ fontSize: "12px", fontWeight: 500, color: "#2563EB" }}>{r.newValue}</TableCell>
                       <TableCell>
                         <span style={{ padding: "2px 8px", borderRadius: "10px", fontSize: "11px", fontWeight: 500, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{st.label}</span>
@@ -104,16 +104,16 @@ export default function RequestsFeedbackTab() {
                             <button onClick={() => handleAction(r.id, "approve")} style={{ padding: "4px 10px", borderRadius: "6px", border: "none", background: "#f0fdf4", color: "#16a34a", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
                               onMouseEnter={e => e.currentTarget.style.background = "#dcfce7"}
                               onMouseLeave={e => e.currentTarget.style.background = "#f0fdf4"}>
-                              <CheckSquare className="w-3 h-3 inline mr-1" />Duy\u1ec7t
+                              <CheckSquare className="w-3 h-3 inline mr-1" />Duyệt
                             </button>
                             <button onClick={() => handleAction(r.id, "reject")} style={{ padding: "4px 10px", borderRadius: "6px", border: "none", background: "#fef2f2", color: "#dc2626", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
                               onMouseEnter={e => e.currentTarget.style.background = "#fee2e2"}
                               onMouseLeave={e => e.currentTarget.style.background = "#fef2f2"}>
-                              T\u1eeb ch\u1ed1i
+                              Từ chối
                             </button>
                           </div>
                         ) : (
-                          <span style={{ fontSize: "11px", color: "#9ca3af" }}>{r.reviewedBy || "\u2014"}</span>
+                          <span style={{ fontSize: "11px", color: "#9ca3af" }}>{r.reviewedBy || "—"}</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -127,7 +127,7 @@ export default function RequestsFeedbackTab() {
         /* Feedback */
         <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
           {feedbacks.length === 0 ? (
-            <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>Ch\u01b0a c\u00f3 g\u00f3p \u00fd n\u00e0o</div>
+            <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>Chưa có góp ý nào</div>
           ) : (
             feedbacks.map((f, i) => (
               <div key={f.id} style={{
@@ -139,7 +139,7 @@ export default function RequestsFeedbackTab() {
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a1a" }}>{f.userName}</span>
                     {!f.isRead && (
-                      <span style={{ padding: "1px 6px", borderRadius: "8px", fontSize: "10px", background: "#d97706", color: "#fff" }}>M\u1edbi</span>
+                      <span style={{ padding: "1px 6px", borderRadius: "8px", fontSize: "10px", background: "#d97706", color: "#fff" }}>Mới</span>
                     )}
                   </div>
                   <span style={{ fontSize: "11px", color: "#9ca3af" }}>{new Date(f.createdAt).toLocaleDateString("vi-VN")}</span>

@@ -60,7 +60,10 @@
       "Bash(wc -l /d/CODE_APP/HuyHoang_OMS/src/**/*.ts /d/CODE_APP/HuyHoang_OMS/src/**/*.tsx)",
       "Bash(git stash:*)",
       "Bash(wc -l D:/CODE_APP/HuyHoang_OMS/src/app/\\\\\\(dashboard\\\\\\)/admin/users/page.tsx D:/CODE_APP/HuyHoang_OMS/src/components/admin/*.tsx D:/CODE_APP/HuyHoang_OMS/src/components/admin/*.ts D:/CODE_APP/HuyHoang_OMS/src/components/finance/OverviewTab.tsx)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(grep -r \"U00\\\\|\\\\\\\\\\\\\\\\u\\\\|unicode\\\\|encoding\" /d/CODE_APP/HuyHoang_OMS/src --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(node -e ':*)",
+      "Bash(node fix-unicode.js)"
     ]
   }
 }
