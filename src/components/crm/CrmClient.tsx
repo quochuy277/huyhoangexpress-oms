@@ -1,10 +1,11 @@
 "use client";
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Users, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShopManagementTab } from "./ShopManagementTab";
 import dynamic from "next/dynamic";
+import { buildCrmTabHref, getCrmTab, type CrmTabKey } from "./crm-tabs";
 
 const ProspectPipelineTab = dynamic(() => import("./ProspectPipelineTab").then(m => ({ default: m.ProspectPipelineTab })), { loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
 
@@ -14,8 +15,8 @@ interface CrmClientProps {
   userName: string;
   canManageCRM: boolean;
   canEditShopInfo: boolean;
-  initialProspectsData?: any;
-  initialShopsData?: any;
+  initialProspectsData?: unknown;
+  initialShopsData?: unknown;
 }
 
 const TABS = [
@@ -23,19 +24,16 @@ const TABS = [
   { key: "prospects", label: "Shop Tiềm Năng", icon: Target },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
-
 export function CrmClient({ userRole, userId, userName, canManageCRM, canEditShopInfo, initialProspectsData, initialShopsData }: CrmClientProps) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
 
-  const currentTab = (searchParams.get("tab") as TabKey) || "shops";
+  const currentTab = getCrmTab(searchParams.get("tab"));
 
-  const setTab = (tab: TabKey) => {
-    const params = new URLSearchParams();
-    params.set("tab", tab);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  const setTab = (tab: CrmTabKey) => {
+    if (tab === currentTab) return;
+
+    window.history.replaceState(null, "", buildCrmTabHref(pathname, searchParams.toString(), tab));
   };
 
   return (
