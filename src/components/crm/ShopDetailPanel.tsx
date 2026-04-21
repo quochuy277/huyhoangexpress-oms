@@ -6,6 +6,7 @@ import {
   X, Phone, MessageSquare, Mail, Handshake, Settings, FileText,
   Loader2, Edit, Save, XCircle, UserPlus
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -150,7 +151,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
       refetch();
       queryClient.invalidateQueries({ queryKey: ["crm-shops"] });
     } catch {
-      alert("Lỗi khi lưu thông tin");
+      toast.error("Lỗi khi lưu thông tin");
     } finally {
       setSaving(false);
     }
@@ -184,7 +185,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
       setShowAssigneeEditor(false);
       refetch();
     } catch {
-      alert("Lỗi khi gán nhân viên");
+      toast.error("Lỗi khi gán nhân viên");
     } finally {
       setAssignSaving(false);
     }

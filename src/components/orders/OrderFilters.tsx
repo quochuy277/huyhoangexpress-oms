@@ -4,6 +4,7 @@ import { Search, X, Download, Loader2, Settings2, Filter, ChevronDown, FileSprea
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition, useEffect, useRef, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { DeliveryStatus } from "@prisma/client";
 
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
@@ -217,7 +218,7 @@ function OrderFiltersInner({ canExportCustomer, canExportInternal, hideAdvanced 
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Lỗi xuất file. Vui lòng thử lại.");
+      toast.error("Lỗi xuất file. Vui lòng thử lại.");
     } finally {
       setIsExporting(false);
     }

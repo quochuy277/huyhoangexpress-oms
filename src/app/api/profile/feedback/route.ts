@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { feedbackCreateSchema } from "@/lib/validations";
 
 // GET — List feedbacks (admin: all, user: own)
 export async function GET() {
@@ -24,17 +25,19 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const user = session.user as { id: string; name?: string };
-  const { content } = await req.json();
-
-  if (!content?.trim()) {
-    return NextResponse.json({ error: "Nội dung không được để trống" }, { status: 400 });
+  const parsed = feedbackCreateSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+      { status: 400 },
+    );
   }
 
   const feedback = await prisma.feedback.create({
     data: {
       userId: user.id,
       userName: user.name || "Unknown",
-      content: content.trim(),
+      content: parsed.data.content,
     },
   });
 

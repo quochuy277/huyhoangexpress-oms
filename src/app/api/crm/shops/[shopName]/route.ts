@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
-import { Decimal } from "@prisma/client/runtime/library";
+import { shopProfileUpdateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
 export async function GET(
@@ -266,7 +266,14 @@ export async function PUT(
 
   const { shopName } = await params;
   const decodedName = decodeURIComponent(shopName);
-  const body = await request.json();
+  const parsed = shopProfileUpdateSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+      { status: 400 },
+    );
+  }
+  const body = parsed.data;
 
   try {
     const profile = await prisma.shopProfile.upsert({
@@ -274,7 +281,7 @@ export async function PUT(
       create: {
         shopName: decodedName,
         phone: body.phone,
-        email: body.email,
+        email: body.email || null,
         contactPerson: body.contactPerson,
         zalo: body.zalo,
         address: body.address,
@@ -284,7 +291,7 @@ export async function PUT(
       },
       update: {
         phone: body.phone,
-        email: body.email,
+        email: body.email || null,
         contactPerson: body.contactPerson,
         zalo: body.zalo,
         address: body.address,

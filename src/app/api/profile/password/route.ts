@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { BCRYPT_COST } from "@/lib/auth-constants";
 
 // PATCH — Change password (requires old password)
 export async function PATCH(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Mật khẩu cũ không đúng" }, { status: 400 });
   }
 
-  const hashed = await bcrypt.hash(newPassword, 12);
+  const hashed = await bcrypt.hash(newPassword, BCRYPT_COST);
   await prisma.user.update({ where: { id: userId }, data: { password: hashed } });
 
   return NextResponse.json({ success: true });

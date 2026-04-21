@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { expenseCategorySchema } from "@/lib/validations";
 
 // GET — list all categories
 export async function GET() {
@@ -27,12 +28,17 @@ export async function POST(req: NextRequest) {
     const role = session!.user.role;
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
-    const { name } = await req.json();
-    if (!name?.trim()) return NextResponse.json({ error: "Tên danh mục trống" }, { status: 400 });
+    const parsed = expenseCategorySchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+        { status: 400 },
+      );
+    }
 
     const maxSort = await prisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
     const category = await prisma.expenseCategory.create({
-      data: { name: name.trim(), isSystem: false, sortOrder: (maxSort._max.sortOrder || 0) + 1 },
+      data: { name: parsed.data.name, isSystem: false, sortOrder: (maxSort._max.sortOrder || 0) + 1 },
     });
     return NextResponse.json({ category });
   } catch (err: unknown) {

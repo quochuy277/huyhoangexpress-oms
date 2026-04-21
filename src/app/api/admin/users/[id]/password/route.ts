@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
 import { logger } from "@/lib/logger";
+import { BCRYPT_COST } from "@/lib/auth-constants";
 
 // PATCH /api/admin/users/[id]/password — change password
 export async function PATCH(
@@ -26,7 +27,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Mật khẩu mới phải ít nhất 6 ký tự" }, { status: 400 });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_COST);
 
     await prisma.user.update({
       where: { id },

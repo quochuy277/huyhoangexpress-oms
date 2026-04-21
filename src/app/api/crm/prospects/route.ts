@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import { createServerTiming } from "@/lib/server-timing";
+import { prospectCreateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
 
@@ -101,32 +102,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const { shopName, source, assigneeId } = body;
-
-  if (!shopName || !source || !assigneeId) {
+  const parsed = prospectCreateSchema.safeParse(await request.json());
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "shopName, source, and assigneeId are required" },
-      { status: 400 }
+      { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+      { status: 400 },
     );
   }
+  const data = parsed.data;
 
   try {
     const prospect = await prisma.shopProspect.create({
       data: {
-        shopName: body.shopName,
-        phone: body.phone || null,
-        email: body.email || null,
-        contactPerson: body.contactPerson || null,
-        zalo: body.zalo || null,
-        address: body.address || null,
-        source: body.source,
-        sourceDetail: body.sourceDetail || null,
-        productType: body.productType || null,
-        estimatedSize: body.estimatedSize || null,
-        currentCarrier: body.currentCarrier || null,
-        note: body.note || null,
-        assigneeId: body.assigneeId,
+        shopName: data.shopName,
+        phone: data.phone || null,
+        email: data.email || null,
+        contactPerson: data.contactPerson || null,
+        zalo: data.zalo || null,
+        address: data.address || null,
+        source: data.source,
+        sourceDetail: data.sourceDetail || null,
+        productType: data.productType || null,
+        estimatedSize: data.estimatedSize || null,
+        currentCarrier: data.currentCarrier || null,
+        note: data.note || null,
+        assigneeId: data.assigneeId,
       },
       include: {
         assignee: { select: { id: true, name: true } },

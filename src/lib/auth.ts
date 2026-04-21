@@ -1,16 +1,24 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { extractPermissions, getDefaultPermissions } from "@/lib/permissions";
 import { parseDeviceType, getVietnamToday, isAfterTime, calculateLateMinutes, getAttendanceSettings } from "@/lib/attendance";
+import { loginLimiter } from "@/lib/rate-limiter";
 import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 import { logger } from "@/lib/logger";
+import { DUMMY_BCRYPT_HASH } from "@/lib/auth-constants";
 
 const PERMISSIONS_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30 for faster permission propagation)
+
+// Custom code surfaced by NextAuth so the server action can distinguish
+// rate-limit errors from generic "wrong credentials".
+class RateLimitError extends CredentialsSignin {
+  code = "RateLimit";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -61,6 +69,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // Resolve IP + user-agent early so we can rate-limit before hitting the DB
+        let ipAddress = "unknown";
+        let userAgent = "unknown";
+        try {
+          const hdrs = await headers();
+          ipAddress = hdrs.get("x-forwarded-for") || hdrs.get("x-real-ip") || "unknown";
+          userAgent = hdrs.get("user-agent") || "unknown";
+        } catch { /* headers not available */ }
+
+        // Rate limit by IP. Returns a 429 Response if over the limit.
+        // We translate it into a CredentialsSignin throw so NextAuth surfaces
+        // the error instead of silently returning null.
+        const rateLimited = loginLimiter.check(ipAddress);
+        if (rateLimited) {
+          logger.warn("auth.authorize", "Login rate limit hit", { ipAddress });
+          throw new RateLimitError();
+        }
+
         try {
           const user = await prisma.user.findUnique({
             where: {
@@ -70,23 +96,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             include: { permissionGroup: true },
           });
 
-          if (!user) return null;
-
+          // Always run bcrypt.compare to equalize timing between
+          // "user not found" and "user found, wrong password". Without this,
+          // attackers can enumerate emails by measuring response times.
+          const hash = user?.password ?? DUMMY_BCRYPT_HASH;
           const isValid = await bcrypt.compare(
             credentials.password as string,
-            user.password
+            hash,
           );
 
-          if (!isValid) return null;
-
-          // Get request headers for IP and user-agent
-          let ipAddress = "unknown";
-          let userAgent = "unknown";
-          try {
-            const hdrs = await headers();
-            ipAddress = hdrs.get("x-forwarded-for") || hdrs.get("x-real-ip") || "unknown";
-            userAgent = hdrs.get("user-agent") || "unknown";
-          } catch { /* headers not available */ }
+          if (!user || !isValid) return null;
 
           const deviceType = parseDeviceType(userAgent);
           const now = new Date();

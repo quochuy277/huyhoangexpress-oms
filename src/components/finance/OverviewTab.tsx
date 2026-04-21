@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import dynamic from "next/dynamic";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import type { FinanceBudgetSummary, FinanceCategoryOption, FinanceLandingData, FinancePnlData } from "@/lib/finance/landing";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ExpenseSection } from "./ExpenseSection";
 import { BudgetSection } from "./BudgetSection";
 import { PnLSection } from "./PnLSection";
@@ -160,6 +163,7 @@ function SummaryCard({
 
 export default function OverviewTab({ isAdmin, initialLandingData, initialCategories }: Props) {
   const queryClient = useQueryClient();
+  const { confirm, element: confirmDialog } = useConfirmDialog();
 
   // --- Filter state ---
   const [period, setPeriod] = useState("month");
@@ -318,11 +322,19 @@ export default function OverviewTab({ isAdmin, initialLandingData, initialCatego
 
   const deleteExpense = useCallback(
     async (id: string) => {
-      if (!confirm("Xóa khoản chi?")) return;
+      const ok = await confirm({
+        title: "Xóa khoản chi?",
+        description: "Khoản chi này sẽ bị xóa vĩnh viễn và không thể khôi phục.",
+        confirmLabel: "Xóa",
+        cancelLabel: "Hủy",
+        tone: "danger",
+        icon: <Trash2 size={26} />,
+      });
+      if (!ok) return;
       await fetchJson(`/api/finance/expenses/${id}`, { method: "DELETE" });
       await refreshAfterExpenseChange();
     },
-    [refreshAfterExpenseChange]
+    [confirm, refreshAfterExpenseChange]
   );
 
   const addCategory = useCallback(async () => {
@@ -338,15 +350,23 @@ export default function OverviewTab({ isAdmin, initialLandingData, initialCatego
 
   const deleteCategory = useCallback(
     async (id: string) => {
-      if (!confirm("Xóa danh mục?")) return;
+      const ok = await confirm({
+        title: "Xóa danh mục?",
+        description: "Danh mục sẽ bị xóa khỏi danh sách. Bạn không thể xóa danh mục đang có khoản chi.",
+        confirmLabel: "Xóa",
+        cancelLabel: "Hủy",
+        tone: "danger",
+        icon: <Trash2 size={26} />,
+      });
+      if (!ok) return;
       try {
         await fetchJson(`/api/finance/categories/${id}`, { method: "DELETE" });
         await refreshCategories();
       } catch (error) {
-        alert(error instanceof Error ? error.message : "Lỗi hệ thống");
+        toast.error(error instanceof Error ? error.message : "Lỗi hệ thống");
       }
     },
-    [refreshCategories]
+    [confirm, refreshCategories]
   );
 
   const saveBudgets = useCallback(async () => {
@@ -614,6 +634,8 @@ export default function OverviewTab({ isAdmin, initialLandingData, initialCatego
           onClose={() => dispatchDialogs({ type: "CLOSE", dialog: "budget" })}
         />
       )}
+
+      {confirmDialog}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
 import bcrypt from "bcryptjs";
 import { logger } from "@/lib/logger";
+import { BCRYPT_COST } from "@/lib/auth-constants";
 
 // GET /api/admin/users — list all users
 export async function GET() {
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     const roleMap: Record<string, string> = { "Admin": "ADMIN", "Quản lý": "MANAGER", "Xem": "VIEWER" };
     const role = roleMap[group.name] || "STAFF";
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_COST);
 
     const user = await prisma.user.create({
       data: {

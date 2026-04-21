@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import type { ClaimFilters } from "@/hooks/useClaimsFilters";
 
@@ -81,10 +82,10 @@ export function useClaimMutations({
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
       if (truncationMessage) {
-        alert(truncationMessage);
+        toast.warning(truncationMessage);
       }
     } catch (error) {
-      alert(
+      toast.error(
         error instanceof Error
           ? error.message
           : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
@@ -116,7 +117,7 @@ export function useClaimMutations({
       if (previousClaim) {
         setClaims((prev) => prev.map((claim) => (claim.id === claimId ? previousClaim : claim)));
       }
-      alert("Cập nhật thất bại. Dữ liệu đã được khôi phục.");
+      toast.error("Cập nhật thất bại. Dữ liệu đã được khôi phục.");
       throw new Error("Patch failed");
     }
   }, [claims, setClaims, updateClaimLocal]);

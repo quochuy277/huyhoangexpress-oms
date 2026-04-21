@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceAccess } from "@/lib/finance-auth";
+import { expenseCategorySchema } from "@/lib/validations";
 
 // PUT — rename category
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,8 +13,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (role !== "ADMIN") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
     const { id } = await params;
-    const { name } = await req.json();
-    const category = await prisma.expenseCategory.update({ where: { id }, data: { name } });
+    const parsed = expenseCategorySchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+        { status: 400 },
+      );
+    }
+    const category = await prisma.expenseCategory.update({ where: { id }, data: { name: parsed.data.name } });
     return NextResponse.json({ category });
   } catch (error) {
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

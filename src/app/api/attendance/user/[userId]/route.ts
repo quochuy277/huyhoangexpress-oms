@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/route-permissions";
 import { logger } from "@/lib/logger";
 
 // GET — specific user's attendance (for manager detail view)
@@ -13,6 +14,15 @@ export async function GET(
     if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
     const { userId } = await params;
+    const callerId = (session.user as { id: string }).id;
+    const callerRole = (session.user as { role?: string }).role;
+    const canViewAll = hasPermission(session.user, "canViewAllAttendance");
+    const isSelf = userId === callerId;
+
+    if (!isSelf && !canViewAll) {
+      return NextResponse.json({ error: "Bạn không có quyền xem chấm công người khác" }, { status: 403 });
+    }
+
     const url = new URL(req.url);
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
     const [year, mon] = month.split("-").map(Number);
@@ -20,17 +30,21 @@ export async function GET(
     const from = new Date(Date.UTC(year, mon - 1, 1));
     const to = new Date(Date.UTC(year, mon, 0, 23, 59, 59));
 
+    const includeLoginHistory = isSelf || callerRole === "ADMIN";
+
     const [user, attendance, loginHistory] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, role: true } }),
       prisma.attendance.findMany({
         where: { userId, date: { gte: from, lte: to } },
         orderBy: { date: "asc" },
       }),
-      prisma.loginHistory.findMany({
-        where: { userId, loginTime: { gte: from, lte: to } },
-        orderBy: { loginTime: "desc" },
-        take: 100,
-      }),
+      includeLoginHistory
+        ? prisma.loginHistory.findMany({
+            where: { userId, loginTime: { gte: from, lte: to } },
+            orderBy: { loginTime: "desc" },
+            take: 100,
+          })
+        : Promise.resolve([]),
     ]);
 
     if (!user) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });

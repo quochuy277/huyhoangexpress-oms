@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProspectFormDialogProps {
   userId: string;
@@ -69,7 +70,7 @@ export function ProspectFormDialog({ userId, onClose }: ProspectFormDialogProps)
       if (!res.ok) throw new Error("Failed to create");
       onClose();
     } catch {
-      alert("Lỗi khi tạo prospect");
+      toast.error("Lỗi khi tạo prospect");
     } finally {
       setSaving(false);
     }

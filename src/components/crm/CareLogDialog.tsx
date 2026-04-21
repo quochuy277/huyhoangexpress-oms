@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface CareLogDialogProps {
   shopName: string;
@@ -60,7 +61,7 @@ export function CareLogDialog({ shopName, userId, userName, onClose }: CareLogDi
       queryClient.invalidateQueries({ queryKey: ["crm-dashboard"] });
       onClose();
     } catch {
-      alert("Lỗi khi lưu ghi nhận chăm sóc");
+      toast.error("Lỗi khi lưu ghi nhận chăm sóc");
     } finally {
       setSaving(false);
     }

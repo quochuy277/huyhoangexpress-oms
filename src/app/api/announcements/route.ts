@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { announcementCreateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
 // GET — List announcements (all users, paginated)
@@ -60,17 +61,19 @@ export async function POST(req: NextRequest) {
 
     const user = session.user as { id: string; name?: string };
 
-    const body = await req.json();
-    const { title, content, attachmentUrl, attachmentName, isPinned } = body;
-
-    if (!title?.trim() || !content?.trim()) {
-      return NextResponse.json({ error: "Tiêu đề và nội dung không được để trống" }, { status: 400 });
+    const parsed = announcementCreateSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+        { status: 400 },
+      );
     }
+    const { title, content, attachmentUrl, attachmentName, isPinned } = parsed.data;
 
     const announcement = await prisma.announcement.create({
       data: {
-        title: title.trim(),
-        content: content.trim(),
+        title,
+        content,
         attachmentUrl: attachmentUrl || null,
         attachmentName: attachmentName || null,
         isPinned: !!isPinned,
