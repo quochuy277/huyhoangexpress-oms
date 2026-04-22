@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { stripHtml } from "@/lib/sanitize";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AnnouncementPreviewDialog,
   type AnnouncementPreviewItem,
@@ -51,6 +51,7 @@ type AnnouncementPreview = AnnouncementPreviewItem;
 
 export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuToggle }: HeaderProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [bellTab, setBellTab] = useState<"todos" | "announcements">("todos");
@@ -95,8 +96,38 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
     await fetch(`/api/announcements/${id}/read`, { method: "POST" }).catch((err) => { console.warn("[Header] Failed to mark announcement as read:", err); });
   };
 
-  const handleAnnouncementSelect = async (announcement: HeaderAnnouncementPreviewItem) => {
-    const nextState = await selectHeaderAnnouncementForPreview({
+  const handleAnnouncementSelect = (announcement: HeaderAnnouncementPreviewItem) => {
+    // Sprint 2 (2026-04) optimistic UX:
+    // 1. Patch the cached list so the clicked row drops its "unread" dot
+    //    immediately.
+    // 2. Decrement `announcementCount` on the shell-bootstrap cache so the
+    //    bell badge ticks down without waiting for its 3-minute refetch.
+    // 3. Open the preview dialog synchronously (no await).
+    // selectHeaderAnnouncementForPreview fires the POST + list refetch in the
+    // background; if either fails, the next natural refetch restores truth.
+    if (!announcement.isRead) {
+      queryClient.setQueryData<{ announcements?: AnnouncementPreview[] } | undefined>(
+        ["header-announcements-list"],
+        (prev) => {
+          if (!prev?.announcements) return prev;
+          return {
+            ...prev,
+            announcements: prev.announcements.map((a) =>
+              a.id === announcement.id ? { ...a, isRead: true } : a,
+            ),
+          };
+        },
+      );
+      queryClient.setQueryData<{ announcementCount?: number } | undefined>(
+        ["dashboard-shell-bootstrap"],
+        (prev) => {
+          if (!prev || typeof prev.announcementCount !== "number") return prev;
+          return { ...prev, announcementCount: Math.max(0, prev.announcementCount - 1) };
+        },
+      );
+    }
+
+    const nextState = selectHeaderAnnouncementForPreview({
       announcement,
       markRead: handleMarkRead,
       refetchAnnouncements,

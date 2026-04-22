@@ -64,7 +64,7 @@ export function useClaimMutations({
         throw new Error(
           typeof errorData?.error === "string"
             ? errorData.error
-            : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+            : "Lỗi khi xuất file. Vui lòng thử lại.",
         );
       }
 
@@ -76,7 +76,10 @@ export function useClaimMutations({
       const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
 
       anchor.href = url;
-      anchor.download = filenameMatch?.[1] || "don-co-van-de.xlsx";
+      // Sprint 2: server now streams CSV (was XLSX). The filename from
+      // Content-Disposition is the source of truth; the fallback just
+      // preserves the .csv suffix in the unlikely case the header is missing.
+      anchor.download = filenameMatch?.[1] || "don-co-van-de.csv";
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -88,7 +91,7 @@ export function useClaimMutations({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+          : "Lỗi khi xuất file. Vui lòng thử lại.",
       );
     } finally {
       setExporting(false);

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, NotebookPen } from "lucide-react";
+import { toast } from "sonner";
 
 import { getOrderStaffNoteDialogClassNames } from "@/components/orders/ordersResponsive";
 import {
@@ -21,6 +22,16 @@ interface OrderStaffNoteDialogProps {
   onOpenChange: (open: boolean) => void;
   order: Pick<OrderRow, "requestCode" | "shopName" | "receiverName" | "staffNotes"> | null;
   canEditStaffNotes: boolean;
+  /**
+   * Called immediately when the user clicks "Lưu ghi chú" with the draft value,
+   * and again with the previous value if the network save fails — classic
+   * optimistic-update hook-up. Sprint 2 (2026-04) added this to reduce the
+   * lag between click and table-row update on slow connections.
+   *
+   * Before: parent only heard about the new value after the network resolved
+   * (~200-500ms), so the dialog closed with a stale row behind it.
+   * After: parent updates its list instantly; a failure rolls back.
+   */
   onSaved: (staffNotes: string | null) => void;
 }
 
@@ -73,6 +84,18 @@ export function OrderStaffNoteDialog({
       return;
     }
 
+    // Optimistic update:
+    // 1. Push the new value into the parent list immediately so the user sees
+    //    the row update the moment they click Save.
+    // 2. Fire the PATCH in the background.
+    // 3. On error, call onSaved again with the previous value to roll back,
+    //    and show a toast — the dialog re-opens error state but the table
+    //    reverts so the user isn't left with phantom data.
+    const previousValue = normalizeNote(order.staffNotes);
+    const previousForCallback = previousValue.length > 0 ? previousValue : null;
+    const nextForCallback = normalizedNote.length > 0 ? normalizedNote : null;
+
+    onSaved(nextForCallback);
     setSaveState("saving");
     setErrorMessage(null);
 
@@ -82,7 +105,7 @@ export function OrderStaffNoteDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestCode: order.requestCode,
-          staffNotes: normalizedNote.length > 0 ? normalizedNote : null,
+          staffNotes: nextForCallback,
         }),
       });
 
@@ -93,17 +116,24 @@ export function OrderStaffNoteDialog({
         );
       }
 
+      // Server may have trimmed / sanitised; if the echoed value differs from
+      // what we optimistically pushed, reconcile the parent list.
       const savedNote = normalizeNote(payload?.staffNotes);
-      onSaved(savedNote.length > 0 ? savedNote : null);
+      const reconciled = savedNote.length > 0 ? savedNote : null;
+      if (reconciled !== nextForCallback) {
+        onSaved(reconciled);
+      }
       setSaveState("success");
       closeTimerRef.current = window.setTimeout(() => {
         handleOpenChange(false);
       }, 450);
     } catch (error) {
+      // Roll back optimistic update so the table doesn't keep the phantom value.
+      onSaved(previousForCallback);
       setSaveState("error");
-      setErrorMessage(
-        error instanceof Error ? error.message : "Không thể lưu ghi chú nội bộ.",
-      );
+      const message = error instanceof Error ? error.message : "Không thể lưu ghi chú nội bộ.";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 

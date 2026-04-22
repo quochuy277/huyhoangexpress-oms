@@ -9,8 +9,12 @@ const FINANCE_FILES = [
     phrases: ["Tài chính", "Tổng quan & P&L", "Sổ quỹ"],
   },
   {
-    path: "src/components/finance/OverviewTab.tsx",
-    phrases: ["Tháng này", "Tổng doanh thu"],
+    path: "src/components/finance/OverviewPeriodSelector.tsx",
+    phrases: ["Tháng này", "Tùy chọn"],
+  },
+  {
+    path: "src/components/finance/OverviewSummaryCards.tsx",
+    phrases: ["Tổng doanh thu", "Lợi nhuận ròng"],
   },
   {
     path: "src/components/finance/ExpenseSection.tsx",

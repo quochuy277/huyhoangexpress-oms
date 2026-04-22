@@ -1,5 +1,10 @@
 import type { Prisma } from "@prisma/client";
 
+// Re-exported so existing call sites (delayed export route, tests) keep their
+// `import { escapeCsvCell } from "@/lib/delayed-query"` working. New callers
+// should import directly from `@/lib/csv-stream`.
+export { escapeCsvCell } from "@/lib/csv-stream";
+
 export const DELAYED_SCAN_LIMIT = 2000;
 export const DELAYED_EXPORT_BATCH_SIZE = 500;
 export const DELAYED_SCAN_WARNING =
@@ -117,6 +122,3 @@ export function getDelayedExportOrderBy(
   }
 }
 
-export function escapeCsvCell(value: unknown) {
-  return `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
-}

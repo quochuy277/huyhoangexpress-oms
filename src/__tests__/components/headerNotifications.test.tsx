@@ -21,7 +21,7 @@ const announcement: HeaderAnnouncementPreviewItem = {
 };
 
 describe("header announcement preview helpers", () => {
-  it("marks the selected announcement as read and prepares preview state", async () => {
+  it("opens the preview state synchronously and marks read in the background", async () => {
     const callOrder: string[] = [];
     const markRead = vi.fn(async () => {
       callOrder.push("mark-read");
@@ -30,18 +30,27 @@ describe("header announcement preview helpers", () => {
       callOrder.push("refetch");
     });
 
-    const result = await selectHeaderAnnouncementForPreview({
+    // Sprint 2 contract: the next preview state must be available
+    // synchronously — the dialog renders without waiting for the server. The
+    // background task still runs mark-read then refetch in order, so the
+    // next React render cycle sees authoritative data.
+    const result = selectHeaderAnnouncementForPreview({
       announcement,
       markRead,
       refetchAnnouncements,
     });
 
-    expect(markRead).toHaveBeenCalledWith("announcement-1");
-    expect(refetchAnnouncements).toHaveBeenCalledTimes(1);
-    expect(callOrder).toEqual(["mark-read", "refetch"]);
+    // Returns a plain object, not a Promise — no `.then` to await.
     expect(result).toEqual({
       bellOpen: false,
       previewAnnouncement: announcement,
+    });
+
+    // Background task completes asynchronously in the documented order.
+    await vi.waitFor(() => {
+      expect(markRead).toHaveBeenCalledWith("announcement-1");
+      expect(refetchAnnouncements).toHaveBeenCalledTimes(1);
+      expect(callOrder).toEqual(["mark-read", "refetch"]);
     });
   });
 

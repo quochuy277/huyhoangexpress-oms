@@ -77,10 +77,38 @@ export function AnnouncementSection() {
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const handleDelete = async (id: string) => {
+    // Optimistic delete (Sprint 2, 2026-04): remove the row from the local
+    // list before firing the DELETE so the admin sees the row disappear
+    // instantly. On failure we re-insert the row at its original index.
+    const snapshot = items;
+    const index = snapshot.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    }
+    setDeleteItem(null);
+
     try {
       const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
-      if (res.ok) { fetchItems(); setDeleteItem(null); }
-    } catch (err) { console.warn("[AnnouncementSection] Failed to delete announcement:", err); }
+      if (res.ok) {
+        // Re-sync in the background to pick up any concurrent admin edits.
+        void fetchItems();
+      } else if (index !== -1) {
+        setItems((prev) => {
+          const next = [...prev];
+          next.splice(index, 0, snapshot[index]);
+          return next;
+        });
+      }
+    } catch (err) {
+      if (index !== -1) {
+        setItems((prev) => {
+          const next = [...prev];
+          next.splice(index, 0, snapshot[index]);
+          return next;
+        });
+      }
+      console.warn("[AnnouncementSection] Failed to delete announcement:", err);
+    }
   };
 
   return (

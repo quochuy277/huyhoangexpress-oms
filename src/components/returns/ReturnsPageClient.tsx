@@ -21,6 +21,7 @@ import {
   type ReturnsTabKey,
   type ReturnsTabDataMap,
 } from "@/lib/returns-tab-data";
+import type { ReturnOrder } from "@/types/returns";
 
 const PartialReturnTab = dynamic(
   () => import("@/components/returns/PartialReturnTab").then((mod) => mod.PartialReturnTab),
@@ -215,21 +216,71 @@ export function ReturnsPageClient({
   }, [activeTab, filters, invalidateTabs, loadTab, pageSize]);
 
   const handleWarehouseConfirm = async (requestCode: string) => {
+    // Optimistic update (Sprint 2, 2026-04): remove the row from the current
+    // tab's data immediately so the user sees the action take effect without
+    // waiting for the network round-trip + summary refetch + tab refetch
+    // (which together can be 500-1500 ms on slow connections).
+    //
+    // We snapshot the row so we can restore it on failure. Only the current
+    // tab gets an optimistic edit — other tabs will be re-fetched from the
+    // server as normal once the mutation succeeds.
+    const snapshot = tabDataRef.current;
+    const currentRows = snapshot[activeTab];
+    const optimisticRows = currentRows?.filter((row) => row.requestCode !== requestCode) ?? null;
+    if (optimisticRows && currentRows && optimisticRows.length !== currentRows.length) {
+      setTabData((prev) => ({ ...prev, [activeTab]: optimisticRows }));
+    }
+
     try {
       const response = await fetch(`/api/orders/${requestCode}/warehouse`, { method: "PATCH" });
       if (response.ok) {
+        // Success: invalidate both affected tabs so the next visit refetches
+        // authoritative data, and refresh the current tab + summary now.
         invalidateTabs(["partial", "warehouse"]);
         await Promise.all([loadSummary(), loadTab(activeTab, true)]);
         setErrorMessage(null);
       } else {
+        // Rollback optimistic removal.
+        if (currentRows) {
+          setTabData((prev) => ({ ...prev, [activeTab]: currentRows }));
+        }
         setErrorMessage("Không thể xác nhận trạng thái về kho. Vui lòng thử lại.");
       }
     } catch {
+      if (currentRows) {
+        setTabData((prev) => ({ ...prev, [activeTab]: currentRows }));
+      }
       setErrorMessage("Không thể xác nhận trạng thái về kho. Vui lòng thử lại.");
     }
   };
 
+  // Shared optimistic toggle for the two boolean flags on warehouse rows.
+  // Flips the flag locally before firing the PATCH; on failure rolls back and
+  // surfaces an error. Avoids the full tab refetch on success since the
+  // displayed fields for this row have already been updated — we only need
+  // the server source of truth if another user's edit is pending, and the
+  // next natural refetch will pick that up.
+  const applyWarehouseRowPatch = useCallback(
+    (requestCode: string, patch: Partial<ReturnOrder>) => {
+      setTabData((prev) => {
+        const warehouseRows = prev.warehouse;
+        if (!warehouseRows) return prev;
+        return {
+          ...prev,
+          warehouse: warehouseRows.map((row) =>
+            row.requestCode === requestCode ? { ...row, ...patch } : row,
+          ),
+        };
+      });
+    },
+    [],
+  );
+
   const handleConfirmAskedToggle = async (requestCode: string, value: boolean) => {
+    // Optimistic: flip flag immediately (Sprint 2, 2026-04).
+    const previousRow = tabDataRef.current.warehouse?.find((row) => row.requestCode === requestCode);
+    applyWarehouseRowPatch(requestCode, { customerConfirmAsked: value });
+
     try {
       const response = await fetch(`/api/orders/${requestCode}/confirm-asked`, {
         method: "PATCH",
@@ -241,14 +292,28 @@ export function ReturnsPageClient({
         await loadTab("warehouse", true);
         setErrorMessage(null);
       } else {
+        if (previousRow) {
+          applyWarehouseRowPatch(requestCode, {
+            customerConfirmAsked: previousRow.customerConfirmAsked,
+          });
+        }
         setErrorMessage("Không thể cập nhật trạng thái hỏi khách hàng. Vui lòng thử lại.");
       }
     } catch {
+      if (previousRow) {
+        applyWarehouseRowPatch(requestCode, {
+          customerConfirmAsked: previousRow.customerConfirmAsked,
+        });
+      }
       setErrorMessage("Không thể cập nhật trạng thái hỏi khách hàng. Vui lòng thử lại.");
     }
   };
 
   const handleCustomerConfirmedToggle = async (requestCode: string, value: boolean) => {
+    // Optimistic: flip flag immediately (Sprint 2, 2026-04).
+    const previousRow = tabDataRef.current.warehouse?.find((row) => row.requestCode === requestCode);
+    applyWarehouseRowPatch(requestCode, { customerConfirmed: value });
+
     try {
       const response = await fetch(`/api/orders/${requestCode}/customer-confirmed`, {
         method: "PATCH",
@@ -260,9 +325,19 @@ export function ReturnsPageClient({
         await loadTab("warehouse", true);
         setErrorMessage(null);
       } else {
+        if (previousRow) {
+          applyWarehouseRowPatch(requestCode, {
+            customerConfirmed: previousRow.customerConfirmed,
+          });
+        }
         setErrorMessage("Không thể cập nhật xác nhận của khách hàng. Vui lòng thử lại.");
       }
     } catch {
+      if (previousRow) {
+        applyWarehouseRowPatch(requestCode, {
+          customerConfirmed: previousRow.customerConfirmed,
+        });
+      }
       setErrorMessage("Không thể cập nhật xác nhận của khách hàng. Vui lòng thử lại.");
     }
   };

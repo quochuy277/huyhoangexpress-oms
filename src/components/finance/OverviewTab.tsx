@@ -6,27 +6,20 @@ import { format } from "date-fns";
 import dynamic from "next/dynamic";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend,
-} from "recharts";
 import type { FinanceBudgetSummary, FinanceCategoryOption, FinanceLandingData, FinancePnlData } from "@/lib/finance/landing";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ExpenseSection } from "./ExpenseSection";
 import { BudgetSection } from "./BudgetSection";
 import { PnLSection } from "./PnLSection";
+import { OverviewPeriodSelector } from "./OverviewPeriodSelector";
+import { OverviewSummaryCards } from "./OverviewSummaryCards";
+import { OverviewCharts } from "./OverviewCharts";
 
 // Lazy-load dialogs (only loaded when opened)
 const ExpenseDialog = dynamic(() => import("./ExpenseDialog"), { ssr: false });
 const CategoryDialog = dynamic(() => import("./CategoryDialog"), { ssr: false });
 const BudgetDialog = dynamic(() => import("./BudgetDialog"), { ssr: false });
 
-const PERIODS = [
-  { value: "month", label: "Tháng này" }, { value: "last_month", label: "Tháng trước" },
-  { value: "quarter", label: "Quý này" }, { value: "half", label: "6 tháng" },
-  { value: "year", label: "Năm nay" }, { value: "custom", label: "Tùy chọn" },
-];
-const COLORS = ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 const INITIAL_DATA_UPDATED_AT = Date.now();
 const fmtVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
 
@@ -135,30 +128,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Lỗi hệ thống");
   return data as T;
-}
-
-function SummaryCard({
-  borderColor,
-  label,
-  value,
-  valueColor,
-  subtitle,
-  subtitleColor,
-}: {
-  borderColor: string;
-  label: string;
-  value: string;
-  valueColor: string;
-  subtitle?: string;
-  subtitleColor?: string;
-}) {
-  return (
-    <div className={`flex-1 rounded-xl border-l-4 bg-white p-[18px_20px] shadow-sm ${borderColor}`} style={{ minWidth: 200 }}>
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className={`text-[22px] font-bold ${valueColor}`}>{value}</div>
-      {subtitle && <div className={`text-[11px] ${subtitleColor || "text-slate-500"}`}>{subtitle}</div>}
-    </div>
-  );
 }
 
 export default function OverviewTab({ isAdmin, initialLandingData, initialCategories }: Props) {
@@ -429,143 +398,30 @@ export default function OverviewTab({ isAdmin, initialLandingData, initialCatego
     dispatchPnlFilter({ type: "APPLY_CUSTOM" });
   }, []);
 
-  const panelClass = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
-  const periodButtonClass = (active: boolean) =>
-    `whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
-      active
-        ? "border-blue-200 bg-blue-600 text-white"
-        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800"
-    }`;
-
   const s = summaryCards?.s;
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      {/* Period selector */}
-      <div className="overflow-x-auto pb-1">
-        <div className="flex min-w-max gap-2">
-          {PERIODS.map((p) => (
-            <button key={p.value} onClick={() => setPeriod(p.value)} className={periodButtonClass(period === p.value)}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <OverviewPeriodSelector
+        period={period}
+        customFrom={customFrom}
+        customTo={customTo}
+        onPeriodChange={setPeriod}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
+      />
 
-      {period === "custom" && (
-        <div className={`${panelClass} grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto,1fr,auto,1fr] lg:items-center`}>
-          <label className="text-sm font-semibold text-slate-600">Từ</label>
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <label className="text-sm font-semibold text-slate-600">Đến</label>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(e) => setCustomTo(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </div>
-      )}
-
-      {/* Summary cards */}
       {s && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <SummaryCard
-            borderColor="border-l-blue-600"
-            label="Tổng doanh thu"
-            value={fmtVND(s.grossProfit)}
-            valueColor="text-blue-600"
-            subtitle={`${s.revenueChange >= 0 ? "+" : ""}${s.revenueChange}% so với kỳ trước`}
-            subtitleColor={s.revenueChange >= 0 ? "text-emerald-500" : "text-red-500"}
-          />
-          <SummaryCard
-            borderColor="border-l-red-500"
-            label="Tổng chi phí"
-            value={pnl ? fmtVND(pnl.totalOperatingExpenses - pnl.claims.claimDiff) : "—"}
-            valueColor="text-red-500"
-            subtitle="Đền bù và chi phí vận hành"
-          />
-          <SummaryCard
-            borderColor={pnl ? (pnl.netProfit >= 0 ? "border-l-emerald-500" : "border-l-red-500") : "border-l-emerald-500"}
-            label="Lợi nhuận ròng"
-            value={pnl ? fmtVND(pnl.netProfit) : "—"}
-            valueColor={pnl ? (pnl.netProfit >= 0 ? "text-emerald-500" : "text-red-500") : "text-slate-400"}
-          />
-          <SummaryCard
-            borderColor="border-l-emerald-500"
-            label="Tổng COD đã đối soát"
-            value={fmtVND(s.totalCod)}
-            valueColor="text-emerald-500"
-          />
-          <SummaryCard
-            borderColor="border-l-blue-600"
-            label="Tổng đơn đã đối soát"
-            value={s.orderCount.toLocaleString()}
-            valueColor="text-blue-600"
-          />
-          <SummaryCard
-            borderColor="border-l-blue-600"
-            label="Margin trung bình"
-            value={`${s.margin}%`}
-            valueColor="text-blue-600"
-          />
-        </div>
+        <OverviewSummaryCards summary={s} pnl={pnl} formatCurrency={fmtVND} />
       )}
 
-      {/* Trend chart */}
-      {trendData.length > 0 && (
-        <div className={panelClass}>
-          <h3 className="mb-4 text-base font-bold text-slate-800">📈 Xu hướng doanh thu</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" fontSize={11} />
-              <YAxis fontSize={11} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} />
-              <Tooltip formatter={(v: any) => fmtVND(Number(v))} />
-              <Area type="monotone" dataKey="profit" stroke="#2563eb" fill="#dbeafe" name="Doanh thu ròng" />
-              <Area type="monotone" dataKey="totalCost" stroke="#ef4444" fill="#fee2e2" name="Tổng chi phí" />
-              <Legend />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Distribution charts */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {carrierDistribution.length > 0 && (
-          <div className={panelClass}>
-            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">Doanh thu theo Đối tác</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={carrierDistribution} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={80} labelLine={false}>
-                  {carrierDistribution.map((_: any, i: number) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v: any) => fmtVND(Number(v))} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        {shopDistribution.length > 0 && (
-          <div className={panelClass}>
-            <h3 className="mb-3 text-sm font-bold text-slate-800 sm:text-[15px]">Doanh thu theo Cửa hàng</h3>
-            <ResponsiveContainer width="100%" height={shopBarHeight}>
-              <BarChart data={shopDistribution} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" fontSize={11} tickFormatter={(v: any) => `${Math.round(v / 1e6)}M`} />
-                <YAxis type="category" dataKey="name" fontSize={11} width={120} />
-                <Tooltip formatter={(v: any) => fmtVND(Number(v))} />
-                <Bar dataKey="revenue" fill="#2563eb" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
+      <OverviewCharts
+        trendData={trendData}
+        carrierDistribution={carrierDistribution}
+        shopDistribution={shopDistribution}
+        shopBarHeight={shopBarHeight}
+        formatCurrency={fmtVND}
+      />
 
       {/* P&L Section */}
       {pnl && (
