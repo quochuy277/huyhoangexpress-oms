@@ -377,7 +377,7 @@ export default function OverviewTab({ isAdmin, initialLandingData, initialCatego
 
   const handleOpenBudgetDialog = useCallback(() => {
     const f: Record<string, string> = {};
-    budgets?.budgets?.forEach((b: any) => {
+    budgets?.budgets?.forEach((b) => {
       f[b.categoryId] = String(b.budgetAmount || 0);
     });
     setBudgetForm(f);

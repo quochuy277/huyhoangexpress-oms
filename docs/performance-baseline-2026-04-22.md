@@ -52,6 +52,11 @@ Cả 5 có size y hệt → nhiều khả năng cùng là React/framework vendor
 
 ## 3. Largest source files (LOC)
 
+> **Measurement**: `wc -l` (tổng số dòng, **bao gồm** dòng trắng). Đây
+> là số "logical line count" nhiều tool đo bundle + IDE hiển thị. Non-blank
+> count (`grep -v "^\s*$" | wc -l`) sẽ thấp hơn ~10–15%. Toàn bộ doc này
+> thống nhất dùng `wc -l`.
+
 ```
 1429  src/components/claims/ClaimsClient.tsx
  844  src/components/claims/ClaimDetailDrawer.tsx
@@ -70,10 +75,25 @@ top-priority (đã có dynamic import + memo). Những file còn lại trên
 ngưỡng 600 LOC đáng audit:
 
 - `ClaimsClient.tsx` (1429 LOC, 40 hooks calls) — ưu tiên 1, plan chỉ đích danh.
-- `OverviewTab.tsx` (641 LOC) — ưu tiên 2, nhiều `useState` + inline styles.
+  **Sprint 2: CHƯA refactor** — carry-over sang Sprint 3 (xem mục 9 bên dưới).
+- `OverviewTab.tsx` (641 → **497** LOC, `wc -l`) — **Sprint 2: đã tách
+  thành 4 component memo-hoá**; 3 component mới: `OverviewPeriodSelector`
+  (88 LOC), `OverviewSummaryCards` (110 LOC), `OverviewCharts` (124 LOC).
+  Tổng 4 file = 819 LOC (vs. 641 cũ, +178 do boilerplate import + type);
+  lợi ích thực: chart tree không reconcile khi người dùng gõ vào input
+  filter hoặc mở dialog khác.
 - `ClaimDetailDrawer.tsx` (844 LOC) — đã được dynamic-import từ ClaimsClient,
   chỉ tải khi mở drawer — không phải blocker cho initial load.
 - `OrderChangesTab.tsx` (742 LOC) — đứng sau vì chỉ hiển thị tab con.
+
+**Admin tabs** (plan 2.7 B1 chỉ yêu cầu audit nếu > 700 LOC):
+- `UsersTab.tsx` 508 LOC — dưới ngưỡng, không cần refactor.
+- `PermissionsTab.tsx` 294 LOC — dưới ngưỡng.
+- `RequestsFeedbackTab.tsx` 155 LOC — dưới ngưỡng.
+
+→ Không có admin tab nào chạm ngưỡng 700 LOC. Plan 2.7 B1 phần admin
+xem như **N/A** cho thời điểm hiện tại (sẽ re-check ở Sprint 3 sau khi
+theo dõi UX thực tế).
 
 ## 4. Prisma select audit (static)
 
@@ -94,11 +114,18 @@ Sprint 1). Những chỗ trả object có relation lớn cần audit:
 
 1. `GET /api/crm/shops` — list các shop đi kèm assignments + recent
    care logs. Nếu list trả kèm care log lớn thì over-fetch.
+   → **Sprint 2 đã fix** (commit `9ffcad5`): trim ShopAssignment +
+   ShopProfile, loại `internalShopNote` Text blob và các cột không dùng.
 2. `GET /api/orders/changes` — list orders có field changes. Mỗi record
    có thể đi kèm nhiều OrderChange rows.
+   → **Sprint 2 đã fix** (commit `9ffcad5`): bỏ `include` eager-join
+   của `uploadHistoryId`.
 3. `GET /api/claims` — list claims có include compensation + user.
-
-Sprint 2 đã fix **3 route trên** (xem commit Sprint 2).
+   → **Sprint 2 fix-up** (commit sau `9ffcad5`): chuyển từ `include`
+   sang `select` tường minh trong `src/lib/claims-page-data.ts`, drop
+   các field không dùng ở list view (`completedAt`, `completedBy`,
+   `source`, `createdById`, `createdAt`, `updatedAt`). Giữ lại
+   `issueDescription`/`processingContent` vì UI list render trực tiếp.
 
 ## 5. Routes đã streaming/CSV vs. còn memory-XLSX
 
@@ -125,25 +152,57 @@ Grep `useMutation` + `onMutate` trong `src/hooks/`:
 
 Sprint 2 ship optimistic cho 3 mục ❌ ở trên.
 
-## 7. Live measurements (to be filled by QA / Sprint 2 end)
+## 7. Live measurements (cần QA chạy — chưa có dữ liệu)
+
+> **Status**: Ô này không thể filled bởi dev agent — yêu cầu Chrome
+> DevTools + Lighthouse trên máy QA. Đây là **điều kiện bắt buộc** để
+> chốt Sprint 2 DoD (plan F "Hiệu năng — Sprint 2 mở đầu").
 
 | Page | Device | LCP (ms) | INP (ms) | TBT (ms) | Bundle (KB gzip) | Notes |
 |------|--------|----------|----------|----------|------------------|-------|
-| `/orders` | Desktop | _pending_ | _pending_ | _pending_ | _pending_ | |
-| `/orders` | Mobile 4× throttle | _pending_ | _pending_ | _pending_ | _pending_ | |
-| `/claims` | Desktop | _pending_ | _pending_ | _pending_ | _pending_ | |
-| `/claims` | Mobile 4× throttle | _pending_ | _pending_ | _pending_ | _pending_ | |
-| `/finance` | Desktop | _pending_ | _pending_ | _pending_ | _pending_ | |
+| `/orders` | Desktop | _QA pending_ | _QA pending_ | _QA pending_ | _QA pending_ | |
+| `/orders` | Mobile 4× throttle | _QA pending_ | _QA pending_ | _QA pending_ | _QA pending_ | |
+| `/claims` | Desktop | _QA pending_ | _QA pending_ | _QA pending_ | _QA pending_ | |
+| `/claims` | Mobile 4× throttle | _QA pending_ | _QA pending_ | _QA pending_ | _QA pending_ | |
+| `/finance` | Desktop | _QA pending_ | _QA pending_ | _QA pending_ | _QA pending_ | |
 
-QA: chạy `npm run build && npm run start`, mở Chrome Incognito (no extensions),
-DevTools → Lighthouse → Performance, lưu report HTML vào
-`docs/perf-reports/` và dán 4 metric chính vào bảng trên.
+QA workflow: xem `docs/perf-reports/README.md`. Ngắn gọn:
+1. `npm run build && npm run start`
+2. Chrome Incognito (no extensions) → DevTools → Lighthouse → Performance
+   (throttle: "Slow 4G", "4x CPU slowdown" cho mobile).
+3. Lưu report HTML vào `docs/perf-reports/{YYYY-MM-DD}-{page}-{device}.html`.
+4. Điền 4 metric chính vào bảng trên.
 
-## 8. Post-Sprint 2 delta (to be filled on Sprint 2 close)
+## 8. Post-Sprint 2 delta (cần QA chạy — chưa có dữ liệu)
+
+> **Status**: Cần đo bằng browser + server logs. Không thể filled
+> trước khi Sprint 2 close.
 
 So sánh:
 - CSV stream orders/claims: size file xuất + peak memory server (đo qua
   `/api/health` metrics nếu có, hoặc log `process.memoryUsage()` trước/sau).
-- Select audit: số byte response trung bình (ghi qua devtools Network tab,
+- Select audit: số byte response trung bình (ghi qua DevTools Network tab,
   endpoint `/api/crm/shops`, `/api/orders/changes`, `/api/claims`).
 - Optimistic updates: UX-only, demo clip trước/sau.
+
+## 9. Sprint 2 carry-over (chuyển sang Sprint 3)
+
+Sprint 2 đã ship 4/5 hạng mục của plan 2.7 B1 + 2.8 B2 + 1.4 B3 + 2.11 C2:
+
+- ✅ 1.4 B3 — CSV stream `orders/export` + `claims/export`.
+- ✅ 2.8 B2 — select audit 3 route (crm/shops, orders/changes, claims).
+- ✅ 2.11 C2 — optimistic updates (order notes, warehouse confirm, announcements).
+- ✅ 2.7 B1 — tách OverviewTab.
+- ⚠️ 2.7 B1 — **ClaimsClient.tsx chưa refactor** (1429 LOC, 40 hooks).
+  Lý do hoãn: refactor file này cần profile thật trên trang `/claims`
+  với DevTools Performance + React Profiler để biết re-render hotspots;
+  refactor mù (tách sub-component không có measurement) có rủi ro
+  ngược (tăng bundle splitting overhead mà không giảm work thật).
+  Carry-over Sprint 3: sau khi QA điền mục 7, ta có baseline INP để
+  verify refactor delta.
+- N/A 2.7 B1 admin tabs — không tab nào ≥ 700 LOC (xem mục 3).
+
+**Sprint 2 DoD vẫn chờ**:
+- Mục 7 live measurements (QA phải điền).
+- Mục 8 delta (sau khi có mục 7).
+- Refactor ClaimsClient (Sprint 3, data-driven).

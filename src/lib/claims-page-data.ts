@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { ClaimStatus, IssueType, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -11,14 +11,34 @@ function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return typeof value === "number" ? value : Number(value);
 }
 
-export function normalizeClaimForClient(claim: any) {
+// Narrow input type for normalizeClaimForClient: captures the fields the
+// function touches while still accepting extra properties (which are
+// spread through untouched). Prisma returns concrete types from findMany
+// with select, but call sites (tests, fixtures) also pass raw objects.
+type NormalizableClaim = {
+  detectedDate?: Date | string | null;
+  deadline?: Date | string | null;
+  completedAt?: Date | string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+  carrierCompensation?: Prisma.Decimal | number | null;
+  customerCompensation?: Prisma.Decimal | number | null;
+  order?: {
+    codAmount?: Prisma.Decimal | number | null;
+    totalFee?: Prisma.Decimal | number | null;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
+};
+
+export function normalizeClaimForClient(claim: NormalizableClaim) {
   return {
     ...claim,
-    detectedDate: toIsoString(claim.detectedDate),
-    deadline: toIsoString(claim.deadline),
-    completedAt: toIsoString(claim.completedAt),
-    createdAt: toIsoString(claim.createdAt),
-    updatedAt: toIsoString(claim.updatedAt),
+    detectedDate: toIsoString(claim.detectedDate as Date | null | undefined),
+    deadline: toIsoString(claim.deadline as Date | null | undefined),
+    completedAt: toIsoString(claim.completedAt as Date | null | undefined),
+    createdAt: toIsoString(claim.createdAt as Date | null | undefined),
+    updatedAt: toIsoString(claim.updatedAt as Date | null | undefined),
     carrierCompensation: toNumber(claim.carrierCompensation),
     customerCompensation: toNumber(claim.customerCompensation),
     order: claim.order
@@ -30,6 +50,41 @@ export function normalizeClaimForClient(claim: any) {
       : null,
   };
 }
+
+/**
+ * Explicit `select` used by GET /api/claims (list).
+ *
+ * Sprint 2 (2026-04-22 follow-up): chuyển từ `include` sang `select` tường
+ * minh để drop các cột không dùng ở list view. Các field bỏ:
+ * `completedAt`, `completedBy`, `source`, `createdById`, `createdAt`,
+ * `updatedAt` — chúng chỉ cần trong detail drawer (`GET /api/claims/[id]`).
+ *
+ * Exported làm contract: test `claims-page-data.test.ts` assert shape này
+ * để phát hiện sớm nếu có người thêm field lại vào list response.
+ */
+export const CLAIMS_LIST_SELECT = {
+  id: true,
+  orderId: true,
+  issueType: true,
+  issueDescription: true,
+  detectedDate: true,
+  deadline: true,
+  claimStatus: true,
+  processingContent: true,
+  carrierCompensation: true,
+  customerCompensation: true,
+  isCompleted: true,
+  order: {
+    select: {
+      requestCode: true,
+      carrierOrderCode: true,
+      shopName: true,
+      status: true,
+      codAmount: true,
+      staffNotes: true,
+    },
+  },
+} as const satisfies Prisma.ClaimOrderSelect;
 
 type ClaimsBootstrapQuery = {
   page: number;
@@ -88,11 +143,11 @@ export async function getClaimsListData(query: ClaimsBootstrapQuery) {
   };
 
   if (query.issueType.length) {
-    where.issueType = { in: query.issueType as any[] };
+    where.issueType = { in: query.issueType as IssueType[] };
   }
 
   if (query.status) {
-    where.claimStatus = query.status as any;
+    where.claimStatus = query.status as ClaimStatus;
   }
 
   const orderWhere: Prisma.OrderWhereInput = {};
@@ -133,18 +188,7 @@ export async function getClaimsListData(query: ClaimsBootstrapQuery) {
   const [claims, total] = await Promise.all([
     prisma.claimOrder.findMany({
       where,
-      include: {
-        order: {
-          select: {
-            requestCode: true,
-            carrierOrderCode: true,
-            shopName: true,
-            status: true,
-            codAmount: true,
-            staffNotes: true,
-          },
-        },
-      },
+      select: CLAIMS_LIST_SELECT,
       orderBy,
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
