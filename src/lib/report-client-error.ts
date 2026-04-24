@@ -34,8 +34,11 @@ export function reportClientError(
       typeof navigator.sendBeacon === "function"
     ) {
       const blob = new Blob([body], { type: "application/json" });
-      navigator.sendBeacon("/api/client-errors", blob);
-      return;
+      // sendBeacon returns false when the browser could not queue the payload
+      // (size limit, no network, etc). Fall through to fetch in that case so
+      // we don't silently drop the crash report.
+      const queued = navigator.sendBeacon("/api/client-errors", blob);
+      if (queued) return;
     }
 
     void fetch("/api/client-errors", {

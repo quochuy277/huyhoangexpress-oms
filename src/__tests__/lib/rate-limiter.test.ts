@@ -82,4 +82,47 @@ describe("createRateLimiter", () => {
         const result = limiter.check("user3");
         expect(result).toBeNull(); // allowed, and old entries cleaned
     });
+
+    describe("peek", () => {
+        it("does not increment the counter on repeated peeks", () => {
+            const limiter = createRateLimiter({ windowMs: 60_000, max: 2 });
+            // 1000 peeks should never trip the limit on their own
+            for (let i = 0; i < 1000; i++) {
+                expect(limiter.peek("user1")).toBeNull();
+            }
+            // A real check still has full quota available afterwards
+            expect(limiter.check("user1")).toBeNull(); // 1
+            expect(limiter.check("user1")).toBeNull(); // 2
+            expect(limiter.check("user1")).not.toBeNull(); // 3 blocked
+        });
+
+        it("returns 429 once the bucket is over the limit", () => {
+            const limiter = createRateLimiter({ windowMs: 60_000, max: 2 });
+            limiter.check("user1"); // 1
+            limiter.check("user1"); // 2
+            const tripped = limiter.check("user1"); // 3 -> 429
+            expect(tripped).not.toBeNull();
+            // peek now reports the same blocked state
+            const blocked = limiter.peek("user1");
+            expect(blocked).not.toBeNull();
+            expect(blocked!.status).toBe(429);
+        });
+
+        it("stays allowed when bucket is exactly at max (count == max)", () => {
+            const limiter = createRateLimiter({ windowMs: 60_000, max: 3 });
+            limiter.check("user1");
+            limiter.check("user1");
+            limiter.check("user1"); // count=3, not yet > 3
+            expect(limiter.peek("user1")).toBeNull();
+        });
+
+        it("resets after the window expires", () => {
+            const limiter = createRateLimiter({ windowMs: 1_000, max: 1 });
+            limiter.check("user1");
+            limiter.check("user1"); // 2 -> 429
+            expect(limiter.peek("user1")).not.toBeNull();
+            vi.advanceTimersByTime(1_500);
+            expect(limiter.peek("user1")).toBeNull();
+        });
+    });
 });

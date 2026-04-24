@@ -30,10 +30,22 @@ export function createRateLimiter(opts: RateLimiterOptions) {
   const hits = new Map<string, HitRecord>();
   let lastCleanup = Date.now();
 
+  function overLimitResponse(resetAt: number, now: number): NextResponse {
+    const retryAfter = Math.ceil((resetAt - now) / 1000);
+    return NextResponse.json(
+      { error: message },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfter) },
+      }
+    );
+  }
+
   return {
     /**
      * Check if the identifier is rate-limited.
      * Returns a NextResponse (429) if limited, or null if allowed.
+     * Always increments the counter for the identifier.
      */
     check(identifier: string): NextResponse | null {
       const now = Date.now();
@@ -55,16 +67,25 @@ export function createRateLimiter(opts: RateLimiterOptions) {
 
       record.count++;
       if (record.count > max) {
-        const retryAfter = Math.ceil((record.resetAt - now) / 1000);
-        return NextResponse.json(
-          { error: message },
-          {
-            status: 429,
-            headers: { "Retry-After": String(retryAfter) },
-          }
-        );
+        return overLimitResponse(record.resetAt, now);
       }
 
+      return null;
+    },
+
+    /**
+     * Read-only check: returns 429 if the bucket is already over the limit
+     * without incrementing. Use together with {@link check} on the failure
+     * path when you only want to count failures (e.g., login attempts) and
+     * avoid throttling legitimate users who share an IP.
+     */
+    peek(identifier: string): NextResponse | null {
+      const now = Date.now();
+      const record = hits.get(identifier);
+      if (!record || now > record.resetAt) return null;
+      if (record.count > max) {
+        return overLimitResponse(record.resetAt, now);
+      }
       return null;
     },
   };
@@ -111,4 +132,13 @@ export const sensitiveWriteLimiter = createRateLimiter({
   windowMs: 60_000,
   max: 5,
   message: "Quá nhiều lần thử. Vui lòng chờ 1 phút rồi thử lại.",
+});
+
+/** Client error ingestion: 20 reports/min per IP. Origin check in proxy.ts is
+ *  spoofable by scripted clients, so this prevents log-flooding by any caller
+ *  that can set `Origin` to our site.  */
+export const clientErrorLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 20,
+  message: "Too many client error reports.",
 });

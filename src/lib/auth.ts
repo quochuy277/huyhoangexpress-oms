@@ -78,10 +78,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           userAgent = hdrs.get("user-agent") || "unknown";
         } catch { /* headers not available */ }
 
-        // Rate limit by IP. Returns a 429 Response if over the limit.
-        // We translate it into a CredentialsSignin throw so NextAuth surfaces
-        // the error instead of silently returning null.
-        const rateLimited = loginLimiter.check(ipAddress);
+        // Rate limit by IP — only count FAILED logins, not successful ones.
+        // peek() returns 429 if the bucket is already over the limit without
+        // incrementing; we'll bump the counter only on the failure path below.
+        // This prevents an office of 5+ users behind one NAT from locking
+        // themselves out with correct credentials.
+        const rateLimited = loginLimiter.peek(ipAddress);
         if (rateLimited) {
           logger.warn("auth.authorize", "Login rate limit hit", { ipAddress });
           throw new RateLimitError();
@@ -105,20 +107,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             hash,
           );
 
-          if (!user || !isValid) return null;
+          if (!user || !isValid) {
+            // Count this failure against the IP bucket. Successful logins
+            // intentionally don't increment so shared-NAT offices aren't locked
+            // out by their own valid sign-ins.
+            const failBlocked = loginLimiter.check(ipAddress);
+            if (failBlocked) {
+              logger.warn("auth.authorize", "Login rate limit hit on failure", {
+                ipAddress,
+              });
+              throw new RateLimitError();
+            }
+            return null;
+          }
 
           // Silent rehash: if the stored hash uses fewer rounds than the
           // current BCRYPT_COST (e.g. imported from a legacy system), upgrade
           // it now that we have the plaintext. Non-blocking — login succeeds
-          // whether or not the re-hash lands.
+          // whether or not the re-hash lands. The update is gated on the
+          // ORIGINAL hash so a concurrent password change can't be clobbered
+          // by this stale rehash.
           try {
             const currentRounds = bcrypt.getRounds(user.password);
             if (currentRounds < BCRYPT_COST) {
+              const originalHash = user.password;
               bcrypt
                 .hash(credentials.password as string, BCRYPT_COST)
                 .then((rehashed) =>
-                  prisma.user.update({
-                    where: { id: user.id },
+                  prisma.user.updateMany({
+                    where: { id: user.id, password: originalHash },
                     data: { password: rehashed },
                   }),
                 )
@@ -199,6 +216,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             permissions,
           };
         } catch (error) {
+          // Let NextAuth's typed credential errors (e.g. RateLimitError) surface
+          // so the login UI can show the right message instead of a generic
+          // "wrong credentials" fallback.
+          if (error instanceof CredentialsSignin) throw error;
           logger.error("auth.authorize", "Failed to authorize credentials", error, {
             email: credentials.email as string,
           });

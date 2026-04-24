@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend
@@ -170,7 +171,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
           .map((u: { id: string; name: string }) => ({ id: u.id, name: u.name }))
       );
     } catch (err) {
-      console.warn("[ShopDetailPanel] Failed to load users:", err);
+      logger.warn("ShopDetailPanel", "Failed to load users", { error: err });
     }
   };
 
