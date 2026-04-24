@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recalculateAttendance, getVietnamToday } from "@/lib/attendance";
 import { logger } from "@/lib/logger";
+import { sensitiveWriteLimiter } from "@/lib/rate-limiter";
 
 /**
  * POST /api/admin/force-logout
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest) {
     if (currentUser?.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden — Admin only" }, { status: 403 });
     }
+
+    const rateLimited = sensitiveWriteLimiter.check(`force-logout:${session.user.id}`);
+    if (rateLimited) return rateLimited;
 
     const body = await req.json();
     const { mode, userId } = body as { mode?: string; userId?: string };

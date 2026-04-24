@@ -188,6 +188,7 @@ export function FullReturnTab({ data, pageSize }: Props) {
                           onClick={() => setClaimReturnOrder(o)}
                           className="p-1 w-7 h-7 flex items-center justify-center text-orange-500 hover:bg-orange-50 hover:text-orange-600 border border-transparent hover:border-orange-200 transition-colors rounded"
                           title="Chuyển vào Đơn có vấn đề"
+                          aria-label="Chuyển đơn vào Đơn có vấn đề"
                         >
                           <Flag className="w-3.5 h-3.5" />
                         </button>
@@ -195,6 +196,7 @@ export function FullReturnTab({ data, pageSize }: Props) {
                           onClick={() => { setTodoOrder(o); setTodoDays(days); }}
                           className="p-1 w-7 h-7 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-colors rounded"
                           title="Thêm vào Công Việc"
+                          aria-label="Thêm đơn vào Công Việc"
                         >
                           <CheckSquare className="w-3.5 h-3.5" />
                         </button>
@@ -202,6 +204,7 @@ export function FullReturnTab({ data, pageSize }: Props) {
                           onClick={() => setTrackingCode(o.requestCode)}
                           className="p-1 w-7 h-7 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-colors rounded"
                           title="Tra hành trình"
+                          aria-label="Tra hành trình đơn hàng"
                         >
                           <Truck className="w-3.5 h-3.5" />
                         </button>

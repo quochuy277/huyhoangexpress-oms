@@ -98,3 +98,17 @@ export const autoImportLimiter = createRateLimiter({
   max: 15,
   message: "Quá nhiều yêu cầu auto-import. Vui lòng thử lại sau.",
 });
+
+/** Generic write rate limit: 30 state-changing requests per user per minute */
+export const writeLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  message: "Quá nhiều thao tác. Vui lòng thử lại sau.",
+});
+
+/** Sensitive write: 5 per minute per user (password change, force-logout, etc.) */
+export const sensitiveWriteLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 5,
+  message: "Quá nhiều lần thử. Vui lòng chờ 1 phút rồi thử lại.",
+});

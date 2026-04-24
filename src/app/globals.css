@@ -75,6 +75,16 @@
     color: hsl(var(--foreground));
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  /* Keyboard-only focus outline. Ensures every interactive element shows a
+   * visible focus indicator when tabbed into, without adding noise on mouse
+   * click. Individual components can still override with their own
+   * focus-visible ring utilities. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
 /* Landing page animations */

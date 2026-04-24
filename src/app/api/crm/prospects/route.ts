@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/route-permissions";
 import { createServerTiming } from "@/lib/server-timing";
 import { prospectCreateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
+import { writeLimiter } from "@/lib/rate-limiter";
 
 
 export async function GET(request: NextRequest) {
@@ -101,6 +102,9 @@ export async function POST(request: NextRequest) {
   if (!hasPermission(session.user, "canViewCRM")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const rateLimited = writeLimiter.check(`prospect:${session.user.id}`);
+  if (rateLimited) return rateLimited;
 
   const parsed = prospectCreateSchema.safeParse(await request.json());
   if (!parsed.success) {

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { stripHtml } from "@/lib/sanitize";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AnnouncementPreviewDialog,
@@ -228,7 +229,11 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
                     )
                   ) : (
                     announcements.length === 0 ? (
-                      <div className="px-4 py-6 text-center text-sm text-slate-400">Không có thông báo 📢</div>
+                      <EmptyState
+                        icon={<Bell className="h-5 w-5" />}
+                        title="Không có thông báo"
+                        className="border-0 py-6"
+                      />
                     ) : (
                       announcements.map((a) => (
                         <button

@@ -10,7 +10,7 @@ import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 import { logger } from "@/lib/logger";
-import { DUMMY_BCRYPT_HASH } from "@/lib/auth-constants";
+import { DUMMY_BCRYPT_HASH, BCRYPT_COST } from "@/lib/auth-constants";
 
 const PERMISSIONS_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30 for faster permission propagation)
 
@@ -106,6 +106,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           );
 
           if (!user || !isValid) return null;
+
+          // Silent rehash: if the stored hash uses fewer rounds than the
+          // current BCRYPT_COST (e.g. imported from a legacy system), upgrade
+          // it now that we have the plaintext. Non-blocking — login succeeds
+          // whether or not the re-hash lands.
+          try {
+            const currentRounds = bcrypt.getRounds(user.password);
+            if (currentRounds < BCRYPT_COST) {
+              bcrypt
+                .hash(credentials.password as string, BCRYPT_COST)
+                .then((rehashed) =>
+                  prisma.user.update({
+                    where: { id: user.id },
+                    data: { password: rehashed },
+                  }),
+                )
+                .catch((error) =>
+                  logger.warn("auth.authorize", "Silent rehash failed", {
+                    error,
+                    userId: user.id,
+                  }),
+                );
+            }
+          } catch (error) {
+            // getRounds throws on malformed hashes — log but don't fail login
+            logger.warn("auth.authorize", "Could not inspect bcrypt rounds", {
+              error,
+              userId: user.id,
+            });
+          }
 
           const deviceType = parseDeviceType(userAgent);
           const now = new Date();

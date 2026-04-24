@@ -3,24 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import type { FinanceCategoryOption, FinanceLandingData } from "@/lib/finance/landing";
 
-const OverviewTab = dynamic(() => import("./OverviewTab"), {
-  loading: () => (
-    <div className="flex h-96 items-center justify-center text-slate-400">Đang tải...</div>
-  ),
-});
-const AnalysisTab = dynamic(() => import("./AnalysisTab"), {
-  loading: () => (
-    <div className="flex h-96 items-center justify-center text-slate-400">Đang tải...</div>
-  ),
-});
-const CashbookTab = dynamic(() => import("./CashbookTab"), {
-  loading: () => (
-    <div className="flex h-96 items-center justify-center text-slate-400">Đang tải...</div>
-  ),
-});
+const TabLoading = () => (
+  <div className="flex h-96 items-center justify-center gap-2 text-slate-400">
+    <Loader2 className="animate-spin" size={18} />
+    <span>Đang tải...</span>
+  </div>
+);
+
+const OverviewTab = dynamic(() => import("./OverviewTab"), { loading: TabLoading });
+const AnalysisTab = dynamic(() => import("./AnalysisTab"), { loading: TabLoading });
+const CashbookTab = dynamic(() => import("./CashbookTab"), { loading: TabLoading });
 
 const TABS = [
   { id: "overview", label: "Tổng quan & P&L" },

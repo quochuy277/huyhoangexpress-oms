@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import {
   Target, Plus, CheckCircle, TrendingUp, Clock,
-  Phone, User, Search, LayoutGrid, List, PackageX, RotateCcw
+  Phone, User, Search, LayoutGrid, List, PackageX, RotateCcw, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProspectFormDialog } from "./ProspectFormDialog";
@@ -341,7 +341,7 @@ export function ProspectPipelineTab({ userId, userName, initialData }: ProspectP
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-slate-400">Đang tải...</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-slate-400"><Loader2 className="inline animate-spin mr-2" size={16} />Đang tải...</td></tr>
                 ) : allProspects.length === 0 ? (
                   <tr><td colSpan={7} className="text-center py-12 text-slate-400">Chưa có prospect nào</td></tr>
                 ) : (

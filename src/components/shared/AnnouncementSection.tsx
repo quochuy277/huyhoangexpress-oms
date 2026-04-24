@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Loader2, X, Pin, Paperclip, Bold, Italic, Type, Palette, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, X, Pin, Paperclip, Bold, Italic, Type, Palette, Eye, Bell } from "lucide-react";
 import { sanitizeHtml, stripHtml } from "@/lib/sanitize";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 /* ============================================================
    Shared styles
@@ -131,9 +132,12 @@ export function AnnouncementSection() {
             <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "#9ca3af" }} />
           </div>
         ) : items.length === 0 ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>
-            Chưa có thông báo nào
-          </div>
+          <EmptyState
+            icon={<Bell className="h-5 w-5" />}
+            title="Chưa có thông báo nào"
+            description="Khi có thông báo mới, chúng sẽ hiện ở đây."
+            className="border-0"
+          />
         ) : (
           items.map((item, i) => (
             <div key={item.id} style={{

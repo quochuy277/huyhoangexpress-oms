@@ -1,5 +1,6 @@
 import { PrismaClient, Role, DeliveryStatus, IssueType, ClaimStatus, TodoStatus, Priority, AttendanceStatus, TodoSource } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { BCRYPT_COST } from "../src/lib/auth-constants";
 
 const prisma = new PrismaClient();
 
@@ -9,7 +10,7 @@ async function main() {
   // ============================================================
   // 1. Create Users
   // ============================================================
-  const passwordHash = await bcrypt.hash("Admin@123", 12);
+  const passwordHash = await bcrypt.hash("Admin@123", BCRYPT_COST);
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@company.com" },
@@ -24,7 +25,7 @@ async function main() {
     },
   });
 
-  const managerHash = await bcrypt.hash("Manager@123", 12);
+  const managerHash = await bcrypt.hash("Manager@123", BCRYPT_COST);
   const manager = await prisma.user.upsert({
     where: { email: "manager@company.com" },
     update: {},
@@ -38,7 +39,7 @@ async function main() {
     },
   });
 
-  const staffHash = await bcrypt.hash("Staff@123", 12);
+  const staffHash = await bcrypt.hash("Staff@123", BCRYPT_COST);
   const staff1 = await prisma.user.upsert({
     where: { email: "staff1@company.com" },
     update: {},

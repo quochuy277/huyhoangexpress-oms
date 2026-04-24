@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { StatsSection, type LandingStats } from "./components/StatsSection";
@@ -13,6 +14,11 @@ import { RegisterForm } from "./components/RegisterForm";
 import { Footer } from "./components/Footer";
 import { ZaloChatWidget } from "./components/ZaloChatWidget";
 import { ScrollToTop } from "./components/ScrollToTop";
+
+// ISR: regenerate landing at most once per minute. Stats pull from DB —
+// a stale value for up to 60s is fine, and avoids hitting prisma on every
+// anonymous landing request.
+export const revalidate = 60;
 
 const LANDING_BASE_ORDERS = 200_000;
 const LANDING_BASE_SHOPS = 250;
@@ -48,7 +54,7 @@ async function getLandingStats(): Promise<LandingStats> {
       successRate,
     };
   } catch (err) {
-    console.warn("[LandingPage] Failed to prefetch stats:", err);
+    logger.warn("LandingPage", "Failed to prefetch stats", { error: err });
     return { totalOrders: LANDING_BASE_ORDERS, activeShops: LANDING_BASE_SHOPS, successRate: 0 };
   }
 }

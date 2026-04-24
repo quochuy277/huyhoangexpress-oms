@@ -41,7 +41,11 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json(users);
+    return NextResponse.json(users, {
+      headers: {
+        "Cache-Control": "private, max-age=30",
+      },
+    });
   } catch (error) {
     logger.error("GET /api/admin/users", "List users error", error);
     return NextResponse.json({ error: "Lỗi khi lấy danh sách nhân viên" }, { status: 500 });

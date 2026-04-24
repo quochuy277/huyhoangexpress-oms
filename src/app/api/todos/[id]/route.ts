@@ -8,6 +8,7 @@ import {
   todoVersionRequiredResponse,
 } from "@/lib/todo-optimistic-lock";
 import { canViewAllTodos, requireTodoAccess } from "@/lib/todo-permissions";
+import { writeLimiter } from "@/lib/rate-limiter";
 
 const todoDetailInclude = {
   assignee: { select: { id: true, name: true } },
@@ -24,6 +25,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
   }
+
+  const rateLimited = writeLimiter.check(`todo:${session.user.id}`);
+  if (rateLimited) return rateLimited;
 
   const { id } = await params;
   const access = await requireTodoAccess(session.user, id);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-client-error";
 
 export default function DashboardError({
     error,
@@ -11,6 +12,7 @@ export default function DashboardError({
 }) {
     useEffect(() => {
         console.error("[Dashboard Error]", error);
+        reportClientError("dashboard", error);
     }, [error]);
 
     return (

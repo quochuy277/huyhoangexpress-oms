@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
 import { announcementCreateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
+import { writeLimiter } from "@/lib/rate-limiter";
 
 // GET — List announcements (all users, paginated)
 export async function GET(req: NextRequest) {
@@ -60,6 +61,9 @@ export async function POST(req: NextRequest) {
     if (denied) return denied;
 
     const user = session.user as { id: string; name?: string };
+
+    const rateLimited = writeLimiter.check(`announcement:${user.id}`);
+    if (rateLimited) return rateLimited;
 
     const parsed = announcementCreateSchema.safeParse(await req.json());
     if (!parsed.success) {

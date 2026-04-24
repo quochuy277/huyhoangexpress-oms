@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   Store, Star, Sparkles, AlertTriangle, XCircle,
   Phone, MessageSquare, Mail, Handshake, Settings, FileText,
-  Search, ChevronLeft, ChevronRight, Eye, TrendingUp, TrendingDown, Minus
+  Search, ChevronLeft, ChevronRight, Eye, TrendingUp, TrendingDown, Minus, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CareLogDialog } from "./CareLogDialog";
@@ -287,7 +287,7 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
             </thead>
             <tbody className="divide-y divide-slate-100">
               {shopsLoading ? (
-                <tr><td colSpan={11} className="text-center py-12 text-slate-400">Đang tải...</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-slate-400"><Loader2 className="inline animate-spin mr-2" size={16} />Đang tải...</td></tr>
               ) : shops.length === 0 ? (
                 <tr><td colSpan={11} className="text-center py-12 text-slate-400">
                   {shopData?.data?.message || "Không tìm thấy shop nào"}

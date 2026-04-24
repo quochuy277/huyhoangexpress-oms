@@ -74,7 +74,11 @@ export function CareLogDialog({ shopName, userId, userName, onClose }: CareLogDi
         <div className="bg-white rounded-xl border-[1.5px] border-blue-600 shadow-2xl w-full max-w-md">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
             <h3 className="text-sm font-bold text-slate-800">Thêm ghi nhận chăm sóc — {shopName}</h3>
-            <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-slate-700">
+            <button
+              onClick={onClose}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+              aria-label="Đóng hộp thoại"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>

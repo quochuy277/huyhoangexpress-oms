@@ -169,7 +169,9 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
           .filter((u: { isActive?: boolean }) => u.isActive !== false)
           .map((u: { id: string; name: string }) => ({ id: u.id, name: u.name }))
       );
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.warn("[ShopDetailPanel] Failed to load users:", err);
+    }
   };
 
   const handleAddAssignee = async () => {

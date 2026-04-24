@@ -13,7 +13,10 @@ export async function GET() {
       orderBy: { sortOrder: "asc" },
       include: { _count: { select: { expenses: true } } },
     });
-    return NextResponse.json({ categories });
+    return NextResponse.json(
+      { categories },
+      { headers: { "Cache-Control": "private, max-age=60" } },
+    );
   } catch (error) {
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }

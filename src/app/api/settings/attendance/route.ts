@@ -3,7 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
-// GET — attendance settings (public for logged-in users)
+// GET — attendance settings (intentionally readable by any logged-in user).
+// IdleLogoutProvider runs for every authenticated session and reads
+// `idle_timeout` + `auto_logout` to drive the client-side idle watchdog.
+// The settings list ("late_time", "full_day_hours", etc.) is non-sensitive
+// display config, so we accept the small surface area in exchange for a
+// single source of truth. PUT stays locked to ADMIN/MANAGER below.
 export async function GET() {
   try {
     const session = await auth();
@@ -15,7 +20,9 @@ export async function GET() {
     const settings: Record<string, string> = {};
     rows.forEach(r => { settings[r.key.replace("attendance_", "")] = r.value; });
 
-    return NextResponse.json(settings);
+    return NextResponse.json(settings, {
+      headers: { "Cache-Control": "private, max-age=60" },
+    });
   } catch (error) {
     logger.error("GET /api/settings/attendance", "GET settings error", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

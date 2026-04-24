@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-client-error";
 
 export default function LandingError({
     error,
@@ -11,6 +12,7 @@ export default function LandingError({
 }) {
     useEffect(() => {
         console.error("[Landing Error]", error);
+        reportClientError("landing", error);
     }, [error]);
 
     return (
