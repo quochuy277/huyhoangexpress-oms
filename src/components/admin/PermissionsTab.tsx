@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Pencil, Trash2, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -261,8 +262,8 @@ function DeleteGroupDialog({ group, onClose, onDeleted }: { group: PermGroupRow;
     try {
       const res = await fetch(`/api/admin/permission-groups/${group.id}`, { method: "DELETE" });
       if (res.ok) { onDeleted(); onClose(); }
-      else { const d = await res.json().catch(() => ({})); alert(d.error || "Lỗi"); }
-    } catch { alert("Lỗi kết nối"); }
+      else { const d = await res.json().catch(() => ({})); toast.error(d.error || "Lỗi"); }
+    } catch { toast.error("Lỗi kết nối"); }
     finally { setDeleting(false); }
   };
 

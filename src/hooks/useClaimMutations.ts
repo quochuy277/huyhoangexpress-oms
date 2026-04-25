@@ -1,13 +1,19 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import type { ClaimFilters } from "@/hooks/useClaimsFilters";
 
+type ClaimRecord = Record<string, unknown> & { id: string };
+type ClaimChanges = Record<string, unknown>;
+
 type UseClaimMutationsOptions = {
   filters: ClaimFilters;
-  claims: any[];
-  setClaims: (updater: any[] | ((currentClaims: any[]) => any[])) => void;
+  claims: ClaimRecord[];
+  setClaims: (
+    updater: ClaimRecord[] | ((currentClaims: ClaimRecord[]) => ClaimRecord[]),
+  ) => void;
   fetchClaims: () => Promise<void>;
   canUpdateClaim: boolean;
 };
@@ -63,7 +69,7 @@ export function useClaimMutations({
         throw new Error(
           typeof errorData?.error === "string"
             ? errorData.error
-            : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+            : "Lỗi khi xuất file. Vui lòng thử lại.",
         );
       }
 
@@ -75,30 +81,33 @@ export function useClaimMutations({
       const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
 
       anchor.href = url;
-      anchor.download = filenameMatch?.[1] || "don-co-van-de.xlsx";
+      // Sprint 2: server now streams CSV (was XLSX). The filename from
+      // Content-Disposition is the source of truth; the fallback just
+      // preserves the .csv suffix in the unlikely case the header is missing.
+      anchor.download = filenameMatch?.[1] || "don-co-van-de.csv";
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
       if (truncationMessage) {
-        alert(truncationMessage);
+        toast.warning(truncationMessage);
       }
     } catch (error) {
-      alert(
+      toast.error(
         error instanceof Error
           ? error.message
-          : "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+          : "Lỗi khi xuất file. Vui lòng thử lại.",
       );
     } finally {
       setExporting(false);
     }
   }, [filters]);
 
-  const updateClaimLocal = useCallback((id: string, changes: Record<string, any>) => {
+  const updateClaimLocal = useCallback((id: string, changes: ClaimChanges) => {
     setClaims((prev) => prev.map((claim) => (claim.id === id ? { ...claim, ...changes } : claim)));
   }, [setClaims]);
 
-  const patchClaimField = useCallback(async (claimId: string, changes: Record<string, any>) => {
+  const patchClaimField = useCallback(async (claimId: string, changes: ClaimChanges) => {
     const previousClaim = claims.find((claim) => claim.id === claimId);
     updateClaimLocal(claimId, changes);
 
@@ -116,7 +125,7 @@ export function useClaimMutations({
       if (previousClaim) {
         setClaims((prev) => prev.map((claim) => (claim.id === claimId ? previousClaim : claim)));
       }
-      alert("Cập nhật thất bại. Dữ liệu đã được khôi phục.");
+      toast.error("Cập nhật thất bại. Dữ liệu đã được khôi phục.");
       throw new Error("Patch failed");
     }
   }, [claims, setClaims, updateClaimLocal]);

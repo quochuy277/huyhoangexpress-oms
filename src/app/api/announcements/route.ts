@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/route-permissions";
+import { announcementCreateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
+import { writeLimiter } from "@/lib/rate-limiter";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 // GET — List announcements (all users, paginated)
 export async function GET(req: NextRequest) {
@@ -60,17 +63,27 @@ export async function POST(req: NextRequest) {
 
     const user = session.user as { id: string; name?: string };
 
-    const body = await req.json();
-    const { title, content, attachmentUrl, attachmentName, isPinned } = body;
+    const rateLimited = writeLimiter.check(`announcement:${user.id}`);
+    if (rateLimited) return rateLimited;
 
-    if (!title?.trim() || !content?.trim()) {
-      return NextResponse.json({ error: "Tiêu đề và nội dung không được để trống" }, { status: 400 });
+    const parsed = announcementCreateSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+        { status: 400 },
+      );
     }
+    const { title, content, attachmentUrl, attachmentName, isPinned } = parsed.data;
+
+    // Defense-in-depth: client also sanitizes at render, but a future consumer
+    // (mobile app, export tool, webhook) could render the raw DB row directly.
+    // Sanitize before persist so the stored content is always XSS-safe.
+    const safeContent = sanitizeHtml(content);
 
     const announcement = await prisma.announcement.create({
       data: {
-        title: title.trim(),
-        content: content.trim(),
+        title,
+        content: safeContent,
         attachmentUrl: attachmentUrl || null,
         attachmentName: attachmentName || null,
         isPinned: !!isPinned,

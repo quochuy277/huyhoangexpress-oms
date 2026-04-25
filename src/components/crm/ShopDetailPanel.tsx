@@ -6,7 +6,9 @@ import {
   X, Phone, MessageSquare, Mail, Handshake, Settings, FileText,
   Loader2, Edit, Save, XCircle, UserPlus
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend
@@ -150,7 +152,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
       refetch();
       queryClient.invalidateQueries({ queryKey: ["crm-shops"] });
     } catch {
-      alert("Lỗi khi lưu thông tin");
+      toast.error("Lỗi khi lưu thông tin");
     } finally {
       setSaving(false);
     }
@@ -168,7 +170,9 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
           .filter((u: { isActive?: boolean }) => u.isActive !== false)
           .map((u: { id: string; name: string }) => ({ id: u.id, name: u.name }))
       );
-    } catch { /* ignore */ }
+    } catch (err) {
+      logger.warn("ShopDetailPanel", "Failed to load users", { error: err });
+    }
   };
 
   const handleAddAssignee = async () => {
@@ -184,7 +188,7 @@ export function ShopDetailPanel({ shopName, userRole, userId, userName, canManag
       setShowAssigneeEditor(false);
       refetch();
     } catch {
-      alert("Lỗi khi gán nhân viên");
+      toast.error("Lỗi khi gán nhân viên");
     } finally {
       setAssignSaving(false);
     }

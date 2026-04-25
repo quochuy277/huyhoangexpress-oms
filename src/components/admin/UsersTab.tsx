@@ -6,6 +6,7 @@ import {
   Plus, Pencil, Key, Trash2, Loader2, X, Eye, EyeOff,
   LogOut, ChevronDown,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -367,8 +368,8 @@ function DeleteUserDialog({ user, onClose, onDeleted }: { user: UserRow; onClose
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
       if (res.ok) { onDeleted(); onClose(); }
-      else { alert("Lỗi khi khóa tài khoản"); }
-    } catch { alert("Lỗi kết nối"); }
+      else { toast.error("Lỗi khi khóa tài khoản"); }
+    } catch { toast.error("Lỗi kết nối"); }
     finally { setDeleting(false); }
   };
 

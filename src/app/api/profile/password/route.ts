@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { BCRYPT_COST } from "@/lib/auth-constants";
+import { sensitiveWriteLimiter } from "@/lib/rate-limiter";
 
 // PATCH — Change password (requires old password)
 export async function PATCH(req: NextRequest) {
@@ -9,6 +11,8 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
+  const rateLimited = sensitiveWriteLimiter.check(`password:${userId}`);
+  if (rateLimited) return rateLimited;
   const { oldPassword, newPassword } = await req.json();
 
   if (!oldPassword || !newPassword) {
@@ -26,7 +30,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Mật khẩu cũ không đúng" }, { status: 400 });
   }
 
-  const hashed = await bcrypt.hash(newPassword, 12);
+  const hashed = await bcrypt.hash(newPassword, BCRYPT_COST);
   await prisma.user.update({ where: { id: userId }, data: { password: hashed } });
 
   return NextResponse.json({ success: true });

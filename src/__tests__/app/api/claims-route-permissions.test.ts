@@ -116,52 +116,76 @@ describe("claims api permissions", () => {
     expect(prisma.claimOrder.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it("caps export volume and marks truncated exports", async () => {
+  it("streams CSV export with correct headers, respects EXPORT_LIMIT, and flags truncation", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession({}) as never);
-    vi.mocked(prisma.claimOrder.findMany).mockResolvedValue([
-      {
-        id: "claim-1",
-        issueType: "LOST",
-        claimStatus: "PENDING",
-        issueDescription: null,
-        detectedDate: new Date("2026-03-28T00:00:00.000Z"),
-        deadline: null,
-        processingContent: null,
-        carrierCompensation: 0,
-        customerCompensation: 0,
-        isCompleted: false,
-        source: "MANUAL",
-        createdAt: new Date("2026-03-28T00:00:00.000Z"),
-        createdBy: { name: "Tester" },
-        order: {
-          requestCode: "REQ-001",
-          carrierOrderCode: "C-001",
-          carrierName: "GHN",
-          shopName: "Shop A",
-          status: "DELIVERED",
-          deliveryStatus: "DELIVERED",
-          codAmount: 100000,
-          totalFee: 25000,
-          staffNotes: "",
-          receiverPhone: "0900000000",
-          receiverName: "A",
-          receiverAddress: "HN",
-          pickupTime: null,
-          regionGroup: "HN",
+    // Simulate a dataset larger than the cap so the truncated header is set.
+    vi.mocked(prisma.claimOrder.count).mockResolvedValue(5000 as never);
+    // Return one row then an empty batch — streaming loop will stop after the
+    // second findMany returns length 0.
+    vi.mocked(prisma.claimOrder.findMany)
+      .mockResolvedValueOnce([
+        {
+          id: "claim-1",
+          issueType: "LOST",
+          claimStatus: "PENDING",
+          issueDescription: null,
+          detectedDate: new Date("2026-03-28T00:00:00.000Z"),
+          deadline: null,
+          processingContent: null,
+          carrierCompensation: 0,
+          customerCompensation: 0,
+          isCompleted: false,
+          source: "MANUAL",
+          createdAt: new Date("2026-03-28T00:00:00.000Z"),
+          createdBy: { name: "Tester" },
+          order: {
+            requestCode: "REQ-001",
+            carrierOrderCode: "C-001",
+            carrierName: "GHN",
+            shopName: "Shop A",
+            status: "DELIVERED",
+            deliveryStatus: "DELIVERED",
+            codAmount: 100000,
+            totalFee: 25000,
+            staffNotes: "",
+            receiverPhone: "0900000000",
+            receiverName: "A",
+            receiverAddress: "HN",
+            pickupTime: null,
+            regionGroup: "HN",
+          },
         },
-      },
-    ] as never);
+      ] as never)
+      .mockResolvedValue([] as never);
 
     const { GET } = await import("@/app/api/claims/export/route");
     const response = await GET(new NextRequest("http://localhost/api/claims/export"));
 
     expect(response.status).toBe(200);
+    // Export is now streamed; findMany is called in 500-row batches rather
+    // than one shot at the cap, so we assert the batch size, not the cap.
     expect(prisma.claimOrder.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        take: 3000,
+        take: 500,
       }),
     );
-    expect(response.headers.get("Content-Type")).toContain("spreadsheetml");
+    expect(response.headers.get("Content-Type")).toContain("text/csv");
     expect(response.headers.get("Server-Timing")).toContain("total;dur=");
+    expect(response.headers.get("X-Claims-Export-Limit")).toBe("3000");
+    // count() returned 5000 > 3000, so truncation flag is set.
+    expect(response.headers.get("X-Claims-Export-Truncated")).toBe("true");
+
+    // Drain the stream to make sure it actually produces a CSV body with
+    // header + at least one data row. Read as raw bytes so we can verify the
+    // UTF-8 BOM is present — `response.text()` silently strips leading BOMs
+    // via the TextDecoder defaults, so a byte check is the only reliable way
+    // to assert it was emitted.
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    expect(bytes[0]).toBe(0xef);
+    expect(bytes[1]).toBe(0xbb);
+    expect(bytes[2]).toBe(0xbf);
+    const body = new TextDecoder("utf-8").decode(bytes);
+    expect(body).toContain("Mã Yêu Cầu");
+    expect(body).toContain("REQ-001");
   });
 });

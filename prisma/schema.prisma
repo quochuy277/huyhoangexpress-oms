@@ -557,6 +557,24 @@ model LoginHistory {
   @@index([logoutTime])
 }
 
+// Per-attempt audit log for the credentials login flow. Unlike LoginHistory
+// (which only records successes after the credential check passes), this
+// table captures BOTH success and failure paths so we can spot brute-force
+// patterns by email or IP. Email is stored verbatim to support forensic
+// queries even when the email never matches an existing user.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ipAddress String
+  userAgent String?
+  success   Boolean
+  reason    String?  // "invalid_password" | "user_not_found" | "rate_limit" | "ok"
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+}
+
 model SystemSetting {
   id        String    @id @default(cuid())
   key       String    @unique

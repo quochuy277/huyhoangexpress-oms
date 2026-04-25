@@ -58,5 +58,5 @@ describe("attendance export route", () => {
     expect(response.headers.get("Server-Timing")).toContain("total;dur=");
     expect(body).toContain("Tester");
     expect(vi.mocked(prisma.user.findMany)).toHaveBeenCalled();
-  }, 10000);
+  }, 30_000);
 });

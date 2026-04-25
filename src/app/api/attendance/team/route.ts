@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/route-permissions";
 import { logger } from "@/lib/logger";
 
 // GET — team attendance for a month (manager/admin)
@@ -8,6 +9,9 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+
+    const denied = requirePermission(session.user, "canViewAllAttendance", "Bạn không có quyền xem chấm công toàn công ty");
+    if (denied) return denied;
 
     const url = new URL(req.url);
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);

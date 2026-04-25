@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { Check, Loader2, Plus, Search, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, Plus, Search, X } from "lucide-react";
 
 import {
   CLAIM_STATUS_CONFIG,
   ISSUE_TYPE_CONFIG,
   formatClaimMoney,
 } from "@/lib/claims-config";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 const ClaimDetailDrawer = dynamic(
   () => import("@/components/claims/ClaimDetailDrawer").then((module) => ({
@@ -135,6 +136,7 @@ export function AddClaimDialog({
   const [error, setError] = useState("");
   const [duplicateClaimId, setDuplicateClaimId] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
+  const { confirm, element: confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     if (prefillOrder) {
@@ -204,9 +206,14 @@ export function AddClaimDialog({
       if (!response.ok) {
         if (response.status === 409) {
           setError(data.error || "Đơn đã có trong Đơn có vấn đề.");
-          const confirmed = window.confirm(
-            `Đơn ${selected.requestCode || "này"} đã có trong Đơn có vấn đề. Bạn có muốn mở chi tiết đơn hiện có để sửa lại không?`,
-          );
+          const confirmed = await confirm({
+            title: "Đơn đã tồn tại",
+            description: `Đơn ${selected.requestCode || "này"} đã có trong Đơn có vấn đề. Bạn có muốn mở chi tiết đơn hiện có để sửa lại không?`,
+            confirmLabel: "Mở chi tiết",
+            cancelLabel: "Đóng",
+            tone: "info",
+            icon: <ExternalLink size={26} />,
+          });
           if (confirmed && data?.claim?.id) {
             setDuplicateClaimId(data.claim.id);
           }
@@ -453,6 +460,8 @@ export function AddClaimDialog({
         onClose={() => setDuplicateClaimId(null)}
         onUpdate={onSuccess}
       />
+
+      {confirmDialog}
     </>,
     document.body,
   );

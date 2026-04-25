@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn, signOut } from "@/lib/auth";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 
 export async function loginAction(formData: FormData) {
   const email = formData.get("email") as string;
@@ -15,6 +15,17 @@ export async function loginAction(formData: FormData) {
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      // Rate-limit surfaces as a CredentialsSignin subclass with code="RateLimit".
+      // Separate its message so users know to wait, not to re-type credentials.
+      if (
+        error instanceof CredentialsSignin &&
+        (error as CredentialsSignin & { code?: string }).code === "RateLimit"
+      ) {
+        return {
+          error: "Quá nhiều lần đăng nhập sai. Vui lòng đợi vài phút rồi thử lại.",
+        };
+      }
+
       switch (error.type) {
         case "CredentialsSignin":
           return { error: "Email hoặc mật khẩu không đúng" };

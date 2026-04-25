@@ -50,13 +50,17 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Get assigned shop names if restricted
+    // Get assigned shop names if restricted.
+    // Over-fetch fix (Sprint 2): the previous version used `include: { shop }`,
+    // which pulls every column of ShopAssignment + every column of ShopProfile
+    // (including `internalShopNote`, a Text blob). We only need the shopName
+    // to build the allow-list — select exactly that.
     let assignedShopNames: string[] | null = null;
     if (!canViewAll) {
       const assignments = await timing.measure("assignments", () =>
         prisma.shopAssignment.findMany({
           where: { userId },
-          include: { shop: { select: { shopName: true } } },
+          select: { shop: { select: { shopName: true } } },
         }),
       );
       assignedShopNames = assignments.map((a) => a.shop.shopName);
@@ -68,11 +72,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // If filtering by assignee
+    // If filtering by assignee — same over-fetch fix as above.
     if (assigneeFilter) {
       const assigneeAssignments = await prisma.shopAssignment.findMany({
         where: { userId: assigneeFilter },
-        include: { shop: { select: { shopName: true } } },
+        select: { shop: { select: { shopName: true } } },
       });
       const assigneeShops = assigneeAssignments.map((a) => a.shop.shopName);
       if (assignedShopNames) {
@@ -148,12 +152,19 @@ export async function GET(request: NextRequest) {
         },
         _count: { id: true },
       }),
-      // Shop profiles for classification overrides & assignments
+      // Shop profiles for classification overrides & assignments.
+      // Over-fetch fix (Sprint 2): switched from `include` to `select` so we
+      // skip loading `internalShopNote` (Text), `address`, `phone`, `email`,
+      // `contactPerson`, `zalo`, `startDate`, `createdAt`, `updatedAt` —
+      // none of which this endpoint returns. Saves bytes on responses where
+      // many shops have long notes.
       prisma.shopProfile.findMany({
         where: assignedShopNames !== null ? { shopName: { in: assignedShopNames } } : {},
-        include: {
+        select: {
+          shopName: true,
+          classification: true,
           assignments: {
-            include: {
+            select: {
               user: { select: { id: true, name: true } },
             },
           },

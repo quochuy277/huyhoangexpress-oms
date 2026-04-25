@@ -9,6 +9,7 @@ import {
   todoVersionRequiredResponse,
 } from "@/lib/todo-optimistic-lock";
 import { canViewAllTodos } from "@/lib/todo-permissions";
+import { writeLimiter } from "@/lib/rate-limiter";
 
 // PATCH - Batch reorder for Kanban drag
 export async function PATCH(req: NextRequest) {
@@ -16,6 +17,9 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
   }
+
+  const rateLimited = writeLimiter.check(`todo:${session.user.id}`);
+  if (rateLimited) return rateLimited;
 
   const { items } = await req.json();
   if (!Array.isArray(items)) {

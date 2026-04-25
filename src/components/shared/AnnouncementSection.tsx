@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Loader2, X, Pin, Paperclip, Bold, Italic, Type, Palette, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, X, Pin, Paperclip, Bold, Italic, Type, Palette, Eye, Bell } from "lucide-react";
 import { sanitizeHtml, stripHtml } from "@/lib/sanitize";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 /* ============================================================
    Shared styles
@@ -77,10 +78,38 @@ export function AnnouncementSection() {
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const handleDelete = async (id: string) => {
+    // Optimistic delete (Sprint 2, 2026-04): remove the row from the local
+    // list before firing the DELETE so the admin sees the row disappear
+    // instantly. On failure we re-insert the row at its original index.
+    const snapshot = items;
+    const index = snapshot.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    }
+    setDeleteItem(null);
+
     try {
       const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
-      if (res.ok) { fetchItems(); setDeleteItem(null); }
-    } catch (err) { console.warn("[AnnouncementSection] Failed to delete announcement:", err); }
+      if (res.ok) {
+        // Re-sync in the background to pick up any concurrent admin edits.
+        void fetchItems();
+      } else if (index !== -1) {
+        setItems((prev) => {
+          const next = [...prev];
+          next.splice(index, 0, snapshot[index]);
+          return next;
+        });
+      }
+    } catch (err) {
+      if (index !== -1) {
+        setItems((prev) => {
+          const next = [...prev];
+          next.splice(index, 0, snapshot[index]);
+          return next;
+        });
+      }
+      console.warn("[AnnouncementSection] Failed to delete announcement:", err);
+    }
   };
 
   return (
@@ -103,9 +132,12 @@ export function AnnouncementSection() {
             <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: "#9ca3af" }} />
           </div>
         ) : items.length === 0 ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>
-            Chưa có thông báo nào
-          </div>
+          <EmptyState
+            icon={<Bell className="h-5 w-5" />}
+            title="Chưa có thông báo nào"
+            description="Khi có thông báo mới, chúng sẽ hiện ở đây."
+            className="border-0"
+          />
         ) : (
           items.map((item, i) => (
             <div key={item.id} style={{

@@ -1,13 +1,13 @@
 "use client";
 
 import { useSearchParams, usePathname } from "next/navigation";
-import { Users, Target } from "lucide-react";
+import { Users, Target, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShopManagementTab } from "./ShopManagementTab";
 import dynamic from "next/dynamic";
 import { buildCrmTabHref, getCrmTab, type CrmTabKey } from "./crm-tabs";
 
-const ProspectPipelineTab = dynamic(() => import("./ProspectPipelineTab").then(m => ({ default: m.ProspectPipelineTab })), { loading: () => <div className="h-96 flex items-center justify-center text-slate-400">Đang tải...</div> });
+const ProspectPipelineTab = dynamic(() => import("./ProspectPipelineTab").then(m => ({ default: m.ProspectPipelineTab })), { loading: () => <div className="h-96 flex items-center justify-center gap-2 text-slate-400"><Loader2 className="animate-spin" size={18} /><span>Đang tải...</span></div> });
 
 interface CrmClientProps {
   userRole: string;

@@ -18,6 +18,8 @@ import { ClaimsMobileList } from "@/components/claims/claims-table/ClaimsMobileL
 import { ClaimsToolbar } from "@/components/claims/claims-table/ClaimsToolbar";
 import { CLAIMS_MOBILE_BREAKPOINT, shouldUseClaimsMobileCards } from "@/components/claims/claims-table/claimsResponsive";
 import { InlineStaffNote } from "@/components/shared/InlineStaffNote";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Inbox } from "lucide-react";
 import { useClaimMutations } from "@/hooks/useClaimMutations";
 import { useClaimsFilters } from "@/hooks/useClaimsFilters";
 import { useClaimsList } from "@/hooks/useClaimsList";
@@ -845,7 +847,12 @@ function ClaimsClientInner({
           {loading ? (
             <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}><Loader2 className="animate-spin inline" size={20} /> Đang tải...</div>
           ) : claims.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}>Không có đơn nào</div>
+            <EmptyState
+              icon={<Inbox className="h-5 w-5" />}
+              title="Không có đơn nào"
+              description="Hãy thử bỏ bớt bộ lọc hoặc đổi khoảng thời gian."
+              className="border-0"
+            />
           ) : (
             claims.map((c: any, idx: number) => {
               const daysPending = daysBetween(c.detectedDate);
@@ -1230,6 +1237,7 @@ function ClaimsClientInner({
                               onClick={() => setDetailClaimId(c.id)}
                               className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors"
                               title="Xem chi tiết"
+                              aria-label="Xem chi tiết đơn khiếu nại"
                             >
                               <Eye size={12} />
                             </button>
@@ -1237,6 +1245,7 @@ function ClaimsClientInner({
                               onClick={(e) => { e.stopPropagation(); setTodoClaimOrder(c); }}
                               className="p-1 w-6 h-6 flex items-center justify-center text-blue-500 hover:bg-blue-50 hover:text-blue-600 rounded border border-transparent hover:border-blue-200 transition-colors"
                               title="Thêm vào công việc"
+                              aria-label="Thêm đơn vào công việc"
                             >
                               <CheckSquare size={12} />
                             </button>
@@ -1245,6 +1254,7 @@ function ClaimsClientInner({
                               disabled={!completeAction.canToggle}
                               className={`p-1 w-6 h-6 flex items-center justify-center rounded border border-transparent transition-colors ${completeAction.className}`}
                               title={completeAction.title}
+                              aria-label={completeAction.title}
                               style={{ opacity: completeAction.canToggle ? 1 : 0.45, cursor: completeAction.canToggle ? "pointer" : "not-allowed" }}
                             >
                               {c.isCompleted ? <RotateCcw size={12} /> : <Check size={12} />}
@@ -1253,6 +1263,7 @@ function ClaimsClientInner({
                               onClick={() => handleDelete(c.id, c.order?.requestCode || "")}
                               className="p-1 w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 rounded border border-transparent hover:border-red-200 transition-colors"
                               title="Xóa đơn"
+                              aria-label="Xóa đơn khiếu nại"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -1260,6 +1271,7 @@ function ClaimsClientInner({
                               onClick={() => setTrackingCode(c.order?.requestCode || "")}
                               className="p-1 w-6 h-6 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 rounded border border-transparent hover:border-emerald-200 transition-colors"
                               title="Tra hành trình"
+                              aria-label="Tra hành trình đơn hàng"
                             >
                               <Truck size={12} />
                             </button>

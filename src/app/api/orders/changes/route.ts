@@ -99,6 +99,11 @@ export async function GET(req: Request) {
           ]
         : { [orderByField]: orderByDirection };
 
+    // Over-fetch fix (Sprint 2): previous version used `include` which pulls
+    // every scalar of OrderChangeLog — including `uploadHistoryId` which the
+    // UI never reads. Swap to explicit `select` so only fields the frontend
+    // consumes cross the wire. `previousValue`/`newValue`/`changeDetail` are
+    // Text columns so the saving matters on large pages.
     const [total, changeLogs] = await Promise.all([
       prisma.orderChangeLog.count({ where }),
       prisma.orderChangeLog.findMany({
@@ -106,7 +111,15 @@ export async function GET(req: Request) {
         skip: offset,
         take: pageSize,
         orderBy: orderByClause,
-        include: {
+        select: {
+          id: true,
+          requestCode: true,
+          changeType: true,
+          previousValue: true,
+          newValue: true,
+          changeDetail: true,
+          changeTimestamp: true,
+          detectedAt: true,
           order: {
             select: {
               shopName: true,

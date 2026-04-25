@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProspectFormDialogProps {
   userId: string;
@@ -69,7 +70,7 @@ export function ProspectFormDialog({ userId, onClose }: ProspectFormDialogProps)
       if (!res.ok) throw new Error("Failed to create");
       onClose();
     } catch {
-      alert("Lỗi khi tạo prospect");
+      toast.error("Lỗi khi tạo prospect");
     } finally {
       setSaving(false);
     }
@@ -84,7 +85,11 @@ export function ProspectFormDialog({ userId, onClose }: ProspectFormDialogProps)
         <div className="bg-white rounded-xl border-[1.5px] border-blue-600 shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 sticky top-0 bg-white z-10">
             <h3 className="text-sm font-bold text-slate-800">Thêm Prospect mới</h3>
-            <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-slate-700">
+            <button
+              onClick={onClose}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+              aria-label="Đóng hộp thoại"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>

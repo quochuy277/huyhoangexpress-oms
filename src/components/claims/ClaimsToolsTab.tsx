@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { CLAIMS_MOBILE_BREAKPOINT } from "@/components/claims/claims-table/claimsResponsive";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 /* ============================================================
    STYLES
@@ -78,6 +79,7 @@ export default function ClaimsToolsTab({ isAdmin, canManageDocuments, canManageL
   const canEditDocs = canManageDocuments ?? isAdmin;
   const canEditLinks = canManageLinks ?? isAdmin;
   const queryClient = useQueryClient();
+  const { confirm, element: confirmDialog } = useConfirmDialog();
 
   // Dialog/form state
   const [uploadDialog, setUploadDialog] = useState(false);
@@ -165,7 +167,15 @@ export default function ClaimsToolsTab({ isAdmin, canManageDocuments, canManageL
 
   // Delete document
   const handleDeleteDoc = async (id: string, name: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa tài liệu '${name}'?`)) return;
+    const ok = await confirm({
+      title: "Xóa tài liệu?",
+      description: `Tài liệu '${name}' sẽ bị xóa vĩnh viễn và không thể khôi phục.`,
+      confirmLabel: "Xóa",
+      cancelLabel: "Hủy",
+      tone: "danger",
+      icon: <Trash2 size={26} />,
+    });
+    if (!ok) return;
     await fetch(`/api/documents/${id}`, { method: "DELETE" });
     queryClient.invalidateQueries({ queryKey: ["claims-documents"] });
   };
@@ -195,7 +205,15 @@ export default function ClaimsToolsTab({ isAdmin, canManageDocuments, canManageL
 
   // Delete link
   const handleDeleteLink = async (id: string, title: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa đường dẫn '${title}'?`)) return;
+    const ok = await confirm({
+      title: "Xóa đường dẫn?",
+      description: `Đường dẫn '${title}' sẽ bị xóa khỏi danh sách.`,
+      confirmLabel: "Xóa",
+      cancelLabel: "Hủy",
+      tone: "danger",
+      icon: <Trash2 size={26} />,
+    });
+    if (!ok) return;
     await fetch(`/api/links/${id}`, { method: "DELETE" });
     queryClient.invalidateQueries({ queryKey: ["claims-links"] });
   };
@@ -629,6 +647,8 @@ export default function ClaimsToolsTab({ isAdmin, canManageDocuments, canManageL
           </div>
         </div>
       </Dialog>
+
+      {confirmDialog}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   X, Loader2, Phone, MessageSquare, Mail, Handshake,
   Settings, FileText, PackageX, RotateCcw, Send, Clock
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface ProspectDetailSheetProps {
@@ -117,7 +118,7 @@ export function ProspectDetailSheet({ prospectId, userId, userName, onClose, onM
       setContactFollowUp("");
       refetch();
     } catch {
-      alert("Lỗi khi ghi nhận");
+      toast.error("Lỗi khi ghi nhận");
     } finally {
       setSendingLog(false);
     }

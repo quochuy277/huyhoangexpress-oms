@@ -14,7 +14,9 @@ const FILE_EXPECTATIONS: Array<{ path: string; phrases: string[] }> = [
     path: "src/hooks/useClaimMutations.ts",
     phrases: [
       "File export chỉ bao gồm",
-      "Lỗi khi xuất file Excel. Vui lòng thử lại.",
+      // Sprint 2 (2026-04): claims export switched from XLSX to streamed CSV;
+      // the user-visible error copy was simplified to "Lỗi khi xuất file".
+      "Lỗi khi xuất file. Vui lòng thử lại.",
       "Cập nhật thất bại. Dữ liệu đã được khôi phục.",
     ],
   },

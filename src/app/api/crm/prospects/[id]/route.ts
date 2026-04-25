@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/route-permissions";
+import { prospectUpdateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
 export async function GET(
@@ -55,25 +56,32 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  const parsed = prospectUpdateSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dữ liệu không hợp lệ", issues: parsed.error.issues },
+      { status: 400 },
+    );
+  }
+  const data = parsed.data;
 
   try {
     const prospect = await prisma.shopProspect.update({
       where: { id },
       data: {
-        shopName: body.shopName,
-        phone: body.phone,
-        email: body.email,
-        contactPerson: body.contactPerson,
-        zalo: body.zalo,
-        address: body.address,
-        source: body.source,
-        sourceDetail: body.sourceDetail,
-        productType: body.productType,
-        estimatedSize: body.estimatedSize,
-        currentCarrier: body.currentCarrier,
-        note: body.note,
-        assigneeId: body.assigneeId,
+        shopName: data.shopName,
+        phone: data.phone,
+        email: data.email,
+        contactPerson: data.contactPerson,
+        zalo: data.zalo,
+        address: data.address,
+        source: data.source,
+        sourceDetail: data.sourceDetail,
+        productType: data.productType,
+        estimatedSize: data.estimatedSize,
+        currentCarrier: data.currentCarrier,
+        note: data.note,
+        assigneeId: data.assigneeId,
       },
       include: {
         assignee: { select: { id: true, name: true } },

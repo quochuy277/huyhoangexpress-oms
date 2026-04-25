@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-client-error";
 
 export default function AuthError({
     error,
@@ -11,6 +12,7 @@ export default function AuthError({
 }) {
     useEffect(() => {
         console.error("[Auth Error]", error);
+        reportClientError("auth", error);
     }, [error]);
 
     return (

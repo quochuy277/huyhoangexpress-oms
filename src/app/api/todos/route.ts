@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canViewAllTodos } from "@/lib/todo-permissions";
 import { resolveTodoAssigneeFilter } from "@/lib/todo-scope";
+import { writeLimiter } from "@/lib/rate-limiter";
 
 // GET - List todos with filters
 export async function GET(req: NextRequest) {
@@ -98,6 +99,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
   }
+
+  const rateLimited = writeLimiter.check(`todo:${session.user.id}`);
+  if (rateLimited) return rateLimited;
 
   const body = await req.json();
   const { title, description, priority, dueDate, linkedOrderId, source, assigneeId } = body;

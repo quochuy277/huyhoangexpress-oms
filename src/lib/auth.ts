@@ -1,16 +1,24 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { extractPermissions, getDefaultPermissions } from "@/lib/permissions";
 import { parseDeviceType, getVietnamToday, isAfterTime, calculateLateMinutes, getAttendanceSettings } from "@/lib/attendance";
+import { loginLimiter } from "@/lib/rate-limiter";
 import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 import type { PermissionSet } from "@/lib/permissions";
 import { logger } from "@/lib/logger";
+import { DUMMY_BCRYPT_HASH, BCRYPT_COST } from "@/lib/auth-constants";
 
 const PERMISSIONS_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30 for faster permission propagation)
+
+// Custom code surfaced by NextAuth so the server action can distinguish
+// rate-limit errors from generic "wrong credentials".
+class RateLimitError extends CredentialsSignin {
+  code = "RateLimit";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -61,6 +69,48 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // Resolve IP + user-agent early so we can rate-limit before hitting the DB
+        let ipAddress = "unknown";
+        let userAgent = "unknown";
+        try {
+          const hdrs = await headers();
+          ipAddress = hdrs.get("x-forwarded-for") || hdrs.get("x-real-ip") || "unknown";
+          userAgent = hdrs.get("user-agent") || "unknown";
+        } catch { /* headers not available */ }
+
+        // Non-blocking helper to record a login attempt for forensics.
+        // Wrapped in a try/catch fire-and-forget — we never want auth to fail
+        // because the audit table is unavailable.
+        const recordAttempt = (success: boolean, reason: string) => {
+          prisma.loginAttempt
+            .create({
+              data: {
+                email: (credentials.email as string) ?? "",
+                ipAddress,
+                userAgent,
+                success,
+                reason,
+              },
+            })
+            .catch((error) =>
+              logger.warn("auth.authorize", "Failed to record login attempt", {
+                error,
+              }),
+            );
+        };
+
+        // Rate limit by IP — only count FAILED logins, not successful ones.
+        // peek() returns 429 if the bucket is already over the limit without
+        // incrementing; we'll bump the counter only on the failure path below.
+        // This prevents an office of 5+ users behind one NAT from locking
+        // themselves out with correct credentials.
+        const rateLimited = loginLimiter.peek(ipAddress);
+        if (rateLimited) {
+          logger.warn("auth.authorize", "Login rate limit hit", { ipAddress });
+          recordAttempt(false, "rate_limit");
+          throw new RateLimitError();
+        }
+
         try {
           const user = await prisma.user.findUnique({
             where: {
@@ -70,23 +120,64 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             include: { permissionGroup: true },
           });
 
-          if (!user) return null;
-
+          // Always run bcrypt.compare to equalize timing between
+          // "user not found" and "user found, wrong password". Without this,
+          // attackers can enumerate emails by measuring response times.
+          const hash = user?.password ?? DUMMY_BCRYPT_HASH;
           const isValid = await bcrypt.compare(
             credentials.password as string,
-            user.password
+            hash,
           );
 
-          if (!isValid) return null;
+          if (!user || !isValid) {
+            recordAttempt(false, !user ? "user_not_found" : "invalid_password");
+            // Count this failure against the IP bucket. Successful logins
+            // intentionally don't increment so shared-NAT offices aren't locked
+            // out by their own valid sign-ins.
+            const failBlocked = loginLimiter.check(ipAddress);
+            if (failBlocked) {
+              logger.warn("auth.authorize", "Login rate limit hit on failure", {
+                ipAddress,
+              });
+              throw new RateLimitError();
+            }
+            return null;
+          }
 
-          // Get request headers for IP and user-agent
-          let ipAddress = "unknown";
-          let userAgent = "unknown";
+          recordAttempt(true, "ok");
+
+          // Silent rehash: if the stored hash uses fewer rounds than the
+          // current BCRYPT_COST (e.g. imported from a legacy system), upgrade
+          // it now that we have the plaintext. Non-blocking — login succeeds
+          // whether or not the re-hash lands. The update is gated on the
+          // ORIGINAL hash so a concurrent password change can't be clobbered
+          // by this stale rehash.
           try {
-            const hdrs = await headers();
-            ipAddress = hdrs.get("x-forwarded-for") || hdrs.get("x-real-ip") || "unknown";
-            userAgent = hdrs.get("user-agent") || "unknown";
-          } catch { /* headers not available */ }
+            const currentRounds = bcrypt.getRounds(user.password);
+            if (currentRounds < BCRYPT_COST) {
+              const originalHash = user.password;
+              bcrypt
+                .hash(credentials.password as string, BCRYPT_COST)
+                .then((rehashed) =>
+                  prisma.user.updateMany({
+                    where: { id: user.id, password: originalHash },
+                    data: { password: rehashed },
+                  }),
+                )
+                .catch((error) =>
+                  logger.warn("auth.authorize", "Silent rehash failed", {
+                    error,
+                    userId: user.id,
+                  }),
+                );
+            }
+          } catch (error) {
+            // getRounds throws on malformed hashes — log but don't fail login
+            logger.warn("auth.authorize", "Could not inspect bcrypt rounds", {
+              error,
+              userId: user.id,
+            });
+          }
 
           const deviceType = parseDeviceType(userAgent);
           const now = new Date();
@@ -150,6 +241,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             permissions,
           };
         } catch (error) {
+          // Let NextAuth's typed credential errors (e.g. RateLimitError) surface
+          // so the login UI can show the right message instead of a generic
+          // "wrong credentials" fallback.
+          if (error instanceof CredentialsSignin) throw error;
           logger.error("auth.authorize", "Failed to authorize credentials", error, {
             email: credentials.email as string,
           });

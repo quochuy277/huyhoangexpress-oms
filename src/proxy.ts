@@ -23,11 +23,33 @@ const ROUTE_PERMISSIONS: Record<string, keyof PermissionSet> = {
   "/overview": "canViewDashboard",
 };
 
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// Defense-in-depth CSRF check for API state-changing requests.
+// NextAuth callback routes are excluded because the provider handles its own
+// checks and some flows (e.g. OAuth redirect) arrive with a different origin.
+function isApiOriginMismatch(req: NextRequest): boolean {
+  if (!req.nextUrl.pathname.startsWith("/api/")) return false;
+  if (req.nextUrl.pathname.startsWith("/api/auth/")) return false;
+  if (!MUTATING_METHODS.has(req.method.toUpperCase())) return false;
+
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  return origin !== req.nextUrl.origin;
+}
+
 export default auth((req: NextRequest & { auth: { user?: { role?: string; permissions?: PermissionSet } } | null }) => {
   const { pathname } = req.nextUrl;
   const hostname = req.nextUrl.hostname;
   const session = req.auth;
   const isLoggedIn = !!session?.user;
+
+  if (pathname.startsWith("/api/")) {
+    if (isApiOriginMismatch(req)) {
+      return NextResponse.json({ error: "Origin không hợp lệ" }, { status: 403 });
+    }
+    return NextResponse.next();
+  }
 
   if (hostname === "login.huyhoang.express") {
     if (isLoggedIn) {
@@ -72,6 +94,6 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; permis
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -8,6 +8,7 @@ import {
   todoVersionRequiredResponse,
 } from "@/lib/todo-optimistic-lock";
 import { requireTodoAccess } from "@/lib/todo-permissions";
+import { writeLimiter } from "@/lib/rate-limiter";
 
 // PATCH - Toggle complete
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +16,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Ch\u01b0a \u0111\u0103ng nh\u1eadp" }, { status: 401 });
   }
+
+  const rateLimited = writeLimiter.check(`todo:${session.user.id}`);
+  if (rateLimited) return rateLimited;
 
   const { id } = await params;
   const access = await requireTodoAccess(session.user, id);
