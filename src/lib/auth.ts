@@ -78,6 +78,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           userAgent = hdrs.get("user-agent") || "unknown";
         } catch { /* headers not available */ }
 
+        // Non-blocking helper to record a login attempt for forensics.
+        // Wrapped in a try/catch fire-and-forget — we never want auth to fail
+        // because the audit table is unavailable.
+        const recordAttempt = (success: boolean, reason: string) => {
+          prisma.loginAttempt
+            .create({
+              data: {
+                email: (credentials.email as string) ?? "",
+                ipAddress,
+                userAgent,
+                success,
+                reason,
+              },
+            })
+            .catch((error) =>
+              logger.warn("auth.authorize", "Failed to record login attempt", {
+                error,
+              }),
+            );
+        };
+
         // Rate limit by IP — only count FAILED logins, not successful ones.
         // peek() returns 429 if the bucket is already over the limit without
         // incrementing; we'll bump the counter only on the failure path below.
@@ -86,6 +107,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const rateLimited = loginLimiter.peek(ipAddress);
         if (rateLimited) {
           logger.warn("auth.authorize", "Login rate limit hit", { ipAddress });
+          recordAttempt(false, "rate_limit");
           throw new RateLimitError();
         }
 
@@ -108,6 +130,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           );
 
           if (!user || !isValid) {
+            recordAttempt(false, !user ? "user_not_found" : "invalid_password");
             // Count this failure against the IP bucket. Successful logins
             // intentionally don't increment so shared-NAT offices aren't locked
             // out by their own valid sign-ins.
@@ -120,6 +143,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
             return null;
           }
+
+          recordAttempt(true, "ok");
 
           // Silent rehash: if the stored hash uses fewer rounds than the
           // current BCRYPT_COST (e.g. imported from a legacy system), upgrade

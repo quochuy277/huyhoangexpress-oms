@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/route-permissions";
 import { announcementCreateSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 import { writeLimiter } from "@/lib/rate-limiter";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 // GET — List announcements (all users, paginated)
 export async function GET(req: NextRequest) {
@@ -74,10 +75,15 @@ export async function POST(req: NextRequest) {
     }
     const { title, content, attachmentUrl, attachmentName, isPinned } = parsed.data;
 
+    // Defense-in-depth: client also sanitizes at render, but a future consumer
+    // (mobile app, export tool, webhook) could render the raw DB row directly.
+    // Sanitize before persist so the stored content is always XSS-safe.
+    const safeContent = sanitizeHtml(content);
+
     const announcement = await prisma.announcement.create({
       data: {
         title,
-        content,
+        content: safeContent,
         attachmentUrl: attachmentUrl || null,
         attachmentName: attachmentName || null,
         isPinned: !!isPinned,
