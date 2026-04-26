@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import { authConfig } from "@/lib/auth.config";
 import { hasPermission } from "@/lib/route-permissions";
 import type { PermissionSet } from "@/lib/permissions";
+import { isMutatingMethod, isSameOriginRequest } from "@/lib/api-guard";
 
 const { auth } = NextAuth(authConfig);
 
@@ -23,19 +24,16 @@ const ROUTE_PERMISSIONS: Record<string, keyof PermissionSet> = {
   "/overview": "canViewDashboard",
 };
 
-const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-
 // Defense-in-depth CSRF check for API state-changing requests.
 // NextAuth callback routes are excluded because the provider handles its own
 // checks and some flows (e.g. OAuth redirect) arrive with a different origin.
 function isApiOriginMismatch(req: NextRequest): boolean {
   if (!req.nextUrl.pathname.startsWith("/api/")) return false;
   if (req.nextUrl.pathname.startsWith("/api/auth/")) return false;
-  if (!MUTATING_METHODS.has(req.method.toUpperCase())) return false;
+  if (req.nextUrl.pathname === "/api/orders/auto-import") return false;
+  if (!isMutatingMethod(req.method)) return false;
 
-  const origin = req.headers.get("origin");
-  if (!origin) return true;
-  return origin !== req.nextUrl.origin;
+  return !isSameOriginRequest(req);
 }
 
 export default auth((req: NextRequest & { auth: { user?: { role?: string; permissions?: PermissionSet } } | null }) => {

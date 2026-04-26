@@ -2,9 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { assertSameOrigin } from "@/lib/api-guard";
 
-function makeReq(method: string, url: string, origin?: string | null): Request {
+function makeReq(
+  method: string,
+  url: string,
+  origin?: string | null,
+  extraHeaders: Record<string, string> = {},
+): Request {
   const headers = new Headers();
   if (origin !== null && origin !== undefined) headers.set("origin", origin);
+  for (const [key, value] of Object.entries(extraHeaders)) {
+    headers.set(key, value);
+  }
   return new Request(url, { method, headers });
 }
 
@@ -20,6 +28,28 @@ describe("assertSameOrigin", () => {
       makeReq("POST", "https://app.local/api/x", "https://app.local"),
     );
     expect(res).toBeNull();
+  });
+
+  it("allows mutating verbs when origin matches forwarded deployment host", () => {
+    const res = assertSameOrigin(
+      makeReq("POST", "http://127.0.0.1:3000/api/orders/upload", "https://huyhoang.express", {
+        "x-forwarded-host": "huyhoang.express",
+        "x-forwarded-proto": "https",
+      }),
+    );
+    expect(res).toBeNull();
+  });
+
+  it("allows mutating verbs when origin matches configured app URL", () => {
+    process.env.APP_URL = "https://orders.example.com";
+    try {
+      const res = assertSameOrigin(
+        makeReq("POST", "http://127.0.0.1:3000/api/orders/upload", "https://orders.example.com"),
+      );
+      expect(res).toBeNull();
+    } finally {
+      delete process.env.APP_URL;
+    }
   });
 
   it("rejects mutating verbs when origin is missing", async () => {

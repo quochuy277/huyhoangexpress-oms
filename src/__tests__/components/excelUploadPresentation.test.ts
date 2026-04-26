@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import * as ExcelUploadModule from "@/components/orders/ExcelUpload";
 
-const makeResult = (overrides: Record<string, unknown> = {}) => ({
+type UploadResult = Parameters<typeof ExcelUploadModule.getUploadResultPresentation>[0];
+
+const makeResult = (overrides: Partial<UploadResult> = {}): UploadResult => ({
   success: true,
   outcome: "success",
   summary: {
