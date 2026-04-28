@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
 
-const HEARTBEAT_INTERVAL = 10 * 60 * 1000; // Reduce steady loginHistory writes on Supabase Nano.
+const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // Keep attendance sessions fresh every 5 minutes.
 const INITIAL_HEARTBEAT_DELAY = 15 * 1000;
 
 export default function HeartbeatProvider() {
