@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger";
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MIN_FORM_ELAPSED_MS = 1000;
+const MAX_FORM_ELAPSED_MS = 2 * 60 * 60 * 1000;
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
@@ -62,6 +64,16 @@ export async function POST(req: NextRequest) {
     if (body.website) {
       // Honeypot field filled → bot
       return NextResponse.json({ success: true }); // Fake success to confuse bot
+    }
+
+    const startedAt = Number(body.startedAt);
+    const elapsedMs = Date.now() - startedAt;
+    if (
+      !Number.isFinite(startedAt) ||
+      elapsedMs < MIN_FORM_ELAPSED_MS ||
+      elapsedMs > MAX_FORM_ELAPSED_MS
+    ) {
+      return NextResponse.json({ success: true });
     }
 
     const {

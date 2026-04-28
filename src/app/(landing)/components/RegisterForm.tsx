@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AlertCircle, CheckCircle2, Headphones, Loader2, Phone, Send } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const PRODUCT_OPTIONS = ["Thời trang", "Mỹ phẩm", "Thực phẩm", "Điện tử", "Khác"];
 const ORDER_OPTIONS = ["Dưới 30", "30-100", "100-500", "Trên 500"];
@@ -10,6 +10,7 @@ const ORDER_OPTIONS = ["Dưới 30", "30-100", "100-500", "Trên 500"];
 type FormState = "idle" | "loading" | "success" | "error";
 
 export function RegisterForm() {
+  const formStartedAtRef = useRef<number | null>(null);
   const [state, setState] = useState<FormState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [form, setForm] = useState({
@@ -25,6 +26,10 @@ export function RegisterForm() {
 
   const updateField = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    formStartedAtRef.current = Date.now();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +52,7 @@ export function RegisterForm() {
       const res = await fetch("/api/landing/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, startedAt: formStartedAtRef.current ?? 0 }),
       });
       const data = await res.json();
 
