@@ -73,7 +73,7 @@ type CacheEntry<T> = {
   value: T;
 };
 
-const CRM_SHOPS_CACHE_TTL_MS = 30_000;
+const CRM_SHOPS_CACHE_TTL_MS = 5 * 60_000;
 const CRM_SHOPS_CACHE_MAX_ENTRIES = 10;
 
 const crmShopsBootstrapCache = new Map<string, CacheEntry<CrmShopsInitialData>>();

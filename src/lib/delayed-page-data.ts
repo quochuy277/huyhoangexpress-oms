@@ -45,7 +45,7 @@ type ProcessedOrderCacheEntry = {
   processedOrder: ProcessedDelayedOrder;
 };
 
-const DELAYED_FILTER_CACHE_TTL_MS = 30_000;
+const DELAYED_FILTER_CACHE_TTL_MS = 5 * 60_000;
 const DELAYED_FILTER_CACHE_MAX_ENTRIES = 10;
 const DELAYED_PROCESSED_ORDER_CACHE_TTL_MS = 5 * 60_000;
 const DELAYED_PROCESSED_ORDER_CACHE_MAX_ENTRIES = 2_500;

@@ -128,7 +128,7 @@ describe("crm page data", () => {
     expect(prismaMock.order.groupBy).toHaveBeenCalledTimes(7);
 
     seedGroupByForBootstrap(prismaMock, 0);
-    vi.advanceTimersByTime(31_000);
+    vi.advanceTimersByTime(301_000);
 
     await getCrmShopsInitialData(ADMIN_USER);
 

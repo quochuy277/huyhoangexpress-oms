@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { signOut } from "next-auth/react";
 import { X, Clock, Moon } from "lucide-react";
 
-const SETTINGS_REFRESH_MS = 5 * 60 * 1000;
+const SETTINGS_REFRESH_MS = 30 * 60 * 1000;
 const INITIAL_SETTINGS_DELAY_MS = 1500;
 
 let cachedSettings = { idleTimeout: 60, autoLogout: "00:00" };

@@ -159,7 +159,6 @@ export function DelayedClient({
 
       return response.json();
     },
-    refetchInterval: 300000,
     staleTime: 30000,
     placeholderData: (previousData) => previousData,
     initialData: queryBootstrap.initialData,

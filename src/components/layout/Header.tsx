@@ -70,8 +70,8 @@ export function Header({ userName, userEmail, userRole, pageTitle, onMobileMenuT
   const { data: shellBootstrapData } = useQuery({
     queryKey: ["dashboard-shell-bootstrap"],
     queryFn: () => fetch("/api/dashboard/shell-bootstrap").then(r => r.json()),
-    refetchInterval: 180000,
-    staleTime: 60000,
+    refetchInterval: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     enabled: queryPolicy.shellBootstrapEnabled,
   });
   const overdueCount = shellBootstrapData?.overdueCount || 0;

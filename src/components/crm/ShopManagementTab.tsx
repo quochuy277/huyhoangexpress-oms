@@ -74,7 +74,6 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
       if (!res.ok) throw new Error("Failed to fetch dashboard");
       return res.json();
     },
-    refetchInterval: 300000,
     staleTime: 2 * 60 * 1000,
     initialData: initialData?.dashboard,
   });
@@ -93,7 +92,6 @@ export function ShopManagementTab({ userRole, userId, userName, canManageCRM, ca
       if (!res.ok) throw new Error("Failed to fetch shops");
       return res.json();
     },
-    refetchInterval: 300000,
     staleTime: 60 * 1000,
     placeholderData: (prev: unknown) => prev,
     initialData: !classFilter && !lastContactFilter && !search && page === 1 ? initialData?.shops : undefined,

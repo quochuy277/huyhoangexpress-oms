@@ -72,7 +72,6 @@ export function ProspectPipelineTab({ userId, userName, initialData }: ProspectP
       if (!res.ok) throw new Error("Failed to fetch prospect stats");
       return res.json();
     },
-    refetchInterval: 300000,
     staleTime: 2 * 60 * 1000,
     initialData: initialData?.stats,
   });
@@ -88,7 +87,6 @@ export function ProspectPipelineTab({ userId, userName, initialData }: ProspectP
       if (!res.ok) throw new Error("Failed to fetch prospects");
       return res.json();
     },
-    refetchInterval: 300000,
     staleTime: 60 * 1000,
     initialData: appliedSearch ? undefined : initialData?.prospects,
   });

@@ -220,7 +220,7 @@ export async function handleLogout(userId: string, reason: string, effectiveLogo
 // CLOSE ORPHANED SESSIONS (browser closed without logout)
 // ============================================================
 export async function closeOrphanedSessions(userId: string) {
-  const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes (2x heartbeat interval)
+  const STALE_THRESHOLD_MS = 20 * 60 * 1000; // 2x the client heartbeat interval.
   const now = new Date();
 
   // Find active sessions with stale heartbeat (or no heartbeat)
@@ -256,4 +256,3 @@ export async function closeOrphanedSessions(userId: string) {
 
   return staleSessions.length;
 }
-
