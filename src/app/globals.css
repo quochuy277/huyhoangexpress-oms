@@ -128,6 +128,27 @@
   animation-delay: 1s;
 }
 
+.landing-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #dbe5ec;
+  background-color: #ffffff;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #123241;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.landing-input::placeholder {
+  color: #94a3b8;
+}
+
+.landing-input:focus {
+  border-color: #0ea5e9;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16);
+}
+
 /* Responsive: dialog grids stack on mobile */
 @media (max-width: 639px) {
   .resp-grid-1-2 {

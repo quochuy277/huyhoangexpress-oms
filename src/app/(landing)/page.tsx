@@ -63,7 +63,7 @@ export default async function LandingPage() {
   const stats = await getLandingStats();
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen overflow-x-hidden">
       <Header />
       <HeroSection />
       <StatsSection initialStats={stats} />

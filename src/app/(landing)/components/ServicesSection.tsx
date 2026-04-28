@@ -1,81 +1,90 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import { Globe, Wallet, BarChart3, Shield } from "lucide-react";
+import Image from "next/image";
+import { BarChart3, FileCheck2, PackagePlus, RotateCcw, Truck, WalletCards } from "lucide-react";
 
 const SERVICES = [
   {
-    icon: Globe,
+    icon: Truck,
     title: "Giao hàng toàn quốc",
-    desc: "Phủ sóng 63 tỉnh thành với 5 đối tác vận chuyển. Tự động chọn NVC tối ưu cho từng đơn.",
-    color: "bg-blue-50 text-blue-600",
+    desc: "Kết nối nhiều nhà vận chuyển để shop chọn tuyến phù hợp theo khu vực, tốc độ và chi phí.",
   },
   {
-    icon: Wallet,
+    icon: WalletCards,
     title: "Thu hộ COD",
-    desc: "Nhận tiền thu hộ nhanh chóng, đối soát rõ ràng. Hỗ trợ ứng COD tự động.",
-    color: "bg-emerald-50 text-emerald-600",
+    desc: "Theo dõi dòng tiền thu hộ, hỗ trợ đối soát minh bạch và giảm sai lệch khi đơn tăng nhanh.",
+  },
+  {
+    icon: PackagePlus,
+    title: "Quản lý đơn hàng",
+    desc: "Tập trung trạng thái đơn, lịch sử xử lý và thông tin vận chuyển vào một đầu mối.",
+  },
+  {
+    icon: RotateCcw,
+    title: "Xử lý hoàn hàng",
+    desc: "Theo dõi đơn hoàn, cảnh báo phát sinh và hỗ trợ shop giảm thất thoát khi khách không nhận.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Khiếu nại đền bù",
+    desc: "Đội ngũ hỗ trợ làm việc với nhà vận chuyển khi có thất lạc, hư hỏng hoặc giao chậm.",
   },
   {
     icon: BarChart3,
-    title: "Quản lý đơn hàng",
-    desc: "Theo dõi trạng thái đơn realtime. Chủ động xử lý đơn hoãn, đơn hoàn, đơn có vấn đề.",
-    color: "bg-amber-50 text-amber-600",
-  },
-  {
-    icon: Shield,
-    title: "Hỗ trợ khiếu nại",
-    desc: "Đội ngũ chuyên trách theo dõi và khiếu nại đền bù với nhà vận chuyển thay bạn.",
-    color: "bg-rose-50 text-rose-600",
+    title: "Báo cáo vận hành",
+    desc: "Tổng hợp số đơn, trạng thái giao, tỷ lệ hoàn và COD để chủ shop ra quyết định nhanh.",
   },
 ];
 
 export function ServicesSection() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { threshold: 0.15 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section id="services" className="py-20 sm:py-24 bg-[#f8fafc]">
-      <div ref={ref} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#1a3a4a]">
-            Dịch vụ của chúng tôi
+    <section id="services" className="relative isolate overflow-hidden bg-[#f8fafc] py-20 sm:py-24">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[520px] opacity-90">
+        <Image
+          src="/images/landing/delivery-soft-bg.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover opacity-[0.32]"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f8fafc]/62 via-[#f8fafc]/82 to-[#f8fafc]" />
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl">
+          <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#f97316]">
+            Dịch vụ
+          </span>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-normal text-[#123241] sm:text-4xl">
+            Dịch vụ dành cho shop tăng trưởng
           </h2>
-          <div className="mt-4 w-16 h-1 bg-[#0ea5e9] rounded-full mx-auto" />
+          <p className="mt-5 text-base leading-8 text-slate-600">
+            Tập trung vào những phần shop cần nhất: phí vận chuyển, COD, trạng thái đơn, hoàn hàng
+            và xử lý phát sinh với nhà vận chuyển.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {SERVICES.map((s, i) => (
-            <div
-              key={i}
-              className={`group p-6 bg-white rounded-2xl border border-slate-100 hover:border-[#0ea5e9]/30 hover:shadow-lg hover:shadow-[#0ea5e9]/5 transition-all duration-500 ${
-                visible
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-              }`}
-              style={{ transitionDelay: `${i * 100}ms` }}
+        <div className="relative mt-10 aspect-[16/9] overflow-hidden rounded-2xl border border-white/80 shadow-xl shadow-slate-200/70 lg:hidden">
+          <Image
+            src="/images/landing/delivery-soft-bg.png"
+            alt="Nhân viên giao hàng bàn giao thùng hàng cạnh xe tải"
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
+        </div>
+
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {SERVICES.map((service) => (
+            <article
+              key={service.title}
+              className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-xl hover:shadow-slate-200/70"
             >
-              <div
-                className={`inline-flex p-3 rounded-xl ${s.color} mb-5 group-hover:scale-110 transition-transform duration-300`}
-              >
-                <s.icon className="w-6 h-6" />
+              <div className="mb-5 inline-flex rounded-xl bg-[#eef8fb] p-3 text-sky-700 transition group-hover:bg-[#123241] group-hover:text-white">
+                <service.icon className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-[#1a3a4a] mb-2">
-                {s.title}
-              </h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
-            </div>
+              <h3 className="text-lg font-extrabold text-[#123241]">{service.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{service.desc}</p>
+            </article>
           ))}
         </div>
       </div>

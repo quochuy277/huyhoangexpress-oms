@@ -1,110 +1,60 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import {
-  Truck,
-  Coins,
-  Headphones,
-  ShieldCheck,
-  FileCheck,
-  MapPin,
-} from "lucide-react";
+import { BadgeCheck, Headphones, LineChart, ShieldCheck } from "lucide-react";
 
 const BENEFITS = [
   {
-    icon: Truck,
-    title: "Đa lựa chọn NVC",
-    desc: "Lựa chọn gửi hàng qua nhiều ĐVVC: GHN, GHTK, SPX, J&T, Best...",
-    gradient: "from-blue-500 to-blue-600",
+    icon: BadgeCheck,
+    title: "Tối ưu phí vận chuyển",
+    desc: "So sánh và lựa chọn tuyến giao phù hợp để shop không bị phụ thuộc vào một nhà vận chuyển duy nhất.",
   },
   {
-    icon: Coins,
-    title: "Tiết kiệm chi phí",
-    desc: "Tối ưu chi phí vận chuyển với ưu đãi gửi hàng chỉ từ 15.000đ/đơn.",
-    gradient: "from-emerald-500 to-emerald-600",
-  },
-  {
-    icon: Headphones,
-    title: "Hỗ trợ 24/7",
-    desc: "Đội ngũ nhân viên CSKH hỗ trợ 24/7. Hỗ trợ đóng đơn mọi lúc mọi nơi.",
-    gradient: "from-sky-500 to-sky-600",
+    icon: LineChart,
+    title: "Đối soát COD rõ ràng",
+    desc: "Theo dõi tiền thu hộ theo trạng thái đơn, hạn chế thiếu sót khi đối chiếu số liệu cuối kỳ.",
   },
   {
     icon: ShieldCheck,
-    title: "Cam kết đơn hàng",
-    desc: "Cam kết tốc độ giao, tỉ lệ hoàn thấp nhất. Cam kết đền bù thất lạc hư hỏng.",
-    gradient: "from-amber-500 to-amber-600",
+    title: "Kiểm soát rủi ro đơn hàng",
+    desc: "Phát hiện đơn chậm, đơn hoàn, đơn có vấn đề sớm hơn để giảm chi phí phát sinh.",
   },
   {
-    icon: FileCheck,
-    title: "Đối soát — Ứng COD",
-    desc: "Hỗ trợ ứng COD tự động. Đối soát hàng ngày minh bạch rõ ràng.",
-    gradient: "from-rose-500 to-rose-600",
-  },
-  {
-    icon: MapPin,
-    title: "Hệ thống rộng khắp",
-    desc: "Hơn 4.000 bưu cục phát hàng toàn quốc, phủ sóng 63 tỉnh thành.",
-    gradient: "from-teal-500 to-teal-600",
+    icon: Headphones,
+    title: "Có người hỗ trợ khi cần",
+    desc: "Đội ngũ vận hành đồng hành với shop trong các tình huống giao chậm, khiếu nại hoặc cần tra soát.",
   },
 ];
 
 export function BenefitsSection() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section className="py-20 sm:py-24 bg-[#f8fafc]">
-      <div ref={ref} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#1a3a4a]">
-            Tại sao chọn Huy Hoàng Express?
-          </h2>
-          <div className="mt-4 w-16 h-1 bg-[#0ea5e9] rounded-full mx-auto" />
-        </div>
+    <section className="bg-[#123241] py-20 text-white sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+          <div>
+            <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-orange-300">
+              Lý do chọn
+            </span>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-normal sm:text-4xl">
+              Vận hành gọn hơn, số liệu rõ hơn, khách hàng được phục vụ nhanh hơn
+            </h2>
+            <p className="mt-5 text-base leading-8 text-white/70">
+              Thiết kế dịch vụ xoay quanh nhu cầu thực tế của shop online: giảm việc tay chân,
+              kiểm soát tiền COD và xử lý phát sinh trước khi ảnh hưởng đến khách.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {BENEFITS.map((b, i) => (
-            <div
-              key={i}
-              className={`group relative flex gap-4 p-6 bg-white rounded-2xl border border-slate-100 hover:border-transparent hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500 hover:-translate-y-1 ${visible
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-                }`}
-              style={{ transitionDelay: `${i * 80}ms` }}
-            >
-              {/* Gradient border on hover */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#0ea5e9]/20 to-[#f97316]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-sm" />
-
-              <div
-                className={`shrink-0 inline-flex p-3 h-fit rounded-xl bg-gradient-to-br ${b.gradient} shadow-lg group-hover:scale-110 transition-transform duration-300`}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {BENEFITS.map((benefit) => (
+              <article
+                key={benefit.title}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 transition hover:-translate-y-1 hover:bg-white/[0.09]"
               >
-                <b.icon className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-[#1a3a4a] mb-1">{b.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  {b.desc}
-                </p>
-              </div>
-            </div>
-          ))}
+                <div className="mb-5 inline-flex rounded-xl bg-white/10 p-3 text-sky-200">
+                  <benefit.icon className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-extrabold">{benefit.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-white/68">{benefit.desc}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </section>

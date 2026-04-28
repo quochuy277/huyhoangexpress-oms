@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Huy Hoàng Express — Giải pháp gửi hàng tối ưu cho shop online",
+  title: "Huy Hoàng Express - Giải pháp gửi hàng và đối soát COD cho shop online",
   description:
-    "Gửi hàng 63 tỉnh thành với 5 NVC hàng đầu. Tiết kiệm chi phí, quản lý đơn hàng dễ dàng. Đăng ký miễn phí ngay!",
+    "Kết nối nhiều nhà vận chuyển, quản lý đơn hàng, theo dõi vận chuyển và đối soát COD rõ ràng cho shop online.",
   openGraph: {
-    title: "Huy Hoàng Express — Giải pháp gửi hàng tối ưu cho shop online",
+    title: "Huy Hoàng Express - Giải pháp gửi hàng và đối soát COD cho shop online",
     description:
-      "Gửi hàng 63 tỉnh thành với 5 NVC hàng đầu. Tiết kiệm chi phí, quản lý đơn hàng dễ dàng. Đăng ký miễn phí ngay!",
+      "Một đầu mối để tạo đơn, theo dõi vận chuyển, xử lý hoàn hàng và đối soát COD rõ ràng.",
     type: "website",
     locale: "vi_VN",
     siteName: "Huy Hoàng Express",
   },
 };
 
-export default function LandingLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function LandingLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }

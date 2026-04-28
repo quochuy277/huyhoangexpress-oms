@@ -1,54 +1,71 @@
 import Image from "next/image";
-import { MapPin, Phone, Mail } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
+
+const LINKS = ["Giới thiệu", "Dịch vụ", "Đối tác", "Quy trình", "Liên hệ"];
 
 export function Footer() {
   return (
-    <footer className="bg-[#1a3a4a] text-white py-12">
+    <footer className="bg-[#0b2230] py-12 text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 sm:gap-12">
-          {/* Logo + Company name */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative h-10 w-10 overflow-hidden rounded-lg bg-white/10 p-1">
-              <Image
-                src="/images/logo.png"
-                alt="Huy Hoàng Express"
-                width={32}
-                height={32}
-                className="object-contain"
-              />
+        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr_1fr]">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="relative h-11 w-11 overflow-hidden rounded-lg bg-white p-1.5">
+                <Image
+                  src="/images/logo.png"
+                  alt="Huy Hoàng Express"
+                  width={44}
+                  height={44}
+                  className="h-full w-full object-contain"
+                />
+              </span>
+              <span className="text-xl font-extrabold">Huy Hoàng Express</span>
             </div>
-            <span className="text-lg font-bold">Huy Hoàng Express</span>
+            <p className="mt-5 max-w-md text-sm leading-7 text-white/60">
+              Giải pháp vận hành giao hàng, thu hộ COD và quản lý đơn hàng dành cho shop online
+              cần tăng trưởng bền vững.
+            </p>
           </div>
 
-          {/* Contact info */}
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 text-sm text-white/70">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 shrink-0 text-white/50" />
-              <span>Chung cư Vicoland Huế, phường Vỹ Dạ, TP. Huế</span>
+          <div>
+            <h3 className="text-sm font-extrabold uppercase tracking-[0.16em] text-white/45">
+              Điều hướng
+            </h3>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {LINKS.map((link) => (
+                <span key={link} className="text-sm font-semibold text-white/68">
+                  {link}
+                </span>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 shrink-0 text-white/50" />
-              <a href="tel:0963537634" className="hover:text-white transition-colors">
-                0963 537 634
+          </div>
+
+          <div>
+            <h3 className="text-sm font-extrabold uppercase tracking-[0.16em] text-white/45">
+              Liên hệ
+            </h3>
+            <div className="mt-5 space-y-4 text-sm text-white/68">
+              <div className="flex gap-3">
+                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-sky-200" />
+                <span>Chung cư Vicoland Huế, phường Vỹ Dạ, TP. Huế</span>
+              </div>
+              <a href="tel:0963537634" className="flex gap-3 transition hover:text-white">
+                <Phone className="h-5 w-5 shrink-0 text-orange-300" />
+                <span>0963 537 634</span>
               </a>
-            </div>
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 shrink-0 text-white/50" />
-              <a href="mailto:ghsv.huyhoang@gmail.com" className="hover:text-white transition-colors">
-                ghsv.huyhoang@gmail.com
+              <a href="mailto:ghsv.huyhoang@gmail.com" className="flex gap-3 transition hover:text-white">
+                <Mail className="h-5 w-5 shrink-0 text-sky-200" />
+                <span>ghsv.huyhoang@gmail.com</span>
               </a>
             </div>
           </div>
         </div>
 
-        <hr className="my-8 border-white/10" />
-
-        <p className="text-center text-sm text-white/40">
+        <div className="mt-10 border-t border-white/10 pt-6 text-center text-sm text-white/38">
           © 2026 Huy Hoàng Express. All rights reserved.
-        </p>
+        </div>
       </div>
 
-      {/* LocalBusiness JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

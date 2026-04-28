@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export function ScrollToTop() {
   const [show, setShow] = useState(false);
@@ -17,10 +17,10 @@ export function ScrollToTop() {
   return (
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fixed bottom-24 right-6 z-40 w-11 h-11 rounded-full bg-[#1a3a4a] hover:bg-[#2a5a6a] text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110"
+      className="fixed bottom-24 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-[#123241] text-white shadow-lg transition-all duration-200 hover:scale-110 hover:bg-[#18495d]"
       aria-label="Cuộn lên đầu trang"
     >
-      <ArrowUp className="w-5 h-5" />
+      <ArrowUp className="h-5 w-5" />
     </button>
   );
 }

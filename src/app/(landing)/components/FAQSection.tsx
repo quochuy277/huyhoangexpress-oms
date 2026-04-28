@@ -1,86 +1,72 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 const FAQ_ITEMS = [
   {
     q: "Chi phí gửi hàng qua Huy Hoàng Express là bao nhiêu?",
-    a: "Chỉ từ 15.000đ/đơn tùy khối lượng và khoảng cách. Liên hệ để nhận bảng giá chi tiết.",
+    a: "Chi phí phụ thuộc tuyến giao, khối lượng và nhà vận chuyển. Đội ngũ sẽ tư vấn bảng giá phù hợp sau khi nắm sản lượng và khu vực gửi hàng của shop.",
   },
   {
-    q: "Thời gian nhận tiền COD sau khi giao thành công?",
-    a: "Đối soát hàng ngày, tiền COD được chuyển nhanh chóng theo lịch đối soát.",
+    q: "Shop có cần cam kết số đơn tối thiểu không?",
+    a: "Không bắt buộc cam kết ngay từ đầu. Shop có thể đăng ký tư vấn, thử quy trình và mở rộng khi vận hành ổn định.",
   },
   {
-    q: "Làm sao theo dõi trạng thái đơn hàng?",
-    a: "Qua hệ thống quản lý đơn hàng trực tuyến, cập nhật realtime từ nhà vận chuyển.",
+    q: "Tiền COD được đối soát như thế nào?",
+    a: "COD được theo dõi theo trạng thái đơn và tổng hợp rõ ràng để shop đối chiếu. Lịch chuyển tiền sẽ được tư vấn theo quy trình vận hành thực tế.",
   },
   {
-    q: "Nếu hàng bị thất lạc/hư hỏng thì sao?",
-    a: "Cam kết đền bù 100% giá trị hàng hóa khi thất lạc hoặc hư hỏng do vận chuyển.",
+    q: "Nếu đơn bị chậm, hoàn hoặc thất lạc thì sao?",
+    a: "Huy Hoàng Express hỗ trợ kiểm tra trạng thái, làm việc với nhà vận chuyển và theo dõi khiếu nại để giảm thời gian xử lý cho shop.",
   },
   {
-    q: "Có cần ký hợp đồng không?",
-    a: "Không bắt buộc. Bạn có thể dùng thử trước, linh hoạt không ràng buộc.",
-  },
-  {
-    q: "Tôi cần gửi tối thiểu bao nhiêu đơn/tháng?",
-    a: "Không yêu cầu số lượng tối thiểu. Phù hợp cả shop nhỏ lẫn shop lớn.",
+    q: "Tôi đang dùng nhiều nhà vận chuyển rồi, có chuyển sang được không?",
+    a: "Được. Huy Hoàng Express đóng vai trò một đầu mối hỗ trợ shop quản lý nhiều lựa chọn vận chuyển thuận tiện hơn.",
   },
 ];
 
 export function FAQSection() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="py-20 sm:py-24 bg-[#f8fafc]">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#1a3a4a]">
+    <section className="bg-[#f8fafc] py-20 sm:py-24">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#f97316]">
+            FAQ
+          </span>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-normal text-[#123241] sm:text-4xl">
             Câu hỏi thường gặp
           </h2>
-          <div className="mt-4 w-16 h-1 bg-[#0ea5e9] rounded-full mx-auto" />
         </div>
 
-        <div className="space-y-3">
-          {FAQ_ITEMS.map((faq, i) => {
-            const isOpen = openIndex === i;
+        <div className="mt-12 space-y-3">
+          {FAQ_ITEMS.map((faq, index) => {
+            const isOpen = openIndex === index;
             return (
-              <div
-                key={i}
-                className="bg-white rounded-xl border border-slate-100 overflow-hidden transition-shadow hover:shadow-sm"
-              >
+              <article key={faq.q} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
                 <button
-                  onClick={() => setOpenIndex(isOpen ? null : i)}
-                  className="w-full flex items-center justify-between px-6 py-4 text-left"
+                  onClick={() => setOpenIndex(isOpen ? null : index)}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
                   aria-expanded={isOpen}
                 >
-                  <span className="text-sm sm:text-base font-semibold text-[#1a3a4a] pr-4">
-                    {faq.q}
-                  </span>
+                  <span className="font-extrabold text-[#123241]">{faq.q}</span>
                   <ChevronDown
-                    className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-300 ${
-                      isOpen ? "rotate-180" : ""
-                    }`}
+                    className={`h-5 w-5 shrink-0 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`}
                   />
                 </button>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ${
-                    isOpen ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
-                  }`}
-                >
-                  <p className="px-6 pb-4 text-sm text-slate-500 leading-relaxed">
-                    {faq.a}
-                  </p>
+                <div className={`grid transition-all duration-300 ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className="overflow-hidden">
+                    <p className="px-5 pb-5 text-sm leading-7 text-slate-600 sm:px-6">{faq.a}</p>
+                  </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       </div>
 
-      {/* FAQ JSON-LD Schema */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

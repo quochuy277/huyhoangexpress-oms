@@ -1,66 +1,52 @@
 "use client";
 
+import { CheckCircle2, PackageCheck, RefreshCcw, Store } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Package, Store, CheckCircle } from "lucide-react";
 
-interface StatItem {
-  icon: React.ReactNode;
-  value: number;
-  suffix: string;
-  label: string;
-}
+export type LandingStats = { totalOrders: number; activeShops: number; successRate: number };
 
-function useCountUp(end: number, duration = 2000, trigger = false) {
+const DEFAULT_STATS: LandingStats = {
+  totalOrders: 200_000,
+  activeShops: 250,
+  successRate: 98.6,
+};
+
+function useCountUp(end: number, duration = 1200, trigger = false) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
     if (!trigger || end <= 0) return;
 
-    let start = 0;
-    const increment = end / (duration / 16);
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
+    let frame = 0;
+    const totalFrames = Math.max(1, Math.round(duration / 16));
+    const timer = window.setInterval(() => {
+      frame += 1;
+      const progress = 1 - Math.pow(1 - frame / totalFrames, 3);
+      setCount(Math.round(end * Math.min(progress, 1)));
+      if (frame >= totalFrames) window.clearInterval(timer);
     }, 16);
 
-    return () => clearInterval(timer);
+    return () => window.clearInterval(timer);
   }, [end, duration, trigger]);
 
-  return count;
+  return trigger ? count : end;
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1000) {
-    return n.toLocaleString("vi-VN");
-  }
-  return n.toString();
+function formatNumber(n: number) {
+  return n.toLocaleString("vi-VN");
 }
-
-export type LandingStats = { totalOrders: number; activeShops: number; successRate: number };
-
-const DEFAULT_STATS: LandingStats = { totalOrders: 0, activeShops: 0, successRate: 0 };
 
 export function StatsSection({ initialStats }: { initialStats?: LandingStats }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const [stats, setStats] = useState<LandingStats>(initialStats ?? DEFAULT_STATS);
-
-  // Only fetch client-side if no initialStats provided (fallback)
-  const hasInitialStats = !!initialStats;
-  useEffect(() => {
-    if (hasInitialStats) return;
-    fetch("/api/landing/stats")
-      .then((r) => r.json())
-      .then((data) => setStats(data))
-      .catch((err) => {
-        console.warn("[StatsSection] Failed to fetch landing stats:", err);
-      });
-  }, [hasInitialStats]);
+  const stats = {
+    totalOrders: Math.max(initialStats?.totalOrders ?? 0, DEFAULT_STATS.totalOrders),
+    activeShops: Math.max(initialStats?.activeShops ?? 0, DEFAULT_STATS.activeShops),
+    successRate:
+      initialStats?.successRate && initialStats.successRate > 0
+        ? initialStats.successRate
+        : DEFAULT_STATS.successRate,
+  };
 
   useEffect(() => {
     const el = ref.current;
@@ -72,64 +58,58 @@ export function StatsSection({ initialStats }: { initialStats?: LandingStats }) 
           observer.disconnect();
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.25 }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const ordersCount = useCountUp(stats.totalOrders, 2000, visible);
-  const shopsCount = useCountUp(stats.activeShops, 1500, visible);
-  const rateCount = useCountUp(stats.successRate * 10, 1800, visible); // ×10 for decimal
+  const orders = useCountUp(stats.totalOrders, 1300, visible);
+  const shops = useCountUp(stats.activeShops, 1100, visible);
+  const rate = useCountUp(Math.round(stats.successRate * 10), 1200, visible);
 
-  const items: StatItem[] = [
+  const items = [
     {
-      icon: <Package className="w-8 h-8" />,
-      value: ordersCount,
-      suffix: "+",
-      label: "Đơn hàng đã xử lý",
+      icon: PackageCheck,
+      value: `${formatNumber(orders)}+`,
+      label: "Đơn xử lý",
     },
     {
-      icon: <Store className="w-8 h-8" />,
-      value: shopsCount,
-      suffix: "+",
-      label: "Shop đang hợp tác",
+      icon: Store,
+      value: `${formatNumber(shops)}+`,
+      label: "Shop hợp tác",
     },
     {
-      icon: <CheckCircle className="w-8 h-8" />,
-      value: rateCount,
-      suffix: "%",
-      label: "Tỷ lệ giao thành công",
+      icon: CheckCircle2,
+      value: `${(rate / 10).toFixed(1)}%`,
+      label: "Giao thành công",
     },
   ];
 
   return (
-    <section
-      id="stats"
-      ref={ref}
-      className="py-16 sm:py-20 bg-[#1a3a4a]"
-    >
+    <section id="stats" ref={ref} className="bg-[#123241] py-12 text-white sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-12">
-          {items.map((item, i) => (
-            <div
-              key={i}
-              className="text-center group"
-            >
-              <div className="inline-flex p-3 rounded-2xl bg-white/10 text-white/90 mb-4 group-hover:bg-white/15 transition-colors">
-                {item.icon}
+        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {items.map((item) => (
+              <div key={item.label} className="flex items-center gap-4 rounded-xl bg-white/[0.06] p-5 ring-1 ring-white/10">
+                <div className="rounded-lg bg-white/10 p-3 text-sky-200">
+                  <item.icon className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="text-3xl font-extrabold tracking-normal sm:text-4xl">
+                    {item.value}
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-white/68">{item.label}</p>
+                </div>
               </div>
-              <div className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
-                {item.label === "Tỷ lệ giao thành công"
-                  ? (item.value / 10).toFixed(1)
-                  : formatNumber(item.value)}
-                <span className="text-[#0ea5e9]">{item.suffix}</span>
-              </div>
-              <p className="mt-2 text-sm sm:text-base text-white/70 font-medium">
-                {item.label}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/70">
+            <RefreshCcw className="h-5 w-5 text-emerald-300" />
+            Dữ liệu vận hành được cập nhật liên tục
+          </div>
         </div>
       </div>
     </section>

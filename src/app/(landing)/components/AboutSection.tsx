@@ -1,102 +1,113 @@
-"use client";
+import Image from "next/image";
+import { AlertTriangle, ArrowRight, Banknote, Clock3, Route } from "lucide-react";
 
-import { useEffect, useRef, useState } from "react";
-import { Building2, Truck, MapPin } from "lucide-react";
-
-const HIGHLIGHTS = [
+const PAINS = [
   {
-    icon: Building2,
-    value: "3+",
-    label: "Năm hoạt động",
-    color: "from-[#0ea5e9] to-[#0284c7]",
+    icon: Banknote,
+    title: "Chi phí vận chuyển khó kiểm soát",
+    desc: "Shop phải so sánh nhiều bảng giá, nhiều chính sách và khó biết đơn nào nên đi nhà vận chuyển nào.",
   },
   {
-    icon: Truck,
-    value: "5",
-    label: "Đối tác vận chuyển",
-    color: "from-[#f97316] to-[#ea580c]",
+    icon: Clock3,
+    title: "Theo dõi đơn tốn nhiều thời gian",
+    desc: "Mỗi kênh một trạng thái, nhân sự phải kiểm tra thủ công khi khách hỏi hoặc khi đơn có vấn đề.",
   },
   {
-    icon: MapPin,
-    value: "63",
-    label: "Tỉnh thành phủ sóng",
-    color: "from-emerald-500 to-emerald-600",
+    icon: AlertTriangle,
+    title: "Hoàn hàng và khiếu nại làm gián đoạn vận hành",
+    desc: "Đơn chậm, thất lạc, hư hỏng hoặc hoàn không được xử lý sớm sẽ ảnh hưởng lợi nhuận và trải nghiệm khách.",
   },
 ];
 
+const SOLUTIONS = [
+  "Một đầu mối kết nối GHN, GHTK, SPX, J&T, Best Express",
+  "Theo dõi trạng thái đơn và dòng tiền COD rõ ràng",
+  "Đội ngũ hỗ trợ xử lý khiếu nại, hoàn hàng và đối soát",
+];
+
 export function AboutSection() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section id="about" className="py-20 sm:py-24 bg-white">
-      <div
-        ref={ref}
-        className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-          }`}
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Left — Text */}
-          <div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1a3a4a]">
-              Về Huy Hoàng Express
+    <section id="about" className="relative isolate overflow-hidden bg-white py-20 sm:py-24">
+      <div className="absolute inset-y-0 right-0 -z-10 hidden w-[52%] lg:block">
+        <Image
+          src="/images/landing/warehouse-soft-bg.png"
+          alt=""
+          fill
+          sizes="48vw"
+          className="object-cover opacity-[0.34]"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/72 to-white/20" />
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div className="min-w-0">
+            <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#f97316]">
+              Bài toán vận hành
+            </span>
+            <h2 className="mt-4 max-w-[21rem] break-words text-2xl font-extrabold tracking-normal text-[#123241] sm:max-w-none sm:text-4xl">
+              Shop online cần nhiều hơn một đơn vị giao hàng
             </h2>
-            <div className="mt-4 w-16 h-1 bg-[#0ea5e9] rounded-full" />
-            <p className="mt-8 text-lg text-slate-600 leading-relaxed">
-              Huy Hoàng Express là đơn vị trung gian vận chuyển, đóng vai trò cầu
-              nối giữa cửa hàng online và các đối tác vận chuyển uy tín. Chúng
-              tôi giúp các shop tiết kiệm thời gian, giảm chi phí vận chuyển và
-              quản lý đơn hàng hiệu quả thông qua hệ thống công nghệ hiện đại.
+            <p className="mt-5 text-base leading-8 text-slate-600 sm:text-lg">
+              Khi đơn tăng, chi phí ship, COD, hoàn hàng và khiếu nại trở thành bài toán vận hành.
+              Huy Hoàng Express gom các bước quan trọng vào một quy trình dễ kiểm soát.
             </p>
-            <p className="mt-4 text-base text-slate-500 leading-relaxed">
-              Với đội ngũ hỗ trợ tận tâm và hệ thống quản lý đơn hàng thông minh,
-              chúng tôi cam kết mang đến trải nghiệm gửi hàng tối ưu nhất cho
-              các shop trên toàn quốc.
-            </p>
+
+            <div className="relative mt-7 aspect-[16/9] overflow-hidden rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/70 lg:hidden">
+              <Image
+                src="/images/landing/warehouse-soft-bg.png"
+                alt="Kho hàng và thùng hàng được chuẩn bị trước khi giao"
+                fill
+                sizes="100vw"
+                className="object-cover"
+              />
+            </div>
+
+            <div className="mt-8 min-w-0 space-y-4 overflow-hidden rounded-2xl bg-[#123241] p-6 text-white shadow-xl shadow-[#123241]/16">
+              {SOLUTIONS.map((item) => (
+                <div key={item} className="flex min-w-0 gap-3">
+                  <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-sky-300" />
+                  <p className="min-w-0 break-words text-sm font-semibold leading-6 text-white/82">{item}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Right — Highlight cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4">
-            {HIGHLIGHTS.map((h, i) => (
-              <div
-                key={i}
-                className={`group flex items-center gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-[#0ea5e9]/30 hover:shadow-lg hover:shadow-[#0ea5e9]/5 transition-all duration-500 ${visible
-                    ? "opacity-100 translate-x-0"
-                    : "opacity-0 translate-x-8"
-                  }`}
-                style={{ transitionDelay: `${300 + i * 150}ms` }}
+          <div className="grid min-w-0 gap-4">
+            {PAINS.map((item) => (
+              <article
+                key={item.title}
+                className="min-w-0 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70 p-6 transition hover:-translate-y-1 hover:border-sky-200 hover:bg-white hover:shadow-xl hover:shadow-slate-200/60"
               >
-                <div
-                  className={`shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br ${h.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}
-                >
-                  <h.icon className="w-6 h-6 text-white" />
+                <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
+                  <div className="h-fit rounded-xl bg-white p-3 text-[#123241] shadow-sm ring-1 ring-slate-100">
+                    <item.icon className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="break-words text-lg font-extrabold text-[#123241]">{item.title}</h3>
+                    <p className="mt-2 break-words text-sm leading-7 text-slate-600">{item.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-2xl font-extrabold text-[#1a3a4a]">
-                    {h.value}
-                  </div>
-                  <div className="text-sm text-slate-500 font-medium">
-                    {h.label}
-                  </div>
+              </article>
+            ))}
+
+            <article className="min-w-0 overflow-hidden rounded-2xl border border-sky-100 bg-sky-50/80 p-6">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
+                <div className="h-fit rounded-xl bg-white p-3 text-sky-600 shadow-sm">
+                  <Route className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="break-words text-lg font-extrabold text-[#123241]">
+                    Kết quả là một luồng xử lý rõ ràng hơn
+                  </h3>
+                  <p className="mt-2 break-words text-sm leading-7 text-slate-600">
+                    Tạo đơn, chọn tuyến, theo dõi trạng thái, xử lý phát sinh và đối soát COD đều được
+                    chuẩn hóa cho đội vận hành của shop.
+                  </p>
                 </div>
               </div>
-            ))}
+            </article>
           </div>
         </div>
       </div>
