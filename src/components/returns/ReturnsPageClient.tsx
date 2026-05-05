@@ -352,29 +352,30 @@ export function ReturnsPageClient({
   const countFor = (tab: TabKey, fallback: number) => (summaryReady ? summaryCounts[tab] : fallback);
 
   const handleExport = () => {
-    const headers = [
-      "STT",
-      "Mã Yêu Cầu",
-      "Mã Đơn Đối Tác",
-      "Tên Cửa Hàng",
-      "Trạng Thái",
-      "Ghi Chú",
-    ];
-    const rows = currentData.map((order, index) => [
-      index + 1,
-      order.requestCode,
-      order.carrierOrderCode || "",
-      order.shopName || "",
-      order.status,
-      order.staffNotes || "",
-    ]);
+    import("xlsx").then((XLSX) => {
+      const headers = [
+        "STT",
+        "Mã Yêu Cầu",
+        "Mã Đơn Đối Tác",
+        "Tên Cửa Hàng",
+        "Trạng Thái",
+        "Ghi Chú",
+      ];
+      const rows = currentData.map((order, index) => [
+        index + 1,
+        order.requestCode,
+        order.carrierOrderCode || "",
+        order.shopName || "",
+        order.status,
+        order.staffNotes || "",
+      ]);
 
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `don-hoan-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
+      const aoa = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      XLSX.writeFile(wb, `don-hoan-${activeTab}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    });
   };
 
   const tabs: Array<{
@@ -429,7 +430,7 @@ export function ReturnsPageClient({
             <option value={100}>100/trang</option>
           </select>
           <button onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: 600, color: "#2563EB", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "8px", padding: "6px 12px", cursor: "pointer" }}>
-            <Download style={{ width: "13px", height: "13px" }} /> Xuất CSV
+            <Download style={{ width: "13px", height: "13px" }} /> Xuất Excel
           </button>
         </div>
       </div>

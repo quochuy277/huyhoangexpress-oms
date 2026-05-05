@@ -8,19 +8,7 @@ import { requirePermission } from "@/lib/route-permissions";
 import { buildOrdersListQuery } from "@/lib/orders-list";
 import { createServerTiming } from "@/lib/server-timing";
 import { logger } from "@/lib/logger";
-import { encodeCsvHeader, encodeCsvRows } from "@/lib/csv-stream";
-
-// Streamed CSV export for orders.
-//
-// Previous version built the full XLSX workbook in memory with `xlsx.write(...)`
-// before replying — OOM risk at 10K+ rows on 512 MB hosts, and routinely broke
-// the 30s serverless timeout. Sprint 2 (2026-04) switches to CSV so we can
-// stream batches directly to the client; peak server memory is now one batch
-// (~500 rows) instead of the full result set.
-//
-// XLSX is still the nicer download, but CSV with a BOM opens fine in Excel
-// 2013+ and preserves Vietnamese diacritics. If a user wants a formatted
-// workbook, they can open the CSV and Save As.
+import { buildXlsxBuffer } from "@/lib/xlsx-export";
 
 type ExportType = "internal" | "customer";
 
@@ -244,71 +232,64 @@ export async function GET(req: NextRequest) {
   const headers = exportType === "internal" ? INTERNAL_HEADERS : CUSTOMER_HEADERS;
   const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const prefix = exportType === "internal" ? "noi-bo" : "khach-hang";
-  const filename = `${prefix}-${timestamp}.csv`;
+  const filename = `${prefix}-${timestamp}.xlsx`;
 
-  // Note: Server-Timing is frozen at response creation — stream-internal DB
-  // round-trips are not included (headers can't be appended mid-stream).
-  // We log total stream time server-side instead.
   const timingHeader = timing.headerValue();
 
   const exportStart = performance.now();
-  const stream = new ReadableStream({
-    async start(controller) {
-      let skip = 0;
-      let exportedCount = 0;
-      let exportIndex = 1;
 
-      controller.enqueue(encodeCsvHeader(headers));
+  try {
+    let skip = 0;
+    let exportedCount = 0;
+    let exportIndex = 1;
+    const allRows: unknown[][] = [];
 
-      try {
-        while (exportedCount < MAX_EXPORT_ROWS) {
-          const remaining = MAX_EXPORT_ROWS - exportedCount;
-          const take = Math.min(EXPORT_BATCH_SIZE, remaining);
+    while (exportedCount < MAX_EXPORT_ROWS) {
+      const remaining = MAX_EXPORT_ROWS - exportedCount;
+      const take = Math.min(EXPORT_BATCH_SIZE, remaining);
 
-          const batch = await prisma.order.findMany({
-            where: query.where,
-            ...(exportType === "customer" ? { select: CUSTOMER_SELECT } : {}),
-            orderBy: { createdTime: "desc" },
-            skip,
-            take,
-          });
+      const batch = await prisma.order.findMany({
+        where: query.where,
+        ...(exportType === "customer" ? { select: CUSTOMER_SELECT } : {}),
+        orderBy: { createdTime: "desc" },
+        skip,
+        take,
+      });
 
-          if (batch.length === 0) break;
+      if (batch.length === 0) break;
 
-          const rows =
-            exportType === "internal"
-              ? batch.map((o, i) => buildInternalRow(o, exportIndex + i - 1))
-              : batch.map((o) => buildCustomerRow(o as CustomerOrderRow));
+      const rows =
+        exportType === "internal"
+          ? batch.map((o, i) => buildInternalRow(o, exportIndex + i - 1))
+          : batch.map((o) => buildCustomerRow(o as CustomerOrderRow));
 
-          controller.enqueue(encodeCsvRows(rows));
+      allRows.push(...rows);
 
-          exportedCount += batch.length;
-          exportIndex += batch.length;
-          skip += batch.length;
+      exportedCount += batch.length;
+      exportIndex += batch.length;
+      skip += batch.length;
 
-          // Short-circuit once Prisma returns a partial page — no more rows.
-          if (batch.length < take) break;
-        }
+      if (batch.length < take) break;
+    }
 
-        logger.info(
-          "GET /api/orders/export",
-          `Exported ${exportedCount} ${exportType} rows in ${(performance.now() - exportStart).toFixed(1)}ms`,
-        );
-        controller.close();
-      } catch (error) {
-        logger.error("GET /api/orders/export", "Error streaming", error);
-        controller.error(error);
-      }
-    },
-  });
+    const xlsxBuffer = buildXlsxBuffer(headers, allRows);
 
-  return new NextResponse(stream, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Server-Timing": timingHeader,
-      "Cache-Control": "no-store",
-    },
-  });
+    logger.info(
+      "GET /api/orders/export",
+      `Exported ${exportedCount} ${exportType} rows in ${(performance.now() - exportStart).toFixed(1)}ms`,
+    );
+
+    return new NextResponse(xlsxBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Server-Timing": timingHeader,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error) {
+    logger.error("GET /api/orders/export", "Error building XLSX", error);
+    return NextResponse.json({ error: "Lỗi xuất file" }, { status: 500 });
+  }
 }

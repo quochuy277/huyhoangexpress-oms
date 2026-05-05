@@ -7,19 +7,13 @@ import {
   buildDelayedOrdersWhere,
   DELAYED_EXPORT_BATCH_SIZE,
   DELAYED_ORDER_SELECT,
-  escapeCsvCell,
   getDelayedExportOrderBy,
 } from "@/lib/delayed-query";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { exportLimiter } from "@/lib/rate-limiter";
 import { requirePermission } from "@/lib/route-permissions";
-
-function rowsToCsv(rows: Record<string, string | number>[]) {
-  return rows
-    .map((row) => Object.values(row).map((value) => escapeCsvCell(value)).join(","))
-    .join("\n");
-}
+import { buildXlsxBuffer } from "@/lib/xlsx-export";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -52,7 +46,6 @@ export async function GET(req: NextRequest) {
   const sortKey = (searchParams.get("sortKey") || "delayCount") as keyof ProcessedDelayedOrder;
   const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
 
-  const encoder = new TextEncoder();
   const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const headers = [
     "STT",
@@ -71,73 +64,65 @@ export async function GET(req: NextRequest) {
   ];
 
   const exportStart = performance.now();
-  const stream = new ReadableStream({
-    async start(controller) {
-      let skip = 0;
-      let exportIndex = 1;
-      let totalRows = 0;
 
-      controller.enqueue(encoder.encode(`\uFEFF${headers.map((header) => escapeCsvCell(header)).join(",")}\n`));
+  try {
+    let skip = 0;
+    let exportIndex = 1;
+    const allRows: unknown[][] = [];
 
-      try {
-        while (true) {
-          const batch = await prisma.order.findMany({
-            where: buildDelayedOrdersWhere({
-              search,
-              shopFilter,
-              carrierFilter,
-              statusFilter,
-            }),
-            select: DELAYED_ORDER_SELECT,
-            orderBy: getDelayedExportOrderBy(sortKey, sortDir),
-            skip,
-            take: DELAYED_EXPORT_BATCH_SIZE,
-          });
+    while (true) {
+      const batch = await prisma.order.findMany({
+        where: buildDelayedOrdersWhere({
+          search,
+          shopFilter,
+          carrierFilter,
+          statusFilter,
+        }),
+        select: DELAYED_ORDER_SELECT,
+        orderBy: getDelayedExportOrderBy(sortKey, sortDir),
+        skip,
+        take: DELAYED_EXPORT_BATCH_SIZE,
+      });
 
-          if (batch.length === 0) {
-            break;
-          }
+      if (batch.length === 0) break;
 
-          let processedOrders = batch.map((order) => processDelayedOrder(order));
-          processedOrders = applyDelayedFilters(processedOrders, {
-            search: "",
-            shop: "",
-            status: "",
-            delay: delayCountFilter,
-            reason: reasonFilter,
-            risk: riskFilter || "all",
-            today: todayOnly,
-          });
+      let processedOrders = batch.map((order) => processDelayedOrder(order));
+      processedOrders = applyDelayedFilters(processedOrders, {
+        search: "",
+        shop: "",
+        status: "",
+        delay: delayCountFilter,
+        reason: reasonFilter,
+        risk: riskFilter || "all",
+        today: todayOnly,
+      });
 
-          if (processedOrders.length > 0) {
-            const csvRows = buildDelayedExportRows(processedOrders, exportIndex);
-            exportIndex += csvRows.length;
-            totalRows += csvRows.length;
-            controller.enqueue(encoder.encode(`${rowsToCsv(csvRows)}\n`));
-          }
-
-          if (batch.length < DELAYED_EXPORT_BATCH_SIZE) {
-            break;
-          }
-
-          skip += DELAYED_EXPORT_BATCH_SIZE;
+      if (processedOrders.length > 0) {
+        const csvRows = buildDelayedExportRows(processedOrders, exportIndex);
+        for (const row of csvRows) {
+          allRows.push(Object.values(row));
         }
-
-        logger.info("GET /api/orders/delayed/export", `Exported ${totalRows} rows in ${(performance.now() - exportStart).toFixed(1)}ms`);
-        controller.close();
-      } catch (error) {
-        logger.error("GET /api/orders/delayed/export", "Error streaming", error);
-        controller.error(error);
+        exportIndex += csvRows.length;
       }
-    },
-  });
 
-  return new NextResponse(stream, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="delayed-${timestamp}.csv"`,
-      "Cache-Control": "no-store",
-    },
-  });
+      if (batch.length < DELAYED_EXPORT_BATCH_SIZE) break;
+      skip += DELAYED_EXPORT_BATCH_SIZE;
+    }
+
+    const xlsxBuffer = buildXlsxBuffer(headers, allRows);
+
+    logger.info("GET /api/orders/delayed/export", `Exported ${allRows.length} rows in ${(performance.now() - exportStart).toFixed(1)}ms`);
+
+    return new NextResponse(xlsxBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="delayed-${timestamp}.xlsx"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error) {
+    logger.error("GET /api/orders/delayed/export", "Error building XLSX", error);
+    return NextResponse.json({ error: "Lỗi xuất file" }, { status: 500 });
+  }
 }

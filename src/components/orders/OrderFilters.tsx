@@ -213,10 +213,8 @@ function OrderFiltersInner({ canExportCustomer, canExportInternal, hideAdvanced 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      // Sprint 2: server now streams CSV (was XLSX). CSV with UTF-8 BOM opens
-      // cleanly in Excel and keeps peak server memory bounded on large exports.
       const prefix = type === "internal" ? "noi-bo" : "khach-hang";
-      a.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
