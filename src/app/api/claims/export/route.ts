@@ -6,17 +6,9 @@ import { auth } from "@/lib/auth";
 import { requireClaimsPermission } from "@/lib/claims-permissions";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { encodeCsvHeader, encodeCsvRows } from "@/lib/csv-stream";
+import { buildXlsxBuffer } from "@/lib/xlsx-export";
 import { exportLimiter } from "@/lib/rate-limiter";
 import { createServerTiming } from "@/lib/server-timing";
-
-// Streamed CSV export for ClaimOrder.
-//
-// Previously built the whole XLSX workbook in memory via `XLSX.write` — fine
-// for a few hundred rows but costly at 3000+ (the current cap). Sprint 2
-// (2026-04) switches to CSV streaming so peak memory is one batch (~500 rows)
-// regardless of cap. If we ever need to lift the cap, the bottleneck won't be
-// memory anymore.
 
 const SOURCE_LABELS: Record<string, string> = {
   AUTO_SLOW_JOURNEY: "Tự động (hành trình chậm)",
@@ -25,6 +17,16 @@ const SOURCE_LABELS: Record<string, string> = {
   FROM_RETURNS: "Từ đơn hoàn",
   FROM_ORDERS: "Từ đơn hàng",
   MANUAL: "Thủ công",
+};
+
+const FIELD_LABEL_MAP: Record<string, string> = {
+  claimStatus: "Trạng thái xử lý",
+  issueType: "Loại vấn đề",
+  issueDescription: "Nội dung vấn đề",
+  processingContent: "Nội dung xử lý",
+  carrierCompensation: "NVC đền bù",
+  customerCompensation: "Đền bù KH",
+  deadline: "Thời hạn",
 };
 
 const EXPORT_LIMIT = 3000;
@@ -46,13 +48,19 @@ function formatDateTimeVN(date: Date | string | null): string {
 }
 
 const CLAIM_HEADERS = [
+  // Thông tin đơn hàng
   "STT", "Mã Yêu Cầu", "Mã ĐT Đối Tác", "Cửa Hàng", "Đối Tác Vận Chuyển",
   "Trạng Thái Đơn", "COD (đ)", "Tổng Phí (đ)", "Nhóm Vùng Miền",
-  "Thời Gian Lấy Hàng", "Loại Vấn Đề", "Nội Dung Vấn Đề", "Ngày Phát Hiện",
-  "Ngày Tồn Đọng", "TT Xử Lý", "Nội Dung Xử Lý", "Thời Hạn",
-  "Số Tiền NVC Đền Bù (đ)", "Số Tiền Đền Bù KH (đ)", "Hoàn Tất",
+  "Thời Gian Lấy Hàng", "Ghi Chú Nội Bộ",
+  // Thông tin vấn đề
+  "Loại Vấn Đề", "Nội Dung Vấn Đề", "Ngày Phát Hiện", "Ngày Tồn Đọng", "Thời Hạn",
+  // Xử lý
+  "TT Xử Lý", "Nội Dung Xử Lý", "Số Tiền NVC Đền Bù (đ)", "Số Tiền Đền Bù KH (đ)",
+  "Hoàn Tất", "Ngày Hoàn Tất", "Người Hoàn Tất",
+  // Thông tin chung
   "Nguồn", "Người Tạo", "Ngày Tạo", "Người Nhận", "SĐT Người Nhận",
-  "Ghi Chú NB",
+  // Lịch sử thay đổi
+  "Lịch Sử Thay Đổi",
 ] as const;
 
 const CLAIM_INCLUDE = {
@@ -72,17 +80,87 @@ const CLAIM_INCLUDE = {
       receiverAddress: true,
       pickupTime: true,
       regionGroup: true,
+      internalNotes: true,
     },
   },
   createdBy: { select: { name: true } },
+  statusHistory: {
+    orderBy: { changedAt: "desc" as const },
+    take: 50,
+  },
+  changeLogs: {
+    orderBy: { changedAt: "desc" as const },
+    take: 50,
+  },
 } as const satisfies Prisma.ClaimOrderInclude;
 
 type ClaimRow = Prisma.ClaimOrderGetPayload<{ include: typeof CLAIM_INCLUDE }>;
+
+function getDisplayValue(fieldName: string, value: string | null): string {
+  if (!value) return "—";
+  if (fieldName === "claimStatus") {
+    return CLAIM_STATUS_CONFIG[value as keyof typeof CLAIM_STATUS_CONFIG]?.label || value;
+  }
+  if (fieldName === "issueType") {
+    return ISSUE_TYPE_CONFIG[value as keyof typeof ISSUE_TYPE_CONFIG]?.label || value;
+  }
+  if (fieldName === "carrierCompensation" || fieldName === "customerCompensation") {
+    return `${Number(parseFloat(value) || 0).toLocaleString("vi-VN")}đ`;
+  }
+  if (fieldName === "deadline") {
+    try {
+      return formatDateVN(value);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
+function buildHistoryText(claim: ClaimRow): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const timeline: any[] = [];
+
+  if (claim.statusHistory) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    claim.statusHistory.forEach((entry: any) => timeline.push({ type: "status", ...entry }));
+  }
+  if (claim.changeLogs) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    claim.changeLogs.forEach((entry: any) => {
+      if (entry.fieldName !== "claimStatus") {
+        timeline.push({ type: "change", ...entry });
+      }
+    });
+  }
+
+  timeline.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
+
+  if (timeline.length === 0) return "";
+
+  return timeline.map((item) => {
+    const time = formatDateTimeVN(item.changedAt);
+    const who = item.changedBy || "";
+
+    if (item.type === "status") {
+      const from = CLAIM_STATUS_CONFIG[item.fromStatus as keyof typeof CLAIM_STATUS_CONFIG]?.label || item.fromStatus;
+      const to = CLAIM_STATUS_CONFIG[item.toStatus as keyof typeof CLAIM_STATUS_CONFIG]?.label || item.toStatus;
+      const line = `[${time}] ${who}: TT Xử lý ${from} → ${to}`;
+      return item.note ? `${line} (${item.note})` : line;
+    }
+
+    const label = FIELD_LABEL_MAP[item.fieldName] || item.fieldName;
+    const oldVal = getDisplayValue(item.fieldName, item.oldValue);
+    const newVal = getDisplayValue(item.fieldName, item.newValue);
+    return `[${time}] ${who}: ${label} ${oldVal} → ${newVal}`;
+  }).join("\n");
+}
 
 function buildClaimRow(claim: ClaimRow, index: number): unknown[] {
   const daysPending = Math.floor((Date.now() - new Date(claim.detectedDate).getTime()) / 86400000);
 
   return [
+    // Thông tin đơn hàng
     index + 1,
     claim.order?.requestCode || "",
     claim.order?.carrierOrderCode || "",
@@ -93,22 +171,29 @@ function buildClaimRow(claim: ClaimRow, index: number): unknown[] {
     Number(claim.order?.totalFee || 0),
     claim.order?.regionGroup || "",
     formatDateTimeVN(claim.order?.pickupTime || null),
+    claim.order?.internalNotes || "",
+    // Thông tin vấn đề
     ISSUE_TYPE_CONFIG[claim.issueType as keyof typeof ISSUE_TYPE_CONFIG]?.label || claim.issueType,
     claim.issueDescription || "",
     formatDateVN(claim.detectedDate),
     `${daysPending} ngày`,
+    formatDateVN(claim.deadline),
+    // Xử lý
     CLAIM_STATUS_CONFIG[claim.claimStatus as keyof typeof CLAIM_STATUS_CONFIG]?.label || claim.claimStatus,
     claim.processingContent || "",
-    formatDateVN(claim.deadline),
     Number(claim.carrierCompensation || 0),
     Number(claim.customerCompensation || 0),
     claim.isCompleted ? "Đã hoàn tất" : "Chưa",
+    claim.completedAt ? formatDateTimeVN(claim.completedAt) : "",
+    claim.completedBy || "",
+    // Thông tin chung
     SOURCE_LABELS[claim.source] || claim.source,
     claim.createdBy?.name || "",
     formatDateVN(claim.createdAt),
     claim.order?.receiverName || "",
     claim.order?.receiverPhone || "",
-    claim.order?.staffNotes || "",
+    // Lịch sử thay đổi
+    buildHistoryText(claim),
   ];
 }
 
@@ -160,78 +245,61 @@ export async function GET(req: NextRequest) {
   if (orderStatus) orderWhere.status = orderStatus;
   if (Object.keys(orderWhere).length > 0) where.order = orderWhere;
 
-  // Count up-front so we can set `X-Claims-Export-Truncated` at response time
-  // — headers can't be sent mid-stream, and the client UI relies on this flag
-  // (see getClaimsExportTruncationMessage in useClaimMutations).
-  // A count() is cheap compared to the export itself; on large datasets it
-  // also makes debugging clearer (log shows matched vs exported).
   const totalMatching = await timing.measure("count", () =>
     prisma.claimOrder.count({ where }),
   );
   const truncated = totalMatching > EXPORT_LIMIT;
 
+  const exportStart = performance.now();
+  const allRows: unknown[][] = [];
+  let skip = 0;
+
+  while (allRows.length < EXPORT_LIMIT) {
+    const remaining = EXPORT_LIMIT - allRows.length;
+    const take = Math.min(EXPORT_BATCH_SIZE, remaining);
+
+    const batch = await prisma.claimOrder.findMany({
+      where,
+      include: CLAIM_INCLUDE,
+      orderBy: { deadline: "asc" },
+      skip,
+      take,
+    });
+
+    if (batch.length === 0) break;
+
+    for (const claim of batch) {
+      allRows.push(buildClaimRow(claim, allRows.length));
+    }
+
+    skip += batch.length;
+    if (batch.length < take) break;
+  }
+
+  const buffer = buildXlsxBuffer(CLAIM_HEADERS, allRows, "Đơn Có Vấn Đề");
+
   const timestamp = new Date()
     .toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
     .replace(/\//g, "");
-  const filename = `don-co-van-de-${timestamp}.csv`;
-  const timingHeader = timing.headerValue();
+  const filename = `don-co-van-de-${timestamp}.xlsx`;
 
-  const exportStart = performance.now();
-  const stream = new ReadableStream({
-    async start(controller) {
-      let skip = 0;
-      let exportedCount = 0;
-
-      controller.enqueue(encodeCsvHeader(CLAIM_HEADERS));
-
-      try {
-        while (exportedCount < EXPORT_LIMIT) {
-          const remaining = EXPORT_LIMIT - exportedCount;
-          const take = Math.min(EXPORT_BATCH_SIZE, remaining);
-
-          const batch = await prisma.claimOrder.findMany({
-            where,
-            include: CLAIM_INCLUDE,
-            orderBy: { deadline: "asc" },
-            skip,
-            take,
-          });
-
-          if (batch.length === 0) break;
-
-          const rows = batch.map((claim, i) => buildClaimRow(claim, exportedCount + i));
-          controller.enqueue(encodeCsvRows(rows));
-
-          exportedCount += batch.length;
-          skip += batch.length;
-
-          if (batch.length < take) break;
-        }
-
-        logger.info(
-          "GET /api/claims/export",
-          `Exported ${exportedCount}/${totalMatching} rows in ${(performance.now() - exportStart).toFixed(1)}ms${truncated ? " (truncated at cap)" : ""}`,
-        );
-        controller.close();
-      } catch (error) {
-        logger.error("GET /api/claims/export", "Error streaming", error);
-        controller.error(error);
-      }
-    },
-  });
+  logger.info(
+    "GET /api/claims/export",
+    `Exported ${allRows.length}/${totalMatching} rows in ${(performance.now() - exportStart).toFixed(1)}ms${truncated ? " (truncated at cap)" : ""}`,
+  );
 
   const responseHeaders: Record<string, string> = {
-    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="${filename}"`,
     "Cache-Control": "no-store",
-    "Server-Timing": timingHeader,
+    "Server-Timing": timing.headerValue(),
     "X-Claims-Export-Limit": String(EXPORT_LIMIT),
   };
   if (truncated) {
     responseHeaders["X-Claims-Export-Truncated"] = "true";
   }
 
-  return new NextResponse(stream, {
+  return new NextResponse(buffer, {
     status: 200,
     headers: responseHeaders,
   });

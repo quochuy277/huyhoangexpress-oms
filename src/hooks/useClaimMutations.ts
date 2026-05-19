@@ -81,10 +81,7 @@ export function useClaimMutations({
       const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
 
       anchor.href = url;
-      // Sprint 2: server now streams CSV (was XLSX). The filename from
-      // Content-Disposition is the source of truth; the fallback just
-      // preserves the .csv suffix in the unlikely case the header is missing.
-      anchor.download = filenameMatch?.[1] || "don-co-van-de.csv";
+      anchor.download = filenameMatch?.[1] || "don-co-van-de.xlsx";
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
