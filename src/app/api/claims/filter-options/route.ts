@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { getCachedClaimsFilterOptionsData } from "@/lib/claims-filter-options-cache";
-import { requireClaimsPermission } from "@/lib/claims-permissions";
+import { canAccessCompensation, hasClaimsPermission } from "@/lib/claims-permissions";
 import { logger } from "@/lib/logger";
 import { createServerTiming } from "@/lib/server-timing";
 
@@ -14,9 +14,11 @@ export async function GET() {
     if (!session?.user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401, headers: timing.headers() });
     }
-    const denied = requireClaimsPermission(session.user, "canViewClaims");
-    if (denied) {
-      return denied;
+    if (
+      !hasClaimsPermission(session.user, "canViewClaims")
+      && !canAccessCompensation(session.user)
+    ) {
+      return NextResponse.json({ error: "Không có quyền" }, { status: 403, headers: timing.headers() });
     }
 
     const data = await timing.measure("claims_filters", () => getCachedClaimsFilterOptionsData());

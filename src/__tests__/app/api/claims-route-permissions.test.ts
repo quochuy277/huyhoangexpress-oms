@@ -116,6 +116,21 @@ describe("claims api permissions", () => {
     expect(prisma.claimOrder.findMany).toHaveBeenCalledTimes(1);
   });
 
+  it("allows compensation viewers to read filter options without canViewClaims", async () => {
+    clearClaimsFilterOptionsCache();
+    vi.mocked(auth).mockResolvedValue(
+      makeSession({ canViewClaims: false, canViewCompensation: true }) as never,
+    );
+    vi.mocked(prisma.claimOrder.findMany).mockResolvedValueOnce([
+      { order: { shopName: "Shop A", status: "DELIVERED" } },
+    ] as never);
+
+    const { GET } = await import("@/app/api/claims/filter-options/route");
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+  });
+
   it("streams CSV export with correct headers, respects EXPORT_LIMIT, and flags truncation", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession({}) as never);
     // Simulate a dataset larger than the cap so the truncated header is set.
