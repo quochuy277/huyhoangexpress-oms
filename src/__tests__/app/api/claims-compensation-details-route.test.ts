@@ -120,4 +120,20 @@ describe("claims compensation details route", () => {
     ]);
     expect(body.pagination).toEqual({ page: 2, pageSize: 20, total: 45 });
   });
+
+  it("allows finance users with canViewFinancePage even without canViewCompensation", async () => {
+    vi.mocked(auth).mockResolvedValue(
+      makeSession({ canViewCompensation: false, canViewFinancePage: true }) as never,
+    );
+    vi.mocked(prisma.claimOrder.count).mockResolvedValue(0 as never);
+    vi.mocked(prisma.claimOrder.findMany).mockResolvedValue([] as never);
+
+    const { GET } = await import("@/app/api/claims/compensation/details/route");
+    const response = await GET(new NextRequest(
+      "http://localhost/api/claims/compensation/details?shopName=Shop%20A",
+      { method: "GET" },
+    ));
+
+    expect(response.status).toBe(200);
+  });
 });
