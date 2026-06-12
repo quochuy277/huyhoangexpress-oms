@@ -120,6 +120,32 @@ describe("summarizeCompensationClaims", () => {
     expect(issueDistribution.find((entry) => entry.type === "DAMAGED")?.count).toBe(0);
   });
 
+  it("sums carrier and customer money regardless of current claim status", () => {
+    // Lifecycle: NVC paid 200k earlier, then we paid the customer 80k. The
+    // claim now sits in CUSTOMER_COMPENSATED, but the NVC money still counts
+    // toward carrierTotal — and consequently the Lời/Lỗ difference.
+    const { summary, shops, monthlyData } = summarizeCompensationClaims([
+      makeClaim({
+        shopName: "Shop X",
+        detectedDate: new Date(2026, 1, 10),
+        claimStatus: "CUSTOMER_COMPENSATED",
+        carrierCompensation: 200000,
+        customerCompensation: 80000,
+      }),
+    ], range);
+
+    expect(summary.carrierTotal).toBe(200000);
+    expect(summary.customerTotal).toBe(80000);
+    expect(summary.difference).toBe(120000);
+    expect(summary.customerCompensatedCount).toBe(1);
+    expect(shops[0].totalPaid).toBe(80000);
+    expect(monthlyData.find((b) => b.month === "02/2026")).toEqual({
+      month: "02/2026",
+      carrier: 200000,
+      customer: 80000,
+    });
+  });
+
   it("returns zero-filled aggregates when given no claims", () => {
     const { summary, shops, monthlyData, issueDistribution } = summarizeCompensationClaims([], range);
 

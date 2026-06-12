@@ -121,16 +121,17 @@ export function summarizeCompensationClaims(claims: CompensationClaimRow[], rang
     const isPending = PENDING_COMPENSATION_STATUSES.includes(claim.claimStatus);
     const isCompensated = claim.claimStatus === "CUSTOMER_COMPENSATED";
     const isRejected = claim.claimStatus === "CUSTOMER_REJECTED";
-    const isCarrierCompensated = claim.claimStatus === "CARRIER_COMPENSATED";
 
     if (isProcessing) summary.processingCount++;
     if (isPending) summary.pendingCount++;
-    if (isCompensated) {
-      summary.customerCompensatedCount++;
-      summary.customerTotal += claim.customerCompensation;
-    }
+    if (isCompensated) summary.customerCompensatedCount++;
     if (isRejected) summary.customerRejectedCount++;
-    if (isCarrierCompensated) summary.carrierTotal += claim.carrierCompensation;
+
+    // Money totals reflect actual cash flow that occurred, independent of
+    // current status: a claim that moved CARRIER_COMPENSATED → CUSTOMER_COMPENSATED
+    // still carries the NVC amount that was paid earlier.
+    summary.carrierTotal += claim.carrierCompensation;
+    summary.customerTotal += claim.customerCompensation;
 
     let shop = shopMap.get(claim.shopName);
     if (!shop) {
@@ -148,16 +149,14 @@ export function summarizeCompensationClaims(claims: CompensationClaimRow[], rang
     shop.totalClaims++;
     if (isProcessing) shop.processing++;
     if (isPending) shop.pending++;
-    if (isCompensated) {
-      shop.compensated++;
-      shop.totalPaid += claim.customerCompensation;
-    }
+    if (isCompensated) shop.compensated++;
     if (isRejected) shop.rejected++;
+    shop.totalPaid += claim.customerCompensation;
 
     const monthKey = monthKeyOf(claim.detectedDate);
     const monthTotals = monthlyTotals.get(monthKey) ?? { carrier: 0, customer: 0 };
-    if (isCarrierCompensated) monthTotals.carrier += claim.carrierCompensation;
-    if (isCompensated) monthTotals.customer += claim.customerCompensation;
+    monthTotals.carrier += claim.carrierCompensation;
+    monthTotals.customer += claim.customerCompensation;
     monthlyTotals.set(monthKey, monthTotals);
 
     issueCounts.set(claim.issueType, (issueCounts.get(claim.issueType) ?? 0) + 1);
