@@ -111,8 +111,9 @@ function CompensationFilterBarInner({ filters, shopOptions, onChange }: Props) {
 
       {filters.preset === "custom" && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
-          <label style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>Từ</label>
+          <label htmlFor="compensation-date-from" style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>Từ</label>
           <input
+            id="compensation-date-from"
             type="date"
             value={filters.dateFrom}
             max={filters.dateTo || undefined}
@@ -120,8 +121,9 @@ function CompensationFilterBarInner({ filters, shopOptions, onChange }: Props) {
             style={dateInputStyle}
             aria-label="Từ ngày thống kê đền bù"
           />
-          <label style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>Đến</label>
+          <label htmlFor="compensation-date-to" style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>Đến</label>
           <input
+            id="compensation-date-to"
             type="date"
             value={filters.dateTo}
             min={filters.dateFrom || undefined}
