@@ -29,3 +29,11 @@ export function requireClaimsPermission(user: ClaimsUser, key: ClaimsPermissionK
 
   return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 }
+
+export function canAccessCompensation(user: ClaimsUser) {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  return Boolean(
+    user.permissions?.canViewCompensation || user.permissions?.canViewFinancePage,
+  );
+}
