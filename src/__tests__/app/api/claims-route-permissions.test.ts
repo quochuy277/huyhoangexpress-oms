@@ -117,7 +117,6 @@ describe("claims api permissions", () => {
   });
 
   it("allows compensation viewers to read filter options without canViewClaims", async () => {
-    clearClaimsFilterOptionsCache();
     vi.mocked(auth).mockResolvedValue(
       makeSession({ canViewClaims: false, canViewCompensation: true }) as never,
     );
