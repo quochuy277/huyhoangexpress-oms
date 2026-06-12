@@ -44,8 +44,16 @@ export type CompensationShopRow = {
 
 function parseDateParam(value?: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year
+    || parsed.getMonth() + 1 !== month
+    || parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
 }
 
 function endOfDay(date: Date): Date {
@@ -89,6 +97,7 @@ export function buildMonthlyBuckets(range: CompensationRange): string[] {
   return buckets;
 }
 
+/** Caller must pre-filter `claims` to `range`; this aggregator does not re-filter. */
 export function summarizeCompensationClaims(claims: CompensationClaimRow[], range: CompensationRange) {
   const summary: CompensationSummary = {
     totalClaims: 0,

@@ -119,4 +119,23 @@ describe("summarizeCompensationClaims", () => {
     expect(issueDistribution.find((entry) => entry.type === "LOST")?.count).toBe(1);
     expect(issueDistribution.find((entry) => entry.type === "DAMAGED")?.count).toBe(0);
   });
+
+  it("returns zero-filled aggregates when given no claims", () => {
+    const { summary, shops, monthlyData, issueDistribution } = summarizeCompensationClaims([], range);
+
+    expect(summary).toEqual({
+      totalClaims: 0,
+      processingCount: 0,
+      customerCompensatedCount: 0,
+      customerRejectedCount: 0,
+      pendingCount: 0,
+      carrierTotal: 0,
+      customerTotal: 0,
+      difference: 0,
+    });
+    expect(shops).toEqual([]);
+    expect(monthlyData.every((bucket) => bucket.carrier === 0 && bucket.customer === 0)).toBe(true);
+    expect(issueDistribution.every((entry) => entry.count === 0)).toBe(true);
+    expect(issueDistribution.length).toBeGreaterThan(0);
+  });
 });
