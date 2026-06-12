@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
@@ -57,6 +57,16 @@ export function ShopClaimsDetailModal({
 }) {
   const [page, setPage] = useState(1);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const { data, isLoading, isError } = useQuery<DetailResponse>({
     queryKey: ["claims-compensation-details", shopName, dateFrom, dateTo, page],
     queryFn: async () => {
@@ -86,6 +96,7 @@ export function ShopClaimsDetailModal({
       />
       <div
         role="dialog"
+        aria-modal="true"
         aria-label={`Chi tiết đền bù cửa hàng ${shopName}`}
         style={{
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
