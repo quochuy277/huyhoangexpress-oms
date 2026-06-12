@@ -130,12 +130,12 @@ describe("claims api permissions", () => {
     expect(response.status).toBe(200);
   });
 
-  it("streams CSV export with correct headers, respects EXPORT_LIMIT, and flags truncation", async () => {
+  it("returns XLSX export with correct headers, respects EXPORT_LIMIT, and flags truncation", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession({}) as never);
     // Simulate a dataset larger than the cap so the truncated header is set.
     vi.mocked(prisma.claimOrder.count).mockResolvedValue(5000 as never);
-    // Return one row then an empty batch — streaming loop will stop after the
-    // second findMany returns length 0.
+    // Return one row then an empty batch — the batched loop will stop after
+    // the second findMany returns length 0.
     vi.mocked(prisma.claimOrder.findMany)
       .mockResolvedValueOnce([
         {
@@ -152,6 +152,8 @@ describe("claims api permissions", () => {
           source: "MANUAL",
           createdAt: new Date("2026-03-28T00:00:00.000Z"),
           createdBy: { name: "Tester" },
+          statusHistory: [],
+          changeLogs: [],
           order: {
             requestCode: "REQ-001",
             carrierOrderCode: "C-001",
@@ -167,6 +169,7 @@ describe("claims api permissions", () => {
             receiverAddress: "HN",
             pickupTime: null,
             regionGroup: "HN",
+            internalNotes: "",
           },
         },
       ] as never)
@@ -176,30 +179,31 @@ describe("claims api permissions", () => {
     const response = await GET(new NextRequest("http://localhost/api/claims/export"));
 
     expect(response.status).toBe(200);
-    // Export is now streamed; findMany is called in 500-row batches rather
-    // than one shot at the cap, so we assert the batch size, not the cap.
+    // findMany is called in 500-row batches rather than one shot at the cap,
+    // so we assert the batch size, not the cap.
     expect(prisma.claimOrder.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 500,
       }),
     );
-    expect(response.headers.get("Content-Type")).toContain("text/csv");
+    expect(response.headers.get("Content-Type")).toContain(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    expect(response.headers.get("Content-Disposition")).toMatch(/filename="[^"]+\.xlsx"/);
     expect(response.headers.get("Server-Timing")).toContain("total;dur=");
     expect(response.headers.get("X-Claims-Export-Limit")).toBe("3000");
     // count() returned 5000 > 3000, so truncation flag is set.
     expect(response.headers.get("X-Claims-Export-Truncated")).toBe("true");
 
-    // Drain the stream to make sure it actually produces a CSV body with
-    // header + at least one data row. Read as raw bytes so we can verify the
-    // UTF-8 BOM is present — `response.text()` silently strips leading BOMs
-    // via the TextDecoder defaults, so a byte check is the only reliable way
-    // to assert it was emitted.
+    // XLSX files are ZIP archives — the first four bytes are the local-file
+    // header magic `PK\x03\x04`. Asserting on the magic bytes is enough to
+    // confirm the response body is a real workbook without pulling SheetJS
+    // into the test to re-parse it.
     const bytes = new Uint8Array(await response.arrayBuffer());
-    expect(bytes[0]).toBe(0xef);
-    expect(bytes[1]).toBe(0xbb);
-    expect(bytes[2]).toBe(0xbf);
-    const body = new TextDecoder("utf-8").decode(bytes);
-    expect(body).toContain("Mã Yêu Cầu");
-    expect(body).toContain("REQ-001");
+    expect(bytes.length).toBeGreaterThan(4);
+    expect(bytes[0]).toBe(0x50);
+    expect(bytes[1]).toBe(0x4b);
+    expect(bytes[2]).toBe(0x03);
+    expect(bytes[3]).toBe(0x04);
   });
 });
