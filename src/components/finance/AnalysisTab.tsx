@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { SegmentedNav } from "@/components/finance/shared/SegmentedNav";
 
 const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -43,7 +44,7 @@ export default function AnalysisTab({ initialData = null }: { initialData?: any 
     const p = new URLSearchParams(searchParams.toString());
     p.set("view", v);
     if (v !== "shop") p.delete("shop");
-    router.push(`/finance?tab=analysis&${p.toString()}`, { scroll: false });
+    router.push(`/finance/analysis?${p.toString()}`, { scroll: false });
   };
 
   const applyShopSearch = (event?: React.FormEvent<HTMLFormElement>) => {
@@ -57,7 +58,7 @@ export default function AnalysisTab({ initialData = null }: { initialData?: any 
     if (nextShopSearch) p.set("shop", nextShopSearch);
     else p.delete("shop");
 
-    router.push(`/finance?tab=analysis&${p.toString()}`, { scroll: false });
+    router.push(`/finance/analysis?${p.toString()}`, { scroll: false });
   };
 
   const fetchCarriers = useCallback(async () => {
@@ -152,15 +153,11 @@ export default function AnalysisTab({ initialData = null }: { initialData?: any 
             <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </div>
         )}
-        <div className="overflow-x-auto pb-1">
-          <div className="flex min-w-max gap-2">
-          {VIEWS.map(v => (
-            <button key={v.id} onClick={() => switchView(v.id)} className={toggleButtonClass(view === v.id)}>
-              {v.label}
-            </button>
-          ))}
-          </div>
-        </div>
+        <SegmentedNav
+          items={VIEWS.map((v) => ({ id: v.id, label: v.label }))}
+          active={view}
+          onChange={switchView}
+        />
       </div>
 
       {/* VIEW 1: Carrier */}
