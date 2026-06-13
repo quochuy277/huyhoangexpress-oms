@@ -101,7 +101,11 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
 
   const financeVisible = userRole === "ADMIN" || !!permissions?.canViewFinancePage;
   const financeActive = pathname.startsWith("/finance");
-  const [financeOpen, setFinanceOpen] = useState(financeActive);
+  const [financeOpen, setFinanceOpen] = useState(false);
+  // Group shows expanded when the user opened it, OR whenever a finance route
+  // is active (entering the section always reveals its sub-pages). Deriving
+  // this avoids a setState-in-effect and keeps it in sync on navigation.
+  const financeExpanded = financeActive || financeOpen;
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.requiredPermission) return true;
@@ -174,22 +178,23 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
           <div className="group/finance relative">
             <button
               onClick={() => (isMobile || isExpanded) && setFinanceOpen((v) => !v)}
+              aria-expanded={isMobile || isExpanded ? financeExpanded : undefined}
               title={!isMobile && !isExpanded ? "Tài Chính" : undefined}
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                financeActive ? "text-white" : "text-slate-400 hover:text-white hover:bg-slate-800",
+                financeActive ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800",
               )}
             >
               <BarChart2 className="w-4 h-4 shrink-0" />
               {(isMobile || isExpanded) && (
                 <>
                   <span className="truncate whitespace-nowrap flex-1 text-left">Tài Chính</span>
-                  <ChevronRight className={cn("w-4 h-4 transition-transform", financeOpen && "rotate-90")} />
+                  <ChevronRight className={cn("w-4 h-4 transition-transform", financeExpanded && "rotate-90")} />
                 </>
               )}
             </button>
 
-            {(isMobile || isExpanded) && financeOpen && (
+            {(isMobile || isExpanded) && financeExpanded && (
               <div className="mt-1 space-y-1 pl-9">
                 {FINANCE_CHILDREN.map((child) => {
                   const active = child.href === "/finance" ? pathname === "/finance" : pathname.startsWith(child.href);
@@ -210,7 +215,7 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
             )}
 
             {!isMobile && !isExpanded && (
-              <div className="absolute left-full top-0 ml-2 hidden min-w-[200px] rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl group-hover/finance:block z-50">
+              <div className="absolute left-full top-0 ml-2 hidden min-w-[200px] rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl group-hover/finance:block group-focus-within/finance:block z-50">
                 <div className="px-2 pb-1 text-xs font-bold uppercase tracking-wide text-blue-300">Tài Chính</div>
                 {FINANCE_CHILDREN.map((child) => {
                   const active = child.href === "/finance" ? pathname === "/finance" : pathname.startsWith(child.href);
