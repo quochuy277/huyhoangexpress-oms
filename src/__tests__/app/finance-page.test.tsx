@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/cached-session", () => ({
-  getCachedSession: vi.fn(),
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  }),
 }));
 
-vi.mock("@/lib/finance/page-data", () => ({
-  getFinanceAnalysisInitialData: vi.fn(),
-  getFinanceCashbookInitialData: vi.fn(),
+vi.mock("@/lib/cached-session", () => ({
+  getCachedSession: vi.fn(),
 }));
 
 vi.mock("@/lib/finance/landing", async () => {
@@ -17,15 +18,15 @@ vi.mock("@/lib/finance/landing", async () => {
   };
 });
 
-vi.mock("@/components/finance/FinancePageClient", () => ({
+vi.mock("@/components/finance/dashboard/DashboardPageClient", () => ({
   __esModule: true,
   default: () => null,
 }));
 
 import { getCachedSession } from "@/lib/cached-session";
-import { getFinanceAnalysisInitialData, getFinanceCashbookInitialData } from "@/lib/finance/page-data";
+import { getFinanceLandingData } from "@/lib/finance/landing";
 
-describe("FinancePage", () => {
+describe("FinancePage (dashboard hub)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getCachedSession).mockResolvedValue({
@@ -36,25 +37,29 @@ describe("FinancePage", () => {
     } as never);
   });
 
-  it("prefetches analysis data when opening the analysis tab directly", async () => {
-    vi.mocked(getFinanceAnalysisInitialData).mockResolvedValue({ carriers: [{ carrier: "GHN" }] } as never);
-
+  it("redirects legacy ?tab=analysis to /finance/analysis", async () => {
     const { default: FinancePage } = await import("@/app/(dashboard)/finance/page");
-    const element = await FinancePage({ searchParams: Promise.resolve({ tab: "analysis", view: "carrier" }) });
-
-    expect(vi.mocked(getFinanceAnalysisInitialData)).toHaveBeenCalledTimes(1);
-    expect((element as any).props.initialAnalysisData).toEqual({ carriers: [{ carrier: "GHN" }] });
-    expect((element as any).props.initialCashbookData).toBeNull();
+    await expect(
+      FinancePage({ searchParams: Promise.resolve({ tab: "analysis" }) }),
+    ).rejects.toThrow("REDIRECT:/finance/analysis");
+    expect(vi.mocked(getFinanceLandingData)).not.toHaveBeenCalled();
   }, 120000);
 
-  it("prefetches cashbook data when opening the cashbook tab directly", async () => {
-    vi.mocked(getFinanceCashbookInitialData).mockResolvedValue({ summary: { summary: { codTotal: 0 } } } as never);
+  it("redirects legacy ?tab=cashbook to /finance/cashbook", async () => {
+    const { default: FinancePage } = await import("@/app/(dashboard)/finance/page");
+    await expect(
+      FinancePage({ searchParams: Promise.resolve({ tab: "cashbook" }) }),
+    ).rejects.toThrow("REDIRECT:/finance/cashbook");
+    expect(vi.mocked(getFinanceLandingData)).not.toHaveBeenCalled();
+  });
+
+  it("renders the dashboard and prefetches landing data by default", async () => {
+    vi.mocked(getFinanceLandingData).mockResolvedValue({ summary: {}, pnl: {} } as never);
 
     const { default: FinancePage } = await import("@/app/(dashboard)/finance/page");
-    const element = await FinancePage({ searchParams: Promise.resolve({ tab: "cashbook" }) });
+    const element = await FinancePage({ searchParams: Promise.resolve({}) });
 
-    expect(vi.mocked(getFinanceCashbookInitialData)).toHaveBeenCalledTimes(1);
-    expect((element as any).props.initialCashbookData).toEqual({ summary: { summary: { codTotal: 0 } } });
-    expect((element as any).props.initialAnalysisData).toBeNull();
+    expect(vi.mocked(getFinanceLandingData)).toHaveBeenCalledTimes(1);
+    expect((element as any).props.initialData).toEqual({ summary: {}, pnl: {} });
   });
 });
