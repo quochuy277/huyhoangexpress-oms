@@ -11,8 +11,10 @@ import { useFinancePeriod } from "@/lib/finance/use-finance-period";
 import { buildPeriodSearch } from "@/lib/finance/period-url";
 import { formatVnd } from "@/lib/finance/format";
 import { computeDeltaPercent, computeTargetPercent } from "@/lib/finance/compare";
+import { AlertCenter } from "@/components/finance/shared/AlertCenter";
 import type { FinanceLandingData } from "@/lib/finance/landing";
 import type { FinanceDashboardData } from "@/lib/finance/dashboard";
+import type { FinanceAlert } from "@/lib/finance/alerts";
 
 const INITIAL_AT = Date.now();
 
@@ -40,11 +42,17 @@ export default function DashboardPageClient({ initialData }: { initialData: Fina
     queryFn: () => fetchJson<FinanceDashboardData>(`/api/finance/dashboard?${search}`),
     placeholderData: (prev) => prev,
   });
+  const alertsQuery = useQuery({
+    queryKey: ["finance-alerts", search],
+    queryFn: () => fetchJson<{ alerts: FinanceAlert[] }>(`/api/finance/alerts?${search}`),
+    placeholderData: (prev) => prev,
+  });
 
   const data = landingQuery.data ?? initialData;
   const { trendData, carrierDistribution, shopDistribution, pnl } = data;
   const shopBarHeight = Math.max(220, shopDistribution.length * 28);
   const dash = dashboardQuery.data;
+  const alerts = alertsQuery.data?.alerts ?? [];
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 sm:space-y-6 md:px-6 md:py-6">
@@ -101,7 +109,8 @@ export default function DashboardPageClient({ initialData }: { initialData: Fina
 
       <OverviewCharts trendData={trendData} carrierDistribution={carrierDistribution} shopDistribution={shopDistribution} shopBarHeight={shopBarHeight} formatCurrency={formatVnd} />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr,1fr]">
+        <AlertCenter alerts={alerts} />
         <FinancePanel title="📄 P&L tóm tắt">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-slate-500">Doanh thu ròng</span><MoneyText value={pnl.revenue.netRevenue} className="font-semibold text-blue-600" /></div>
@@ -112,16 +121,16 @@ export default function DashboardPageClient({ initialData }: { initialData: Fina
           </div>
           <Link href="/finance/pnl" className="mt-3 block text-right text-sm font-bold text-blue-600">Xem báo cáo P&L đầy đủ →</Link>
         </FinancePanel>
-
-        <FinancePanel title="🔗 Truy cập nhanh">
-          <div className="space-y-2 text-sm">
-            <Link href="/finance/analysis?view=shop" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">🏪 Phân tích cửa hàng →</Link>
-            <Link href="/finance/analysis?view=carrier" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">🚚 So sánh đối tác →</Link>
-            <Link href="/finance/cashbook" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">🏦 Sổ quỹ →</Link>
-            <Link href="/finance/expenses" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">💸 Chi phí & Ngân sách →</Link>
-          </div>
-        </FinancePanel>
       </div>
+
+      <FinancePanel title="🔗 Truy cập nhanh">
+        <div className="space-y-2 text-sm">
+          <Link href="/finance/analysis?view=shop" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">🏪 Phân tích cửa hàng →</Link>
+          <Link href="/finance/analysis?view=carrier" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">🚚 So sánh đối tác →</Link>
+          <Link href="/finance/cashbook" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">🏦 Sổ quỹ →</Link>
+          <Link href="/finance/expenses" className="block rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">💸 Chi phí & Ngân sách →</Link>
+        </div>
+      </FinancePanel>
     </div>
   );
 }
