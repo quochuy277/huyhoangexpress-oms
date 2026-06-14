@@ -1,42 +1,35 @@
-// src/components/finance/pnl/PnlPageClient.tsx
 "use client";
 
-import { useReducer, useMemo } from "react";
+import { useMemo, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { format } from "date-fns";
-import { PnLSection } from "@/components/finance/PnLSection";
+import { PnlComparisonTable } from "@/components/finance/pnl/PnlComparisonTable";
+import { PeriodFilter } from "@/components/finance/shared/PeriodFilter";
+import { FinancePanel } from "@/components/finance/shared/FinancePanel";
+import { formatVnd } from "@/lib/finance/format";
+import { computeTargetPercent } from "@/lib/finance/compare";
 import type { FinancePnlData } from "@/lib/finance/landing";
+import type { FinanceTargets } from "@/lib/finance/targets";
 
-const INITIAL_AT = Date.now();
+const TargetDialog = dynamic(() => import("@/components/finance/pnl/TargetDialog"), { ssr: false });
 
-type PnlFilterState = { period: string; customFromInput: string; customToInput: string; customFrom: string; customTo: string };
-type PnlFilterAction =
-  | { type: "SET_PERIOD"; period: string }
-  | { type: "SET_CUSTOM_FROM_INPUT"; value: string }
-  | { type: "SET_CUSTOM_TO_INPUT"; value: string }
-  | { type: "APPLY_CUSTOM" };
-
-function reducer(state: PnlFilterState, action: PnlFilterAction): PnlFilterState {
-  switch (action.type) {
-    case "SET_PERIOD": return { ...state, period: action.period };
-    case "SET_CUSTOM_FROM_INPUT": return { ...state, customFromInput: action.value };
-    case "SET_CUSTOM_TO_INPUT": return { ...state, customToInput: action.value };
-    case "APPLY_CUSTOM": return { ...state, customFrom: state.customFromInput, customTo: state.customToInput };
-    default: return state;
-  }
+type Filter = { period: string; from: string; to: string };
+function reducer(s: Filter, a: Partial<Filter>): Filter {
+  return { ...s, ...a };
 }
 
-function buildPnlDateRange(period: string, from: string, to: string) {
+function rangeFor(period: string, from: string, to: string) {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const y = now.getFullYear();
+  const m = now.getMonth();
   if (period === "quarter") {
-    const qs = Math.floor(month / 3) * 3;
-    return { from: new Date(year, qs, 1), to: new Date(year, qs + 3, 0) };
+    const qs = Math.floor(m / 3) * 3;
+    return { from: new Date(y, qs, 1), to: new Date(y, qs + 3, 0) };
   }
-  if (period === "year") return { from: new Date(year, 0, 1), to: new Date(year, 11, 31) };
+  if (period === "year") return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) };
   if (period === "custom" && from && to) return { from: new Date(from), to: new Date(to) };
-  return { from: new Date(year, month, 1), to: new Date(year, month + 1, 0) };
+  return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -46,40 +39,97 @@ async function fetchJson<T>(url: string): Promise<T> {
   return data as T;
 }
 
-export default function PnlPageClient({ initialPnl }: { initialPnl?: FinancePnlData | null }) {
-  const [filter, dispatch] = useReducer(reducer, {
-    period: "month", customFromInput: "", customToInput: "", customFrom: "", customTo: "",
-  });
-  const dates = useMemo(() => buildPnlDateRange(filter.period, filter.customFrom, filter.customTo), [filter.period, filter.customFrom, filter.customTo]);
+interface Props {
+  isAdmin: boolean;
+  initialCompare?: { current: FinancePnlData; previous: FinancePnlData } | null;
+  initialTargets?: FinanceTargets;
+}
+
+export default function PnlPageClient({ isAdmin, initialCompare, initialTargets }: Props) {
+  const [filter, setFilter] = useReducer(reducer, { period: "month", from: "", to: "" });
+  const [compareTo, setCompareTo] = useState<"prev" | "yoy">("prev");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const dates = useMemo(() => rangeFor(filter.period, filter.from, filter.to), [filter]);
   const fromStr = format(dates.from, "yyyy-MM-dd");
   const toStr = format(dates.to, "yyyy-MM-dd");
+  const monthStr = format(dates.from, "yyyy-MM");
+  const isDefault = filter.period === "month" && compareTo === "prev";
 
   const pnlQuery = useQuery({
-    queryKey: ["finance-pnl", fromStr, toStr],
-    queryFn: () => fetchJson<FinancePnlData>(`/api/finance/pnl?from=${fromStr}&to=${toStr}`),
-    initialData: initialPnl && filter.period === "month" && !filter.customFrom ? initialPnl : undefined,
-    initialDataUpdatedAt: initialPnl ? INITIAL_AT : undefined,
+    queryKey: ["finance-pnl-compare", fromStr, toStr, compareTo],
+    queryFn: () => fetchJson<{ current: FinancePnlData; previous: FinancePnlData }>(`/api/finance/pnl?from=${fromStr}&to=${toStr}&compareTo=${compareTo}`),
+    initialData: isDefault ? (initialCompare ?? undefined) : undefined,
+    placeholderData: (prev) => prev,
+  });
+  const targetsQuery = useQuery({
+    queryKey: ["finance-targets", monthStr],
+    queryFn: () => fetchJson<FinanceTargets>(`/api/finance/targets?month=${monthStr}`),
+    initialData: filter.period === "month" ? initialTargets : undefined,
     placeholderData: (prev) => prev,
   });
 
-  const pnl = pnlQuery.data ?? initialPnl ?? null;
+  const data = pnlQuery.data;
+  const targets = targetsQuery.data ?? { netRevenue: null, netProfit: null };
+  const compareBtn = (v: "prev" | "yoy", label: string) => (
+    <button
+      onClick={() => setCompareTo(v)}
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${compareTo === v ? "border-blue-200 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}
+    >
+      {label}
+    </button>
+  );
 
   return (
-    <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-800">📄 Báo cáo P&amp;L</h1>
-        <p className="mt-1 text-sm text-slate-500">Kết quả kinh doanh theo kỳ.</p>
+    <div className="mx-auto max-w-[1400px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">📄 Báo cáo P&L</h1>
+          <p className="mt-1 text-sm text-slate-500">Kết quả kinh doanh + so sánh kỳ.</p>
+        </div>
+        <PeriodFilter
+          period={filter.period}
+          customFrom={filter.from}
+          customTo={filter.to}
+          onPeriodChange={(p) => setFilter({ period: p })}
+          onCustomFromChange={(v) => setFilter({ from: v })}
+          onCustomToChange={(v) => setFilter({ to: v })}
+        />
       </div>
-      {pnl && (
-        <PnLSection
-          pnl={pnl}
-          pnlPeriod={filter.period}
-          pnlCustomFromInput={filter.customFromInput}
-          pnlCustomToInput={filter.customToInput}
-          onPnlPeriodChange={(p) => dispatch({ type: "SET_PERIOD", period: p })}
-          onPnlCustomFromInputChange={(v) => dispatch({ type: "SET_CUSTOM_FROM_INPUT", value: v })}
-          onPnlCustomToInputChange={(v) => dispatch({ type: "SET_CUSTOM_TO_INPUT", value: v })}
-          onApplyPnlCustomRange={() => dispatch({ type: "APPLY_CUSTOM" })}
+
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-slate-600">So với:</span>
+        {compareBtn("prev", "Kỳ trước")}
+        {compareBtn("yoy", "Cùng kỳ năm ngoái")}
+      </div>
+
+      {data && (
+        <FinancePanel>
+          <PnlComparisonTable current={data.current} previous={data.previous} />
+        </FinancePanel>
+      )}
+
+      <FinancePanel>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-slate-600">
+            🎯 <b>Mục tiêu {monthStr}:</b>{" "}
+            {targets.netRevenue ? `DT ròng ${formatVnd(targets.netRevenue)}` : "DT ròng —"} ·{" "}
+            {targets.netProfit ? `LN ròng ${formatVnd(targets.netProfit)}` : "LN ròng —"}
+            {data && targets.netProfit ? ` · đạt ${computeTargetPercent(data.current.netProfit, targets.netProfit)}%` : ""}
+          </div>
+          {isAdmin && (
+            <button onClick={() => setDialogOpen(true)} className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium hover:bg-slate-200">⚙ Đặt mục tiêu</button>
+          )}
+        </div>
+      </FinancePanel>
+
+      {dialogOpen && (
+        <TargetDialog
+          month={monthStr}
+          initialNetRevenue={targets.netRevenue}
+          initialNetProfit={targets.netProfit}
+          onSaved={() => targetsQuery.refetch()}
+          onClose={() => setDialogOpen(false)}
         />
       )}
     </div>
