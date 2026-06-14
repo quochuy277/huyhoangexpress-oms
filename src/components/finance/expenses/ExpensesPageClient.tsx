@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ExpenseSection } from "@/components/finance/ExpenseSection";
 import { BudgetSection } from "@/components/finance/BudgetSection";
+import { PeriodFilter } from "@/components/finance/shared/PeriodFilter";
+import { getDateRange } from "@/lib/finance-period";
 import type { FinanceBudgetSummary, FinanceCategoryOption } from "@/lib/finance/landing";
 
 const ExpenseDialog = dynamic(() => import("@/components/finance/ExpenseDialog"), { ssr: false });
@@ -41,10 +43,14 @@ export default function ExpensesPageClient({ isAdmin, initialCategories, initial
   const queryClient = useQueryClient();
   const { confirm, element: confirmDialog } = useConfirmDialog();
 
-  const monthDate = useMemo(() => new Date(), []);
-  const monthStr = format(monthDate, "yyyy-MM");
-  const fromStr = format(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1), "yyyy-MM-dd");
-  const toStr = format(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0), "yyyy-MM-dd");
+  const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const range = useMemo(() => getDateRange(period, customFrom, customTo), [period, customFrom, customTo]);
+  const fromStr = format(range.from, "yyyy-MM-dd");
+  const toStr = format(range.to, "yyyy-MM-dd");
+  // Ngân sách theo tháng → bám tháng của đầu kỳ (đúng cho Tháng này/Tháng trước; quý/năm/tùy chọn lấy tháng bắt đầu, có nhãn tháng).
+  const monthStr = format(range.from, "yyyy-MM");
 
   const [dialogs, dispatchDialogs] = useReducer(dialogReducer, { expense: false, category: false, budget: false });
   const [categories, setCategories] = useState<FinanceCategoryOption[]>(initialCategories);
@@ -65,7 +71,7 @@ export default function ExpensesPageClient({ isAdmin, initialCategories, initial
   const budgetsQuery = useQuery({
     queryKey: ["finance-budgets", monthStr],
     queryFn: () => fetchJson<FinanceBudgetSummary>(`/api/finance/budgets?month=${monthStr}`),
-    initialData: initialBudgets,
+    initialData: monthStr === format(new Date(), "yyyy-MM") ? initialBudgets : undefined,
   });
 
   const allExpenses = expensesQuery.data?.expenses ?? [];
@@ -122,9 +128,19 @@ export default function ExpensesPageClient({ isAdmin, initialCategories, initial
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 sm:space-y-6 md:px-6 md:py-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-800">💸 Chi phí &amp; Ngân sách</h1>
-        <p className="mt-1 text-sm text-slate-500">Quản lý khoản chi và ngân sách hằng tháng.</p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">💸 Chi phí &amp; Ngân sách</h1>
+          <p className="mt-1 text-sm text-slate-500">Quản lý khoản chi theo kỳ và ngân sách hằng tháng.</p>
+        </div>
+        <PeriodFilter
+          period={period}
+          customFrom={customFrom}
+          customTo={customTo}
+          onPeriodChange={setPeriod}
+          onCustomFromChange={setCustomFrom}
+          onCustomToChange={setCustomTo}
+        />
       </div>
 
       {isAdmin && (
