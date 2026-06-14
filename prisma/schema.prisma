@@ -733,6 +733,18 @@ model MonthlyBudget {
   @@unique([categoryId, month])
 }
 
+model FinanceTarget {
+  id           String   @id @default(cuid())
+  month        DateTime @db.Date
+  metric       String   // "NET_REVENUE" | "NET_PROFIT"
+  targetAmount Decimal
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([month, metric])
+}
+
 // ============================================================
 // ANNOUNCEMENTS — Company-wide notifications from Admin
 // ============================================================
