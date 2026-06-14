@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { PnlComparisonTable } from "@/components/finance/pnl/PnlComparisonTable";
 import { PeriodFilter } from "@/components/finance/shared/PeriodFilter";
 import { FinancePanel } from "@/components/finance/shared/FinancePanel";
+import { ExportButton } from "@/components/finance/shared/ExportButton";
 import { formatVnd } from "@/lib/finance/format";
 import { computeTargetPercent } from "@/lib/finance/compare";
 import type { FinancePnlData } from "@/lib/finance/landing";
@@ -87,14 +88,17 @@ export default function PnlPageClient({ isAdmin, initialCompare, initialTargets 
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">📄 Báo cáo P&L</h1>
           <p className="mt-1 text-sm text-slate-500">Kết quả kinh doanh + so sánh kỳ.</p>
         </div>
-        <PeriodFilter
-          period={filter.period}
-          customFrom={filter.from}
-          customTo={filter.to}
-          onPeriodChange={(p) => setFilter({ period: p })}
-          onCustomFromChange={(v) => setFilter({ from: v })}
-          onCustomToChange={(v) => setFilter({ to: v })}
-        />
+        <div className="flex flex-col gap-2">
+          <PeriodFilter
+            period={filter.period}
+            customFrom={filter.from}
+            customTo={filter.to}
+            onPeriodChange={(p) => setFilter({ period: p })}
+            onCustomFromChange={(v) => setFilter({ from: v })}
+            onCustomToChange={(v) => setFilter({ to: v })}
+          />
+          <ExportButton href={`/api/finance/pnl/export?from=${fromStr}&to=${toStr}&compareTo=${compareTo}`} />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
