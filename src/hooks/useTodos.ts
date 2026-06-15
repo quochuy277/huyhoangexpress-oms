@@ -10,6 +10,9 @@ interface UseTodosOptions {
   hideDone: boolean;
   page: number;
   pageSize: number;
+  mode?: "list" | "board" | "focus";
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
 }
 
 async function readErrorMessage(response: Response) {
@@ -43,12 +46,17 @@ export function useTodos(initialData?: { todos?: TodoItemData[]; pagination?: To
         page: String(opts.page),
         pageSize: String(opts.pageSize),
         hideDone: String(opts.hideDone),
+        mode: opts.mode || "list",
       });
       if (opts.assigneeId) params.set("assigneeId", opts.assigneeId);
       if (opts.filters.search) params.set("search", opts.filters.search);
       if (opts.filters.source) params.set("source", opts.filters.source);
       if (opts.filters.priority) params.set("priority", opts.filters.priority);
       if (opts.filters.dueFilter) params.set("dueFilter", opts.filters.dueFilter);
+      if ((opts.mode ?? "list") === "list" && opts.sortBy) {
+        params.set("sortBy", opts.sortBy);
+        params.set("sortDir", opts.sortDir || "asc");
+      }
 
       const res = await fetch(`/api/todos?${params}`);
       const data = await res.json();

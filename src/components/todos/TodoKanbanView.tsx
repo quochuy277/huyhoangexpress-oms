@@ -4,9 +4,10 @@ import { format } from "date-fns";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Circle, GripVertical, UserCheck } from "lucide-react";
 
+import { classifyDue } from "@/lib/todo-dates";
 import type { TodoItemData } from "@/types/todo";
 
-import { PRIORITY_CONFIG, SOURCE_CONFIG } from "./constants";
+import { KANBAN_SORT_OPTIONS, PRIORITY_CONFIG, SOURCE_CONFIG, type KanbanSortField } from "./constants";
 
 const TEXT = {
   todo: "Cần làm",
@@ -20,18 +21,26 @@ const TEXT = {
 
 interface TodoKanbanViewProps {
   todos: TodoItemData[];
+  columnSort: Record<string, KanbanSortField>;
+  onColumnSortChange: (columnId: string, field: KanbanSortField) => void;
   onDragEnd: (result: any) => void;
   onSelect: (todo: TodoItemData) => void;
 }
 
-function isDueOverdue(value: string | null) {
-  if (!value) return false;
-  return new Date(value) < new Date();
-}
+const PRIORITY_RANK: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
-function isDueToday(value: string | null) {
-  if (!value) return false;
-  return new Date(value).toDateString() === new Date().toDateString();
+function sortCards(cards: TodoItemData[], field: KanbanSortField): TodoItemData[] {
+  if (field === "manual") return cards;
+  const copy = [...cards];
+  if (field === "priority") {
+    copy.sort((a, b) => (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9));
+  } else if (field === "dueDate") {
+    const v = (t: TodoItemData) => (t.dueDate ? new Date(t.dueDate).getTime() : Infinity);
+    copy.sort((a, b) => v(a) - v(b));
+  } else if (field === "createdAt") {
+    copy.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+  return copy;
 }
 
 const columns = [
@@ -46,18 +55,19 @@ const dotColors: Record<string, string> = {
   "text-green-600": "#16a34a",
 };
 
-export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewProps) {
+export function TodoKanbanView({ todos, columnSort, onColumnSortChange, onDragEnd, onSelect }: TodoKanbanViewProps) {
   const grouped: Record<string, TodoItemData[]> = {
     TODO: todos.filter((todo) => todo.status === "TODO"),
     IN_PROGRESS: todos.filter((todo) => todo.status === "IN_PROGRESS"),
-    DONE: todos.filter((todo) => todo.status === "DONE").slice(0, 10),
+    DONE: todos.filter((todo) => todo.status === "DONE"),
   };
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid h-full grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         {columns.map((column) => {
-          const items = grouped[column.statusKey] || [];
+          const columnField = columnSort[column.id] ?? "manual";
+          const items = sortCards(grouped[column.statusKey] || [], columnField);
           return (
             <Droppable key={column.id} droppableId={column.id}>
               {(provided, snapshot) => (
@@ -68,10 +78,22 @@ export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewPro
                     snapshot.isDraggingOver ? `bg-slate-100 ${column.borderColor}` : "border-gray-200 bg-slate-50"
                   }`}
                 >
-                  <div className={`mb-2.5 flex items-center gap-1.5 text-[13px] font-bold ${column.color}`}>
-                    <Circle size={8} fill={dotColors[column.color]} color={dotColors[column.color]} />
-                    {column.label}
-                    <span className="ml-0.5 font-medium text-gray-400">({items.length})</span>
+                  <div className="mb-2.5 flex items-center justify-between gap-2">
+                    <div className={`flex items-center gap-1.5 text-[13px] font-bold ${column.color}`}>
+                      <Circle size={8} fill={dotColors[column.color]} color={dotColors[column.color]} />
+                      {column.label}
+                      <span className="ml-0.5 font-medium text-gray-400">({items.length})</span>
+                    </div>
+                    <select
+                      value={columnField}
+                      onChange={(e) => onColumnSortChange(column.id, e.target.value as KanbanSortField)}
+                      className="rounded-md border border-gray-200 bg-white px-1.5 py-1 text-[11px] text-gray-500 outline-none"
+                      title="Sắp xếp"
+                    >
+                      {KANBAN_SORT_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {items.map((todo, index) => (
@@ -127,13 +149,16 @@ export function TodoKanbanView({ todos, onDragEnd, onSelect }: TodoKanbanViewPro
                               <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${SOURCE_CONFIG[todo.source]?.twBg || ""}`}>
                                 {SOURCE_CONFIG[todo.source]?.label}
                               </span>
-                              {todo.dueDate && (
-                                <span className={`flex items-center gap-0.5 text-[11px] font-medium ${
-                                  isDueOverdue(todo.dueDate) ? "text-red-600" : isDueToday(todo.dueDate) ? "text-amber-600" : "text-gray-500"
-                                }`}>
-                                  {TEXT.clock} {format(new Date(todo.dueDate), "dd/MM HH:mm")}
-                                </span>
-                              )}
+                              {todo.dueDate && (() => {
+                                const cls = classifyDue(todo.dueDate, todo.status, new Date());
+                                return (
+                                  <span className={`flex items-center gap-0.5 text-[11px] font-medium ${
+                                    cls === "overdue" ? "text-red-600" : cls === "today" ? "text-amber-600" : "text-gray-500"
+                                  }`}>
+                                    {TEXT.clock} {format(new Date(todo.dueDate), "dd/MM HH:mm")}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {todo.assignee?.name && <span className="max-w-[60px] truncate text-[11px] font-medium text-gray-400">{todo.assignee.name.split(" ").pop()}</span>}
                           </div>
