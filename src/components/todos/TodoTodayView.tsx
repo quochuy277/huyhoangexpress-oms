@@ -10,7 +10,6 @@ import { PRIORITY_CONFIG, SOURCE_CONFIG } from "./constants";
 interface TodoTodayViewProps {
   todos: TodoItemData[];
   onToggleComplete: (todo: TodoItemData) => void;
-  onStatusChange: (todo: TodoItemData, status: string) => void;
   onSelect: (todo: TodoItemData) => void;
   onDelete: (id: string) => void;
   onViewOrder: (code: string) => void;
@@ -86,7 +85,6 @@ function Row({
 export function TodoTodayView({
   todos,
   onToggleComplete,
-  onStatusChange: _onStatusChange,
   onSelect,
   onDelete,
   onViewOrder,
@@ -94,14 +92,14 @@ export function TodoTodayView({
   const now = new Date();
   const overdue = todos
     .filter((t) => classifyDue(t.dueDate, t.status, now) === "overdue")
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+    .sort((a, b) => (a.dueDate ? new Date(a.dueDate).getTime() : 0) - (b.dueDate ? new Date(b.dueDate).getTime() : 0));
   const today = todos
     .filter((t) => classifyDue(t.dueDate, t.status, now) === "today")
     .sort((a, b) => {
       const rank: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
       const byPriority = (rank[a.priority] ?? 9) - (rank[b.priority] ?? 9);
       if (byPriority !== 0) return byPriority;
-      return new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
+      return (a.dueDate ? new Date(a.dueDate).getTime() : 0) - (b.dueDate ? new Date(b.dueDate).getTime() : 0);
     });
 
   if (overdue.length === 0 && today.length === 0) {

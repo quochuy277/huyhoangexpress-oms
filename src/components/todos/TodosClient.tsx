@@ -133,10 +133,12 @@ export default function TodosClient({
   useEffect(() => {
     if (skipInitialFetchRef.current) {
       skipInitialFetchRef.current = false;
-      if (view === "today") return; // bootstrap đã seed focus
+      // Bootstrap đã seed dữ liệu focus cho view "today" → bỏ qua fetch lần đầu.
+      if (view === "today") return;
     }
+    // view đổi → mode đổi → doFetch đổi → effect tự chạy lại; không cần view trong deps.
     void doFetch();
-  }, [doFetch, skipInitialFetchRef, view]);
+  }, [doFetch, skipInitialFetchRef]);
 
   useEffect(() => {
     if (skipInitialStatsFetchRef.current) {
@@ -151,7 +153,9 @@ export default function TodosClient({
     if (typeof window !== "undefined") localStorage.setItem("todoView", view);
   }, [view]);
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem("todoListSort", JSON.stringify(listSort));
+    if (typeof window === "undefined") return;
+    if (listSort === null) localStorage.removeItem("todoListSort");
+    else localStorage.setItem("todoListSort", JSON.stringify(listSort));
   }, [listSort]);
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("todoKanbanSort", JSON.stringify(kanbanSort));
@@ -204,6 +208,11 @@ export default function TodosClient({
   };
 
   const handleListSortChange = (field: string) => {
+    if (!field) {
+      setListSort(null);
+      setPage(1);
+      return;
+    }
     setListSort((current) => {
       if (current?.by === field) {
         return { by: field, dir: current.dir === "asc" ? "desc" : "asc" };
@@ -368,7 +377,6 @@ export default function TodosClient({
           <TodoTodayView
             todos={todos}
             onToggleComplete={handleToggleComplete}
-            onStatusChange={handleStatusChange}
             onSelect={setSelectedTodo}
             onDelete={setDeleteId}
             onViewOrder={setOrderDetailCode}
