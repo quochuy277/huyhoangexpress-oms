@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 
 const FINANCE_FILES = [
   {
-    path: "src/components/finance/FinancePageClient.tsx",
-    phrases: ["Tài chính", "Tổng quan & P&L", "Sổ quỹ"],
+    path: "src/components/finance/dashboard/DashboardPageClient.tsx",
+    phrases: ["Bảng điều khiển Tài chính", "Truy cập nhanh", "Sổ quỹ"],
   },
   {
-    path: "src/components/finance/OverviewPeriodSelector.tsx",
+    path: "src/components/finance/shared/PeriodFilter.tsx",
     phrases: ["Tháng này", "Tùy chọn"],
   },
   {

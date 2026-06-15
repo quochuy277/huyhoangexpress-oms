@@ -2,25 +2,15 @@
 
 import { memo } from "react";
 
-/**
- * Period selector row + custom date-range inputs for the finance OverviewTab.
- *
- * Sprint 2 (2026-04) extraction: small but called alongside every parent
- * render. Memoized so the buttons don't reconcile when unrelated state
- * (dialogs, forms, budget edits) flips upstream.
- */
-const PERIODS = [
+export const FINANCE_PERIODS = [
   { value: "month", label: "Tháng này" },
   { value: "last_month", label: "Tháng trước" },
   { value: "quarter", label: "Quý này" },
-  { value: "half", label: "6 tháng" },
   { value: "year", label: "Năm nay" },
   { value: "custom", label: "Tùy chọn" },
 ] as const;
 
-const PANEL_CLASS = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
-
-interface OverviewPeriodSelectorProps {
+interface PeriodFilterProps {
   period: string;
   customFrom: string;
   customTo: string;
@@ -29,7 +19,7 @@ interface OverviewPeriodSelectorProps {
   onCustomToChange: (value: string) => void;
 }
 
-function periodButtonClass(active: boolean) {
+function pillClass(active: boolean) {
   return `whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
     active
       ? "border-blue-200 bg-blue-600 text-white"
@@ -37,34 +27,31 @@ function periodButtonClass(active: boolean) {
   }`;
 }
 
-function OverviewPeriodSelectorInner({
+function PeriodFilterInner({
   period,
   customFrom,
   customTo,
   onPeriodChange,
   onCustomFromChange,
   onCustomToChange,
-}: OverviewPeriodSelectorProps) {
+}: PeriodFilterProps) {
   return (
-    <>
+    <div className="space-y-3">
       <div className="overflow-x-auto pb-1">
         <div className="flex min-w-max gap-2">
-          {PERIODS.map((p) => (
+          {FINANCE_PERIODS.map((p) => (
             <button
               key={p.value}
               onClick={() => onPeriodChange(p.value)}
-              className={periodButtonClass(period === p.value)}
+              className={pillClass(period === p.value)}
             >
               {p.label}
             </button>
           ))}
         </div>
       </div>
-
       {period === "custom" && (
-        <div
-          className={`${PANEL_CLASS} grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto,1fr,auto,1fr] lg:items-center`}
-        >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[auto,1fr,auto,1fr] lg:items-center">
           <label className="text-sm font-semibold text-slate-600">Từ</label>
           <input
             type="date"
@@ -81,8 +68,8 @@ function OverviewPeriodSelectorInner({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-export const OverviewPeriodSelector = memo(OverviewPeriodSelectorInner);
+export const PeriodFilter = memo(PeriodFilterInner);

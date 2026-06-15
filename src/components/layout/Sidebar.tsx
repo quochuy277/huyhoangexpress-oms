@@ -39,8 +39,15 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/todos", label: "Công Việc", icon: CheckSquare },
   { href: "/attendance", label: "Chấm Công", icon: Clock },
   { href: "/crm", label: "Quản Lý KH", icon: Users, requiredPermission: "canViewCRM" },
-  { href: "/finance", label: "Tài Chính", icon: BarChart2, requiredPermission: "canViewFinancePage" },
   { href: "/admin/users", label: "Quản Lý Nhân Viên", icon: Users, requiredPermission: "canManageUsers" },
+];
+
+const FINANCE_CHILDREN: { href: string; label: string }[] = [
+  { href: "/finance", label: "Bảng điều khiển" },
+  { href: "/finance/pnl", label: "Báo cáo P&L" },
+  { href: "/finance/cashbook", label: "Sổ quỹ" },
+  { href: "/finance/expenses", label: "Chi phí & Ngân sách" },
+  { href: "/finance/analysis", label: "Phân tích" },
 ];
 
 interface SidebarProps {
@@ -91,6 +98,14 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
 
   // Determine if sidebar content should show expanded
   const isExpanded = pinned || hovered;
+
+  const financeVisible = userRole === "ADMIN" || !!permissions?.canViewFinancePage;
+  const financeActive = pathname.startsWith("/finance");
+  const [financeOpen, setFinanceOpen] = useState(false);
+  // Group shows expanded when the user opened it, OR whenever a finance route
+  // is active (entering the section always reveals its sub-pages). Deriving
+  // this avoids a setState-in-effect and keeps it in sync on navigation.
+  const financeExpanded = financeActive || financeOpen;
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.requiredPermission) return true;
@@ -158,6 +173,69 @@ export function Sidebar({ userRole, permissions, mobileOpen, onMobileClose }: Si
             </Link>
           );
         })}
+
+        {financeVisible && (
+          <div className="group/finance relative">
+            <button
+              onClick={() => (isMobile || isExpanded) && setFinanceOpen((v) => !v)}
+              aria-expanded={isMobile || isExpanded ? financeExpanded : undefined}
+              title={!isMobile && !isExpanded ? "Tài Chính" : undefined}
+              className={cn(
+                "flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                financeActive ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800",
+              )}
+            >
+              <BarChart2 className="w-4 h-4 shrink-0" />
+              {(isMobile || isExpanded) && (
+                <>
+                  <span className="truncate whitespace-nowrap flex-1 text-left">Tài Chính</span>
+                  <ChevronRight className={cn("w-4 h-4 transition-transform", financeExpanded && "rotate-90")} />
+                </>
+              )}
+            </button>
+
+            {(isMobile || isExpanded) && financeExpanded && (
+              <div className="mt-1 space-y-1 pl-9">
+                {FINANCE_CHILDREN.map((child) => {
+                  const active = child.href === "/finance" ? pathname === "/finance" : pathname.startsWith(child.href);
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={cn(
+                        "block rounded-lg px-3 py-2 text-sm transition-colors",
+                        active ? "bg-blue-600 text-white font-semibold" : "text-slate-400 hover:text-white hover:bg-slate-800",
+                      )}
+                    >
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {!isMobile && !isExpanded && (
+              <div className="absolute left-full top-0 ml-2 hidden min-w-[200px] rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl group-hover/finance:block group-focus-within/finance:block z-50">
+                <div className="px-2 pb-1 text-xs font-bold uppercase tracking-wide text-blue-300">Tài Chính</div>
+                {FINANCE_CHILDREN.map((child) => {
+                  const active = child.href === "/finance" ? pathname === "/finance" : pathname.startsWith(child.href);
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={cn(
+                        "block rounded-lg px-3 py-2 text-sm transition-colors whitespace-nowrap",
+                        active ? "bg-blue-600 text-white font-semibold" : "text-slate-300 hover:text-white hover:bg-slate-800",
+                      )}
+                    >
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Pin/Unpin button - desktop only */}
