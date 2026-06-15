@@ -62,8 +62,13 @@ describe("classifyDue", () => {
   it("hạn trước hôm nay → overdue", () => {
     expect(classifyDue("2026-06-13T03:00:00Z", "TODO", now)).toBe("overdue");
   });
-  it("hạn hôm nay (đã qua giờ) vẫn là today", () => {
+  it("hạn hôm nay nhưng chưa tới giờ → today", () => {
+    // 09:00Z = 16:00 VN, sau now (10:00 VN) nhưng vẫn trong hôm nay
     expect(classifyDue("2026-06-15T09:00:00Z", "IN_PROGRESS", now)).toBe("today");
+  });
+  it("hạn hôm nay đã qua giờ vẫn là today (theo mức ngày)", () => {
+    // 02:00Z = 09:00 VN, trước now (10:00 VN) nhưng vẫn cùng ngày VN
+    expect(classifyDue("2026-06-15T02:00:00Z", "TODO", now)).toBe("today");
   });
   it("hạn tương lai → upcoming", () => {
     expect(classifyDue("2026-06-20T03:00:00Z", "TODO", now)).toBe("upcoming");
