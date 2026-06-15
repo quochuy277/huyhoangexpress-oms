@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveTodoAssigneeFilter } from "@/lib/todo-scope";
 import { canViewAllTodos } from "@/lib/todo-permissions";
+import { getDayWindows } from "@/lib/todo-dates";
 
 async function countStatsForAssignee({
   assigneeId,
@@ -20,16 +21,9 @@ async function countStatsForAssignee({
 }) {
   const assigneeWhere = assigneeId ? { assigneeId } : {};
 
-  const [today, overdue, inProgress, doneWeek] = await Promise.all([
+  const [dueToday, overdue, inProgress, doneWeek] = await Promise.all([
     prisma.todoItem.count({
-      where: {
-        ...assigneeWhere,
-        status: { not: "DONE" },
-        OR: [
-          { dueDate: { gte: todayStart, lt: todayEnd } },
-          { createdAt: { gte: todayStart, lt: todayEnd } },
-        ],
-      },
+      where: { ...assigneeWhere, status: { not: "DONE" }, dueDate: { gte: todayStart, lt: todayEnd } },
     }),
     prisma.todoItem.count({
       where: { ...assigneeWhere, status: { not: "DONE" }, dueDate: { lt: todayStart } },
@@ -42,7 +36,7 @@ async function countStatsForAssignee({
     }),
   ]);
 
-  return { today, overdue, inProgress, doneWeek };
+  return { dueToday, overdue, inProgress, doneWeek };
 }
 
 export async function GET(req: Request) {
@@ -57,12 +51,7 @@ export async function GET(req: Request) {
   const assigneeId = url.searchParams.get("assigneeId") || "";
   const selectedAssigneeId = resolveTodoAssigneeFilter("all", userId, assigneeId, canViewAll);
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart.getTime() + 86400000);
-  const weekStart = new Date(todayStart);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-  const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+  const { todayStart, todayEnd, weekStart, weekEnd } = getDayWindows();
 
   const mine = await countStatsForAssignee({
     assigneeId: userId,
