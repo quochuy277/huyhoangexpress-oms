@@ -22,9 +22,11 @@ export function KpiCard({ label, value, tone = "blue", deltaPercent, deltaSuffix
     <div className={`rounded-xl border-l-4 bg-white p-[18px_20px] shadow-sm ${TONE[tone]}`} style={{ minWidth: 200 }}>
       <div className="text-xs text-slate-500">{label}</div>
       <div className="text-[22px] font-bold text-slate-800">{value}</div>
-      {hasDelta && (
-        <div className={`text-[11px] font-semibold ${deltaPercent === null ? "text-slate-400" : up ? "text-emerald-500" : "text-red-500"}`}>
-          {deltaPercent === null ? "—" : `${up ? "▲" : "▼"} ${Math.abs(deltaPercent)}%`}{deltaSuffix ? ` ${deltaSuffix}` : ""}
+      {(hasDelta || deltaSuffix) && (
+        <div className={`text-[11px] font-semibold ${!hasDelta || deltaPercent === null ? "text-slate-400" : up ? "text-emerald-500" : "text-red-500"}`}>
+          {hasDelta && (deltaPercent === null ? "—" : `${up ? "▲" : "▼"} ${Math.abs(deltaPercent)}%`)}
+          {hasDelta && deltaSuffix ? " " : ""}
+          {deltaSuffix ?? ""}
         </div>
       )}
       {targetPercent != null && (

@@ -11,12 +11,14 @@ export async function GET(req: NextRequest) {
     if (error) return error;
 
     const url = new URL(req.url);
+    const periodRange = parsePeriodFromURL(url);
+    const pnlFrom = url.searchParams.get("pnlFrom");
+    const pnlTo = url.searchParams.get("pnlTo");
     const data = await getFinanceLandingData({
-      overviewRange: parsePeriodFromURL(url),
-      pnlRange: resolvePnlRange(
-        url.searchParams.get("pnlFrom"),
-        url.searchParams.get("pnlTo"),
-      ),
+      overviewRange: periodRange,
+      // P&L tóm tắt bám theo kỳ đang chọn (khớp với KPI + biểu đồ). pnlFrom/pnlTo
+      // vẫn cho phép override riêng cửa sổ P&L nếu sau này cần.
+      pnlRange: pnlFrom && pnlTo ? resolvePnlRange(pnlFrom, pnlTo) : periodRange,
     });
 
     return NextResponse.json(data);
