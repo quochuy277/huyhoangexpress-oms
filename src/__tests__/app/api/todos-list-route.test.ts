@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canViewAllTodos } from "@/lib/todo-permissions";
+import { BOARD_DONE_LIMIT, BOARD_OPEN_CAP, FOCUS_CAP } from "@/lib/todo-dates";
 
 function req(qs: string) {
   return new NextRequest(`http://localhost/api/todos${qs}`);
@@ -31,7 +32,7 @@ describe("GET /api/todos modes", () => {
     const arg = vi.mocked(prisma.todoItem.findMany).mock.calls[0][0] as any;
     expect(arg.where.status).toEqual({ not: "DONE" });
     expect(arg.where.dueDate).toHaveProperty("lt");
-    expect(arg.take).toBe(200);
+    expect(arg.take).toBe(FOCUS_CAP);
   });
 
   it("mode=board: 2 query (open + done)", async () => {
@@ -41,9 +42,9 @@ describe("GET /api/todos modes", () => {
     const openArg = vi.mocked(prisma.todoItem.findMany).mock.calls[0][0] as any;
     const doneArg = vi.mocked(prisma.todoItem.findMany).mock.calls[1][0] as any;
     expect(openArg.where.status).toEqual({ not: "DONE" });
-    expect(openArg.take).toBe(200);
+    expect(openArg.take).toBe(BOARD_OPEN_CAP);
     expect(doneArg.where.status).toBe("DONE");
-    expect(doneArg.take).toBe(20);
+    expect(doneArg.take).toBe(BOARD_DONE_LIMIT);
   });
 
   it("mode=list (mặc định) với sortBy=dueDate&sortDir=desc → orderBy đúng", async () => {

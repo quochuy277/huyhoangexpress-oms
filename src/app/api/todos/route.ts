@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
     const todos = await prisma.todoItem.findMany({
       where: { ...where, status: { not: "DONE" }, dueDate: { lt: todayEnd } },
       include: todoListInclude,
-      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { priority: "desc" }],
+      // dueDate < todayEnd already excludes null-due rows, so no nulls handling needed
+      orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
       take: FOCUS_CAP,
     });
     return NextResponse.json({
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
       prisma.todoItem.findMany({
         where: { ...where, status: "DONE" },
         include: todoListInclude,
-        orderBy: { completedAt: "desc" },
+        orderBy: { completedAt: { sort: "desc", nulls: "last" } },
         take: BOARD_DONE_LIMIT,
       }),
     ]);
