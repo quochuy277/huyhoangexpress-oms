@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 const SOURCE_ROOT = path.join(process.cwd(), "src");
 const DOCS_ROOT = path.join(process.cwd(), "docs");
-const PLAN_FILE = path.join(process.env.USERPROFILE ?? "C:\\Users\\Admin", ".claude", "plans", "virtual-stargazing-hinton.md");
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".md"]);
 const MOJIBAKE_FRAGMENTS = [
   "TÃ",
@@ -70,7 +69,6 @@ function collectFiles() {
   return [
     ...collectSourceFiles(SOURCE_ROOT),
     ...collectSourceFiles(DOCS_ROOT),
-    PLAN_FILE,
   ];
 }
 

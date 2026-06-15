@@ -42,7 +42,7 @@ describe("AttendancePage", () => {
 
     const { default: AttendancePage } = await import("@/app/(dashboard)/attendance/page");
 
-    const element = await AttendancePage({} as never);
+    const element = await AttendancePage();
 
     expect(vi.mocked(getAttendanceBootstrapData)).toHaveBeenCalledTimes(1);
     expect((element as any).props.initialMyTabData).toEqual({
