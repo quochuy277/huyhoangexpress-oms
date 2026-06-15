@@ -56,7 +56,7 @@ export interface TodoPagination {
 }
 
 export interface TodoStats {
-  today: number;
+  dueToday: number;
   overdue: number;
   inProgress: number;
   doneWeek: number;

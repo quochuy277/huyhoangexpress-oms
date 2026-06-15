@@ -24,7 +24,7 @@ const TODO_FILES: Array<{ path: string; phrases: string[] }> = [
   },
   {
     path: "src/components/todos/TodoSummaryCards.tsx",
-    phrases: ["Tổng việc hôm nay", "Quá hạn", "Đang làm", "Hoàn thành tuần này"],
+    phrases: ["Đến hạn hôm nay", "Quá hạn", "Đang làm", "Hoàn thành tuần này"],
   },
   {
     path: "src/components/todos/TodoReminderBanner.tsx",

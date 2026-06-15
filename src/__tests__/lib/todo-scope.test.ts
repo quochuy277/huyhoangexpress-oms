@@ -26,12 +26,12 @@ describe("todo scope helpers", () => {
     expect(
       getTodoStatsForSelection(
         {
-          mine: { today: 1, overdue: 2, inProgress: 3, doneWeek: 4 },
-          all: { today: 5, overdue: 6, inProgress: 7, doneWeek: 8 },
-          selected: { today: 9, overdue: 10, inProgress: 11, doneWeek: 12 },
+          mine: { dueToday: 1, overdue: 2, inProgress: 3, doneWeek: 4 },
+          all: { dueToday: 5, overdue: 6, inProgress: 7, doneWeek: 8 },
+          selected: { dueToday: 9, overdue: 10, inProgress: 11, doneWeek: 12 },
         },
         "user:staff-2",
       ),
-    ).toEqual({ today: 9, overdue: 10, inProgress: 11, doneWeek: 12 });
+    ).toEqual({ dueToday: 9, overdue: 10, inProgress: 11, doneWeek: 12 });
   });
 });

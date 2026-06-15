@@ -5,6 +5,17 @@ import { prisma } from "@/lib/prisma";
 import { canViewAllTodos } from "@/lib/todo-permissions";
 import { resolveTodoAssigneeFilter } from "@/lib/todo-scope";
 import { writeLimiter } from "@/lib/rate-limiter";
+import { getDayWindows, getMonthEnd, BOARD_OPEN_CAP, BOARD_DONE_LIMIT, FOCUS_CAP } from "@/lib/todo-dates";
+import { buildTodoOrderBy, DEFAULT_TODO_ORDER_BY } from "@/lib/todo-order";
+
+const todoListInclude = {
+  assignee: { select: { id: true, name: true } },
+  createdBy: { select: { id: true, name: true } },
+  linkedOrder: {
+    select: { id: true, requestCode: true, shopName: true, status: true, codAmount: true },
+  },
+  _count: { select: { comments: true } },
+} as const;
 
 // GET - List todos with filters
 export async function GET(req: NextRequest) {
@@ -21,22 +32,20 @@ export async function GET(req: NextRequest) {
   const dueFilter = url.searchParams.get("dueFilter") || "";
   const search = url.searchParams.get("search") || "";
   const assigneeId = url.searchParams.get("assigneeId") || "";
+  const mode = url.searchParams.get("mode") || "list";
+  const sortBy = url.searchParams.get("sortBy") || "";
+  const sortDir = url.searchParams.get("sortDir") || "";
   const page = parseInt(url.searchParams.get("page") || "1", 10);
   const pageSize = parseInt(url.searchParams.get("pageSize") || "20", 10);
   const hideDone = url.searchParams.get("hideDone") === "true";
   const canViewAll = canViewAllTodos(session.user);
 
   const where: Record<string, unknown> = {};
-
   const effectiveAssigneeId = resolveTodoAssigneeFilter(scope, session.user.id, assigneeId, canViewAll);
   if (effectiveAssigneeId) where.assigneeId = effectiveAssigneeId;
 
-  if (status) where.status = status;
-  else if (hideDone) where.status = { not: "DONE" };
-
   if (priority) where.priority = priority;
   if (source) where.source = source;
-
   if (search) {
     where.OR = [
       { title: { contains: search, mode: "insensitive" } },
@@ -45,11 +54,49 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart.getTime() + 86400000);
-  const weekEnd = new Date(todayStart.getTime() + 7 * 86400000);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const { todayStart, todayEnd, weekEnd } = getDayWindows();
+
+  // focus: qu\u00e1 h\u1ea1n + \u0111\u1ebfn h\u1ea1n h\u00f4m nay (ch\u01b0a DONE), kh\u00f4ng ph\u00e2n trang
+  if (mode === "focus") {
+    const todos = await prisma.todoItem.findMany({
+      where: { ...where, status: { not: "DONE" }, dueDate: { lt: todayEnd } },
+      include: todoListInclude,
+      // dueDate < todayEnd already excludes null-due rows, so no nulls handling needed
+      orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
+      take: FOCUS_CAP,
+    });
+    return NextResponse.json({
+      todos,
+      pagination: { page: 1, pageSize: todos.length, total: todos.length, totalPages: 1 },
+    });
+  }
+
+  // board (Kanban): to\u00e0n b\u1ed9 vi\u1ec7c ch\u01b0a DONE + N vi\u1ec7c DONE g\u1ea7n nh\u1ea5t
+  if (mode === "board") {
+    const [open, done] = await Promise.all([
+      prisma.todoItem.findMany({
+        where: { ...where, status: { not: "DONE" } },
+        include: todoListInclude,
+        orderBy: DEFAULT_TODO_ORDER_BY,
+        take: BOARD_OPEN_CAP,
+      }),
+      prisma.todoItem.findMany({
+        where: { ...where, status: "DONE" },
+        include: todoListInclude,
+        orderBy: { completedAt: { sort: "desc", nulls: "last" } },
+        take: BOARD_DONE_LIMIT,
+      }),
+    ]);
+    const todos = [...open, ...done];
+    return NextResponse.json({
+      todos,
+      pagination: { page: 1, pageSize: todos.length, total: todos.length, totalPages: 1 },
+    });
+  }
+
+  // list (m\u1eb7c \u0111\u1ecbnh): l\u1ecdc + ph\u00e2n trang + s\u1eafp x\u1ebfp
+  if (status) where.status = status;
+  else if (hideDone) where.status = { not: "DONE" };
 
   if (dueFilter === "overdue") {
     where.dueDate = { lt: todayStart };
@@ -59,7 +106,7 @@ export async function GET(req: NextRequest) {
   } else if (dueFilter === "week") {
     where.dueDate = { gte: todayStart, lt: weekEnd };
   } else if (dueFilter === "month") {
-    where.dueDate = { gte: todayStart, lte: monthEnd };
+    where.dueDate = { gte: todayStart, lt: getMonthEnd() };
   } else if (dueFilter === "none") {
     where.dueDate = null;
   }
@@ -67,20 +114,8 @@ export async function GET(req: NextRequest) {
   const [todos, total] = await Promise.all([
     prisma.todoItem.findMany({
       where,
-      include: {
-        assignee: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        linkedOrder: {
-          select: { id: true, requestCode: true, shopName: true, status: true, codAmount: true },
-        },
-        _count: { select: { comments: true } },
-      },
-      orderBy: [
-        { status: "asc" },
-        { priority: "desc" },
-        { dueDate: { sort: "asc", nulls: "last" } },
-        { sortOrder: "asc" },
-      ],
+      include: todoListInclude,
+      orderBy: buildTodoOrderBy(sortBy, sortDir),
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

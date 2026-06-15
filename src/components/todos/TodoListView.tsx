@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Pencil, Trash2, UserCheck } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Pencil, Trash2, UserCheck } from "lucide-react";
 import { format } from "date-fns";
 
+import { classifyDue } from "@/lib/todo-dates";
 import { PRIORITY_CONFIG, SOURCE_CONFIG, STATUS_CONFIG } from "./constants";
 import type { TodoItemData, TodoPagination } from "@/types/todo";
 
@@ -33,6 +34,9 @@ const TEXT = {
 interface TodoListViewProps {
   todos: TodoItemData[];
   pagination: TodoPagination;
+  sortBy: string | null;
+  sortDir: "asc" | "desc" | null;
+  onSortChange: (field: string) => void;
   onToggleComplete: (todo: TodoItemData) => void;
   onStatusChange: (todo: TodoItemData, status: string) => void;
   onSelect: (todo: TodoItemData) => void;
@@ -41,19 +45,12 @@ interface TodoListViewProps {
   onPageChange: (page: number) => void;
 }
 
-function isDueOverdue(dateValue: string | null) {
-  if (!dateValue) return false;
-  return new Date(dateValue) < new Date();
-}
-
-function isDueToday(dateValue: string | null) {
-  if (!dateValue) return false;
-  return new Date(dateValue).toDateString() === new Date().toDateString();
-}
-
 export function TodoListView({
   todos,
   pagination,
+  sortBy,
+  sortDir,
+  onSortChange,
   onToggleComplete,
   onStatusChange,
   onSelect,
@@ -61,16 +58,60 @@ export function TodoListView({
   onViewOrder,
   onPageChange,
 }: TodoListViewProps) {
+  const renderSortTh = ({
+    field,
+    label,
+    className,
+  }: {
+    field: string;
+    label: string;
+    className?: string;
+  }) => (
+    <th className={`px-2.5 py-2 text-left font-semibold text-slate-600 ${className || ""}`}>
+      <button
+        onClick={() => onSortChange(field)}
+        className="inline-flex items-center gap-1 hover:text-blue-600"
+      >
+        {label}
+        {sortBy === field &&
+          (sortDir === "desc" ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+      </button>
+    </th>
+  );
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="block divide-y divide-gray-100 sm:hidden">
+      <div className="block sm:hidden">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 text-xs">
+          <span className="text-gray-400">Sắp xếp:</span>
+          <select
+            value={sortBy ?? ""}
+            onChange={(e) => onSortChange(e.target.value)}
+            className="rounded-md border border-gray-200 px-2 py-1 text-xs outline-none"
+          >
+            <option value="">Mặc định</option>
+            <option value="priority">Ưu tiên</option>
+            <option value="dueDate">Thời hạn</option>
+            <option value="createdAt">Ngày tạo</option>
+            <option value="completedAt">Hoàn thành</option>
+            <option value="assignee">Người PT</option>
+            <option value="title">Tiêu đề</option>
+          </select>
+          {sortBy && (
+            <button onClick={() => onSortChange(sortBy)} className="rounded-md border border-gray-200 px-2 py-1">
+              {sortDir === "desc" ? "↓" : "↑"}
+            </button>
+          )}
+        </div>
+        <div className="divide-y divide-gray-100">
         {todos.length === 0 ? (
           <div className="py-10 text-center text-sm text-gray-400">{TEXT.empty}</div>
         ) : (
           todos.map((todo) => {
             const isDone = todo.status === "DONE";
-            const overdue = !isDone && isDueOverdue(todo.dueDate);
-            const today = !isDone && isDueToday(todo.dueDate);
+            const cls = classifyDue(todo.dueDate, todo.status, new Date());
+            const overdue = cls === "overdue";
+            const today = cls === "today";
 
             return (
               <div key={todo.id} className={`px-4 py-3 ${isDone ? "opacity-50" : ""}`}>
@@ -142,6 +183,7 @@ export function TodoListView({
             );
           })
         )}
+        </div>
       </div>
 
       <div className="hidden overflow-x-auto sm:block">
@@ -149,14 +191,14 @@ export function TodoListView({
           <thead>
             <tr className="border-b-[1.5px] border-gray-200 bg-slate-50">
               <th className="w-9 p-2 text-center">☐</th>
-              <th className="px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.title}</th>
+              {renderSortTh({ field: "title", label: TEXT.headers.title })}
               <th className="w-[120px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.orderCode}</th>
-              <th className="w-[90px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.priority}</th>
+              {renderSortTh({ field: "priority", label: TEXT.headers.priority, className: "w-[90px]" })}
               <th className="w-[110px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.status}</th>
-              <th className="w-[100px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.dueDate}</th>
-              <th className="w-[110px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.createdAt}</th>
-              <th className="w-[110px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.completedAt}</th>
-              <th className="w-[100px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.assignee}</th>
+              {renderSortTh({ field: "dueDate", label: TEXT.headers.dueDate, className: "w-[100px]" })}
+              {renderSortTh({ field: "createdAt", label: TEXT.headers.createdAt, className: "w-[110px]" })}
+              {renderSortTh({ field: "completedAt", label: TEXT.headers.completedAt, className: "w-[110px]" })}
+              {renderSortTh({ field: "assignee", label: TEXT.headers.assignee, className: "w-[100px]" })}
               <th className="w-[80px] px-2.5 py-2 text-left font-semibold text-slate-600">{TEXT.headers.source}</th>
               <th className="w-[70px] px-2.5 py-2" />
             </tr>
@@ -170,8 +212,9 @@ export function TodoListView({
             ) : (
               todos.map((todo, index) => {
                 const isDone = todo.status === "DONE";
-                const overdue = !isDone && isDueOverdue(todo.dueDate);
-                const today = !isDone && isDueToday(todo.dueDate);
+                const cls = classifyDue(todo.dueDate, todo.status, new Date());
+                const overdue = cls === "overdue";
+                const today = cls === "today";
 
                 return (
                   <tr

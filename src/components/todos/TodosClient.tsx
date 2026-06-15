@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Columns3, ListTodo, Loader2, Plus } from "lucide-react";
+import { CalendarClock, Columns3, ListTodo, Loader2, Plus } from "lucide-react";
 
 const AddTodoDialog = dynamic(() => import("@/components/shared/AddTodoDialog").then((m) => ({ default: m.AddTodoDialog })), { loading: () => null });
 const OrderDetailDialog = dynamic(() => import("@/components/shared/OrderDetailDialog").then((m) => ({ default: m.OrderDetailDialog })), { loading: () => null });
@@ -25,6 +25,8 @@ import { TodoListView } from "./TodoListView";
 import { TodoQuickAdd } from "./TodoQuickAdd";
 import { TodoReminderBanner } from "./TodoReminderBanner";
 import { TodoSummaryCards } from "./TodoSummaryCards";
+import { TodoTodayView } from "./TodoTodayView";
+import type { KanbanSortField } from "./constants";
 
 const TEXT = {
   title: "Công việc",
@@ -47,11 +49,33 @@ export default function TodosClient({
   canViewAllTodos?: boolean;
   initialData: TodoBootstrapData;
 }) {
-  const [view, setView] = useState<"list" | "kanban">(() => {
+  const [view, setView] = useState<"today" | "list" | "kanban">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("todoView") as "list" | "kanban") || "list";
+      return (localStorage.getItem("todoView") as "today" | "list" | "kanban") || "today";
     }
-    return "list";
+    return "today";
+  });
+  const [listSort, setListSort] = useState<{ by: string; dir: "asc" | "desc" } | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("todoListSort");
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [kanbanSort, setKanbanSort] = useState<Record<string, KanbanSortField>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("todoKanbanSort");
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
   });
   const [scopeSelection, setScopeSelection] = useState<TodoScopeSelection>("mine");
   const [hideDone, setHideDone] = useState(false);
@@ -89,16 +113,30 @@ export default function TodosClient({
   const scopeStats = getTodoStatsForSelection(stats, scopeSelection);
   const deleteTarget = deleteId ? todos.find((todo) => todo.id === deleteId) : null;
 
+  const mode: "list" | "board" | "focus" =
+    view === "today" ? "focus" : view === "kanban" ? "board" : "list";
+
   const doFetch = useCallback(() => {
-    fetchTodos({ scope, assigneeId, filters, hideDone, page, pageSize: 20 });
-  }, [assigneeId, fetchTodos, filters, hideDone, page, scope]);
+    fetchTodos({
+      scope,
+      assigneeId,
+      filters,
+      hideDone,
+      page,
+      pageSize: 20,
+      mode,
+      sortBy: listSort?.by,
+      sortDir: listSort?.dir,
+    });
+  }, [assigneeId, fetchTodos, filters, hideDone, page, scope, mode, listSort]);
 
   useEffect(() => {
     if (skipInitialFetchRef.current) {
       skipInitialFetchRef.current = false;
-      return;
+      // Bootstrap đã seed dữ liệu focus cho view "today" → bỏ qua fetch lần đầu.
+      if (view === "today") return;
     }
-
+    // view đổi → mode đổi → doFetch đổi → effect tự chạy lại; không cần view trong deps.
     void doFetch();
   }, [doFetch, skipInitialFetchRef]);
 
@@ -112,10 +150,16 @@ export default function TodosClient({
   }, [assigneeId, fetchStats, skipInitialStatsFetchRef]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("todoView", view);
-    }
+    if (typeof window !== "undefined") localStorage.setItem("todoView", view);
   }, [view]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (listSort === null) localStorage.removeItem("todoListSort");
+    else localStorage.setItem("todoListSort", JSON.stringify(listSort));
+  }, [listSort]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("todoKanbanSort", JSON.stringify(kanbanSort));
+  }, [kanbanSort]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -163,8 +207,32 @@ export default function TodosClient({
     setDeleteId(null);
   };
 
+  const handleListSortChange = (field: string) => {
+    if (!field) {
+      setListSort(null);
+      setPage(1);
+      return;
+    }
+    setListSort((current) => {
+      if (current?.by === field) {
+        return { by: field, dir: current.dir === "asc" ? "desc" : "asc" };
+      }
+      return { by: field, dir: "asc" };
+    });
+    setPage(1);
+  };
+
+  const handleKanbanSortChange = (columnId: string, field: KanbanSortField) => {
+    setKanbanSort((current) => ({ ...current, [columnId]: field }));
+  };
+
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
+
+    const sameColumn = result.source.droppableId === result.destination.droppableId;
+    if (sameColumn && (kanbanSort[result.destination.droppableId] ?? "manual") !== "manual") {
+      return; // đang sắp theo trường → không cho đổi thứ tự trong cột
+    }
 
     const statusMap: Record<string, string> = {
       todo: "TODO",
@@ -235,22 +303,21 @@ export default function TodosClient({
           )}
 
           <div className="flex overflow-hidden rounded-lg border-[1.5px] border-gray-200">
-            <button
-              onClick={() => setView("list")}
-              className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 ${
-                view === "list" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              <ListTodo size={14} /> <span className="hidden sm:inline">List</span>
-            </button>
-            <button
-              onClick={() => setView("kanban")}
-              className={`flex items-center gap-1 border-l border-gray-200 px-3 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 ${
-                view === "kanban" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              <Columns3 size={14} /> <span className="hidden sm:inline">Kanban</span>
-            </button>
+            {([
+              { key: "today", label: "Hôm nay", Icon: CalendarClock },
+              { key: "list", label: "Danh sách", Icon: ListTodo },
+              { key: "kanban", label: "Kanban", Icon: Columns3 },
+            ] as const).map((opt, idx) => (
+              <button
+                key={opt.key}
+                onClick={() => setView(opt.key)}
+                className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold transition-colors sm:py-1.5 ${idx > 0 ? "border-l border-gray-200" : ""} ${
+                  view === opt.key ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                <opt.Icon size={14} /> <span className="hidden sm:inline">{opt.label}</span>
+              </button>
+            ))}
           </div>
 
           <button
@@ -265,6 +332,7 @@ export default function TodosClient({
       <TodoReminderBanner
         initialReminder={initialData.reminders}
         onViewOverdue={() => {
+          setView("list");
           setFilters((current) => ({ ...current, dueFilter: "overdue" }));
           setPage(1);
         }}
@@ -274,7 +342,13 @@ export default function TodosClient({
 
       <TodoSummaryCards
         stats={scopeStats}
+        onClickDueToday={() => {
+          setView("list");
+          setFilters((current) => ({ ...current, dueFilter: "today" }));
+          setPage(1);
+        }}
         onClickOverdue={() => {
+          setView("list");
           setFilters((current) => ({ ...current, dueFilter: "overdue" }));
           setPage(1);
         }}
@@ -299,10 +373,21 @@ export default function TodosClient({
           <div className="flex justify-center py-16 text-gray-500">
             <Loader2 className="animate-spin" size={24} />
           </div>
+        ) : view === "today" ? (
+          <TodoTodayView
+            todos={todos}
+            onToggleComplete={handleToggleComplete}
+            onSelect={setSelectedTodo}
+            onDelete={setDeleteId}
+            onViewOrder={setOrderDetailCode}
+          />
         ) : view === "list" ? (
           <TodoListView
             todos={todos}
             pagination={pagination}
+            sortBy={listSort?.by ?? null}
+            sortDir={listSort?.dir ?? null}
+            onSortChange={handleListSortChange}
             onToggleComplete={handleToggleComplete}
             onStatusChange={handleStatusChange}
             onSelect={setSelectedTodo}
@@ -311,7 +396,13 @@ export default function TodosClient({
             onPageChange={setPage}
           />
         ) : (
-          <TodoKanbanView todos={todos} onDragEnd={handleDragEnd} onSelect={setSelectedTodo} />
+          <TodoKanbanView
+            todos={todos}
+            columnSort={kanbanSort}
+            onColumnSortChange={handleKanbanSortChange}
+            onDragEnd={handleDragEnd}
+            onSelect={setSelectedTodo}
+          />
         )}
       </div>
 

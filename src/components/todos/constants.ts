@@ -28,3 +28,12 @@ export const DUE_FILTER_OPTIONS = [
   { value: "month", label: "Tháng này" },
   { value: "none", label: "Không có thời hạn" },
 ] as const;
+
+export type KanbanSortField = "manual" | "priority" | "dueDate" | "createdAt";
+
+export const KANBAN_SORT_OPTIONS: { value: KanbanSortField; label: string }[] = [
+  { value: "manual", label: "Thủ công" },
+  { value: "priority", label: "Ưu tiên" },
+  { value: "dueDate", label: "Thời hạn" },
+  { value: "createdAt", label: "Ngày tạo" },
+];

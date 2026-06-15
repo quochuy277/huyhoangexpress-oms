@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getDayWindows } from "@/lib/todo-dates";
 
 // GET — Reminder popup data (overdue + due today)
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ overdue: { count: 0, items: [] }, dueToday: { count: 0, items: [] } });
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart.getTime() + 86400000);
+  const { todayStart, todayEnd } = getDayWindows();
 
   const [overdueItems, dueTodayItems] = await Promise.all([
     prisma.todoItem.findMany({
