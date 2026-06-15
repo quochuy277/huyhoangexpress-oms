@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const RETURNS_FILES = [
   {
     path: "src/components/returns/ReturnsPageClient.tsx",
-    phrases: ["Theo Dõi Đơn Hoàn", "Đang hoàn 1 phần", "Đã về kho - Chờ trả", "Xuất CSV"],
+    phrases: ["Theo Dõi Đơn Hoàn", "Đang hoàn 1 phần", "Đã về kho - Chờ trả", "Xuất Excel"],
   },
   {
     path: "src/components/returns/ReturnFilterPanel.tsx",

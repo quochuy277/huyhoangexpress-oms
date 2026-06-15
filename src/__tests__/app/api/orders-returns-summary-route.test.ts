@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth", () => ({
@@ -41,7 +40,7 @@ describe("returns summary route", () => {
       .mockResolvedValueOnce(5 as never);
 
     const { GET } = await import("@/app/api/orders/returns/summary/route");
-    const response = await GET(new NextRequest("http://localhost/api/orders/returns/summary"));
+    const response = await GET();
     const body = await response.json();
 
     expect(response.status).toBe(200);

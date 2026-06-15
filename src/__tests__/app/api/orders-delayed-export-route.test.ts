@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as XLSX from "xlsx";
 
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
@@ -65,7 +66,7 @@ describe("delayed export route", () => {
     vi.clearAllMocks();
   });
 
-  it("streams CSV batches instead of returning an in-memory workbook", async () => {
+  it("returns an XLSX workbook built from batched queries", async () => {
     vi.mocked(auth).mockResolvedValue(makeSession() as never);
     vi.mocked(prisma.order.findMany)
       .mockResolvedValueOnce([makeRawOrder(1)] as never)
@@ -76,14 +77,19 @@ describe("delayed export route", () => {
       new NextRequest("http://localhost/api/orders/delayed/export?sortKey=delayCount&sortDir=desc"),
     );
 
-    const text = await response.text();
-    const normalized = text.replace(/^\uFEFF/, "");
-
     expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Type")).toContain("text/csv");
-    expect(response.headers.get("Content-Disposition")).toContain(".csv");
-    expect(normalized).toContain("Mã Yêu Cầu");
-    expect(normalized).toContain("REQ-001");
+    expect(response.headers.get("Content-Type")).toContain(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    expect(response.headers.get("Content-Disposition")).toContain(".xlsx");
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const csv = XLSX.utils.sheet_to_csv(sheet);
+
+    expect(csv).toContain("Mã Yêu Cầu");
+    expect(csv).toContain("REQ-001");
     expect(prisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 500,
