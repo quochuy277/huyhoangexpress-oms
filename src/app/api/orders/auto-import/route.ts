@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { autoImportLimiter } from "@/lib/rate-limiter";
 import { processOrderImport, getSystemUserId } from "@/lib/order-import-service";
+import { createAutoDetectedClaims } from "@/lib/claim-detector";
+import { logger } from "@/lib/logger";
 
 // Vercel serverless max duration (seconds)
 export const maxDuration = 60;
@@ -52,6 +54,19 @@ export async function POST(req: NextRequest) {
     fileSize: file.size,
     uploadedById: userId,
   });
+
+  // Auto-detect claims after the response is sent. after() keeps the work
+  // inside the same invocation (bounded by maxDuration) instead of being
+  // frozen/killed like a fire-and-forget promise on Vercel.
+  if (result.summary.newOrders + result.summary.updatedOrders > 0) {
+    after(() => {
+      createAutoDetectedClaims(userId).catch((error) =>
+        logger.error("orders-auto-import", "Auto-detect claims after upload failed", error, {
+          uploadedById: userId,
+        })
+      );
+    });
+  }
 
   return NextResponse.json(result);
 }

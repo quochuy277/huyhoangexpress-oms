@@ -1,6 +1,16 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { afterMock } = vi.hoisted(() => ({
+  // Mirror Vercel: run the scheduled callback synchronously so we can assert on it.
+  afterMock: vi.fn((cb: () => unknown) => cb()),
+}));
+
+vi.mock("next/server", async () => {
+  const actual = await vi.importActual<typeof import("next/server")>("next/server");
+  return { ...actual, after: afterMock };
+});
+
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }));
@@ -8,6 +18,12 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/order-import-service", () => ({
   processOrderImport: vi.fn(),
   getSystemUserId: vi.fn(),
+}));
+
+vi.mock("@/lib/claim-detector", () => ({
+  createAutoDetectedClaims: vi.fn(() =>
+    Promise.resolve({ newClaims: 0, reopenedClaims: 0, autoCompleted: 0 }),
+  ),
 }));
 
 vi.mock("@/lib/rate-limiter", () => ({
@@ -20,6 +36,7 @@ vi.mock("@/lib/rate-limiter", () => ({
 }));
 
 import { auth } from "@/lib/auth";
+import { createAutoDetectedClaims } from "@/lib/claim-detector";
 import { getSystemUserId, processOrderImport } from "@/lib/order-import-service";
 
 const partialResult = {
@@ -110,5 +127,55 @@ describe("orders import routes", () => {
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: "Invalid API key" });
     expect(vi.mocked(processOrderImport)).not.toHaveBeenCalled();
+  });
+
+  it("schedules auto-detect via after() after a successful manual upload", async () => {
+    const formData = new FormData();
+    formData.append("file", new File(["dummy"], "orders.xlsx"));
+
+    const { POST } = await import("@/app/api/orders/upload/route");
+    await POST(new NextRequest("http://localhost/api/orders/upload", {
+      method: "POST",
+      body: formData,
+    }));
+
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAutoDetectedClaims)).toHaveBeenCalledWith("user-1");
+  });
+
+  it("schedules auto-detect via after() after a successful auto-import using the system user", async () => {
+    const formData = new FormData();
+    formData.append("file", new File(["dummy"], "orders.xlsx"));
+
+    const { POST } = await import("@/app/api/orders/auto-import/route");
+    await POST(new NextRequest("http://localhost/api/orders/auto-import", {
+      method: "POST",
+      headers: {
+        "x-api-key": "test-auto-import-key",
+      },
+      body: formData,
+    }));
+
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAutoDetectedClaims)).toHaveBeenCalledWith("system-user-1");
+  });
+
+  it("does not schedule auto-detect when no orders were created or updated", async () => {
+    vi.mocked(processOrderImport).mockResolvedValueOnce({
+      ...partialResult,
+      summary: { ...partialResult.summary, newOrders: 0, updatedOrders: 0 },
+    } as never);
+
+    const formData = new FormData();
+    formData.append("file", new File(["dummy"], "orders.xlsx"));
+
+    const { POST } = await import("@/app/api/orders/upload/route");
+    await POST(new NextRequest("http://localhost/api/orders/upload", {
+      method: "POST",
+      body: formData,
+    }));
+
+    expect(afterMock).not.toHaveBeenCalled();
+    expect(vi.mocked(createAutoDetectedClaims)).not.toHaveBeenCalled();
   });
 });

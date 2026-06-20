@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { parseExcelBuffer, buildOrderData } from "@/lib/excel-parser";
 import { detectOrderChanges } from "@/lib/change-detector";
-import { createAutoDetectedClaims } from "@/lib/claim-detector";
 import { logger } from "@/lib/logger";
 import type { DetectedChange } from "@/lib/change-detector";
 import type { ParsedOrder } from "@/lib/excel-parser";
@@ -490,16 +489,11 @@ export async function processOrderImport(opts: {
     }
   }
 
-  // 5. Auto-detect claims (non-blocking)
-  if (newCount + updatedCount > 0) {
-    createAutoDetectedClaims(opts.uploadedById).catch((error) =>
-      logger.error("orders-import", "Auto-detect claims after upload failed", error, {
-        uploadedById: opts.uploadedById,
-      })
-    );
-  }
-
-  // 6. Return result
+  // 5. Return result
+  // Note: auto-detect claims is triggered by the route layer via after()
+  // (see src/app/api/orders/upload + auto-import). Running it here as a
+  // fire-and-forget promise gets frozen/killed by Vercel once the response
+  // returns, so the detection never completed in production.
   return {
     success: outcome === "success",
     outcome,

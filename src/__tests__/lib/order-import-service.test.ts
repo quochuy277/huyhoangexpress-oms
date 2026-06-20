@@ -146,7 +146,8 @@ describe("processOrderImport", () => {
     expect(result.outcome).toBe("success");
     expect(result.summary.newOrders).toBe(10);
     expect(result.summary.failedRows).toBe(0);
-    expect(vi.mocked(createAutoDetectedClaims)).toHaveBeenCalledWith("user-1");
+    // Auto-detect is now triggered by the route layer via after(), not by the service itself.
+    expect(vi.mocked(createAutoDetectedClaims)).not.toHaveBeenCalled();
   });
 
   it("keeps later sub-batches running after retry exhaustion and returns a partial outcome", async () => {

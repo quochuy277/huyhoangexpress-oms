@@ -1,12 +1,24 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/server", async () => {
+  const actual = await vi.importActual<typeof import("next/server")>("next/server");
+  // Stub after() so route handlers can schedule work without a real request scope.
+  return { ...actual, after: vi.fn() };
+});
+
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }));
 
 vi.mock("@/lib/order-import-service", () => ({
   processOrderImport: vi.fn(),
+}));
+
+vi.mock("@/lib/claim-detector", () => ({
+  createAutoDetectedClaims: vi.fn(() =>
+    Promise.resolve({ newClaims: 0, reopenedClaims: 0, autoCompleted: 0 }),
+  ),
 }));
 
 vi.mock("@/lib/rate-limiter", () => ({
